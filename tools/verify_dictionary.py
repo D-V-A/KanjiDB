@@ -12,6 +12,7 @@ DB_PATH = (
     / "dictionary.db"
 )
 
+
 def fail(message):
     print(f"[FAIL] {message}")
     return False
@@ -20,10 +21,18 @@ def fail(message):
 def ok(message):
     print(f"[ OK ] {message}")
 
-DB_PATH.parent.mkdir(
-    parents=True,
-    exist_ok=True
-)
+
+def finish(success):
+    print()
+    print("=" * 60)
+
+    if success:
+        print("DATABASE CHECK: OK")
+        return
+
+    print("DATABASE CHECK: FAILED")
+    raise SystemExit(1)
+
 
 if not DB_PATH.exists():
     raise FileNotFoundError(
@@ -104,12 +113,18 @@ try:
             f"{sorted(missing_tables)}"
         ) and success
 
+        # The rest of the verification depends on the schema.
+        # Do not trigger misleading OperationalError exceptions.
+        finish(success)
+
     # --------------------------------------------------------
     # Counts
     # --------------------------------------------------------
 
     print()
     print("Counts:")
+
+    counts = {}
 
     for table in [
         "kanji",
@@ -123,9 +138,26 @@ try:
             f"SELECT COUNT(*) FROM {table}"
         ).fetchone()[0]
 
+        counts[table] = count
+
         print(
             f"  {table:<16} {count:>10}"
         )
+
+    # Basic sanity checks.
+    if counts["kanji"] > 0:
+        ok("Kanji table is not empty")
+    else:
+        success = fail(
+            "Kanji table is empty"
+        ) and success
+
+    if counts["word_form"] > 0:
+        ok("Word table is not empty")
+    else:
+        success = fail(
+            "Word table is empty"
+        ) and success
 
     # --------------------------------------------------------
     # Language-code consistency
@@ -158,15 +190,43 @@ try:
         sorted(word_languages)
     )
 
-    if "eng" in kanji_languages:
-        success = fail(
-            "kanji_meaning still contains 'eng'"
-        ) and success
+    invalid_old_codes = {
+        "eng",
+        "fre",
+        "fra",
+        "ger",
+        "deu",
+        "spa",
+        "por",
+        "rus",
+        "jpn",
+    }
 
-    if "eng" in word_languages:
+    invalid_kanji_codes = (
+        kanji_languages & invalid_old_codes
+    )
+
+    invalid_word_codes = (
+        word_languages & invalid_old_codes
+    )
+
+    if invalid_kanji_codes:
         success = fail(
-            "word_meaning still contains 'eng'"
+            "kanji_meaning contains non-normalized "
+            f"language codes: "
+            f"{sorted(invalid_kanji_codes)}"
         ) and success
+    else:
+        ok("KANJIDIC language codes normalized")
+
+    if invalid_word_codes:
+        success = fail(
+            "word_meaning contains non-normalized "
+            f"language codes: "
+            f"{sorted(invalid_word_codes)}"
+        ) and success
+    else:
+        ok("JMdict language codes normalized")
 
     if "en" in kanji_languages:
         ok("KANJIDIC English code = en")
@@ -259,6 +319,36 @@ try:
         ok("火山 found")
 
     # --------------------------------------------------------
+    # Verify 火山 meanings
+    # --------------------------------------------------------
+
+    kazan_meanings = cur.execute("""
+        SELECT
+            wm.language,
+            wm.meaning
+        FROM word_form wf
+        JOIN word_meaning wm
+            ON wm.word_form_id = wf.id
+        WHERE wf.written = '火山'
+          AND wf.reading = 'かざん'
+        ORDER BY
+            wm.sense_index,
+            wm.id
+    """).fetchall()
+
+    if any(
+        language == "en"
+        and meaning.lower() == "volcano"
+        for language, meaning in kazan_meanings
+    ):
+        ok("火山 English meaning")
+    else:
+        success = fail(
+            f"Unexpected 火山 meanings: "
+            f"{kazan_meanings}"
+        ) and success
+
+    # --------------------------------------------------------
     # Verify 火山 kanji links
     # --------------------------------------------------------
 
@@ -309,7 +399,8 @@ try:
                 AND wf2.written = wf.written
               ORDER BY
                   wf2.reading_priority DESC,
-                  wf2.reading_order ASC
+                  wf2.reading_order ASC,
+                  wf2.id ASC
               LIMIT 1
           )
         ORDER BY wf.written
@@ -369,11 +460,77 @@ try:
             f"{duplicate_forms}"
         ) and success
 
+    duplicate_kanji_meanings = cur.execute("""
+        SELECT COUNT(*)
+        FROM (
+            SELECT
+                kanji_id,
+                language,
+                meaning,
+                COUNT(*) AS c
+            FROM kanji_meaning
+            GROUP BY
+                kanji_id,
+                language,
+                meaning
+            HAVING c > 1
+        )
+    """).fetchone()[0]
+
+    if duplicate_kanji_meanings == 0:
+        ok("No duplicate kanji meanings")
+    else:
+        success = fail(
+            "Duplicate kanji meanings: "
+            f"{duplicate_kanji_meanings}"
+        ) and success
+
+    duplicate_kanji_readings = cur.execute("""
+        SELECT COUNT(*)
+        FROM (
+            SELECT
+                kanji_id,
+                type,
+                reading,
+                COUNT(*) AS c
+            FROM kanji_reading
+            GROUP BY
+                kanji_id,
+                type,
+                reading
+            HAVING c > 1
+        )
+    """).fetchone()[0]
+
+    if duplicate_kanji_readings == 0:
+        ok("No duplicate kanji readings")
+    else:
+        success = fail(
+            "Duplicate kanji readings: "
+            f"{duplicate_kanji_readings}"
+        ) and success
+
     # --------------------------------------------------------
     # Orphan checks
     # --------------------------------------------------------
 
-    orphan_meanings = cur.execute("""
+    orphan_kanji_meanings = cur.execute("""
+        SELECT COUNT(*)
+        FROM kanji_meaning km
+        LEFT JOIN kanji k
+            ON k.id = km.kanji_id
+        WHERE k.id IS NULL
+    """).fetchone()[0]
+
+    orphan_kanji_readings = cur.execute("""
+        SELECT COUNT(*)
+        FROM kanji_reading kr
+        LEFT JOIN kanji k
+            ON k.id = kr.kanji_id
+        WHERE k.id IS NULL
+    """).fetchone()[0]
+
+    orphan_word_meanings = cur.execute("""
         SELECT COUNT(*)
         FROM word_meaning wm
         LEFT JOIN word_form wf
@@ -381,7 +538,7 @@ try:
         WHERE wf.id IS NULL
     """).fetchone()[0]
 
-    orphan_links = cur.execute("""
+    orphan_word_links = cur.execute("""
         SELECT COUNT(*)
         FROM word_kanji wk
         LEFT JOIN word_form wf
@@ -392,34 +549,43 @@ try:
            OR k.id IS NULL
     """).fetchone()[0]
 
-    if orphan_meanings == 0:
+    if orphan_kanji_meanings == 0:
+        ok("No orphan kanji meanings")
+    else:
+        success = fail(
+            "Orphan kanji meanings: "
+            f"{orphan_kanji_meanings}"
+        ) and success
+
+    if orphan_kanji_readings == 0:
+        ok("No orphan kanji readings")
+    else:
+        success = fail(
+            "Orphan kanji readings: "
+            f"{orphan_kanji_readings}"
+        ) and success
+
+    if orphan_word_meanings == 0:
         ok("No orphan word meanings")
     else:
         success = fail(
-            f"Orphan meanings: "
-            f"{orphan_meanings}"
+            "Orphan word meanings: "
+            f"{orphan_word_meanings}"
         ) and success
 
-    if orphan_links == 0:
+    if orphan_word_links == 0:
         ok("No orphan word-kanji links")
     else:
         success = fail(
-            f"Orphan word-kanji links: "
-            f"{orphan_links}"
+            "Orphan word-kanji links: "
+            f"{orphan_word_links}"
         ) and success
 
     # --------------------------------------------------------
     # Final result
     # --------------------------------------------------------
 
-    print()
-    print("=" * 60)
-
-    if success:
-        print("DATABASE CHECK: OK")
-    else:
-        print("DATABASE CHECK: FAILED")
-        raise SystemExit(1)
+    finish(success)
 
 finally:
     conn.close()

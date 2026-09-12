@@ -24,9 +24,21 @@ SOURCES = [
 
 
 def download_file(url, destination):
-    print(f"Downloading:")
+    temp_destination = destination.with_suffix(
+        destination.suffix + ".part"
+    )
+
+    print("Downloading:")
     print(f"  {url}")
     print(f"  -> {destination}")
+
+    # Remove stale partial download from a previous failed attempt.
+    if temp_destination.exists():
+        print(
+            f"Removing stale partial download: "
+            f"{temp_destination.name}"
+        )
+        temp_destination.unlink()
 
     request = urllib.request.Request(
         url,
@@ -35,57 +47,102 @@ def download_file(url, destination):
         }
     )
 
-    with urllib.request.urlopen(request) as response:
-        total_size = response.headers.get("Content-Length")
+    try:
+        with urllib.request.urlopen(request) as response:
+            total_size = response.headers.get(
+                "Content-Length"
+            )
+
+            if total_size is not None:
+                total_size = int(total_size)
+
+            downloaded = 0
+            chunk_size = 1024 * 1024
+
+            with open(temp_destination, "wb") as output:
+                while True:
+                    chunk = response.read(chunk_size)
+
+                    if not chunk:
+                        break
+
+                    output.write(chunk)
+                    downloaded += len(chunk)
+
+                    if total_size:
+                        percent = (
+                            downloaded * 100 / total_size
+                        )
+
+                        print(
+                            f"\r  "
+                            f"{downloaded / 1024 / 1024:.1f} MB "
+                            f"/ "
+                            f"{total_size / 1024 / 1024:.1f} MB "
+                            f"({percent:.1f}%)",
+                            end="",
+                            flush=True
+                        )
+                    else:
+                        print(
+                            f"\r  "
+                            f"{downloaded / 1024 / 1024:.1f} MB",
+                            end="",
+                            flush=True
+                        )
+
+        print()
 
         if total_size is not None:
-            total_size = int(total_size)
+            actual_size = temp_destination.stat().st_size
 
-        downloaded = 0
-        chunk_size = 1024 * 1024
+            if actual_size != total_size:
+                raise RuntimeError(
+                    "Downloaded file size mismatch: "
+                    f"expected {total_size} bytes, "
+                    f"got {actual_size} bytes."
+                )
 
-        with open(destination, "wb") as output:
-            while True:
-                chunk = response.read(chunk_size)
+        # Replace final archive only after the download
+        # has completed successfully.
+        temp_destination.replace(destination)
 
-                if not chunk:
-                    break
+    except Exception:
+        if temp_destination.exists():
+            temp_destination.unlink()
 
-                output.write(chunk)
-                downloaded += len(chunk)
-
-                if total_size:
-                    percent = downloaded * 100 / total_size
-
-                    print(
-                        f"\r  {downloaded / 1024 / 1024:.1f} MB "
-                        f"/ {total_size / 1024 / 1024:.1f} MB "
-                        f"({percent:.1f}%)",
-                        end="",
-                        flush=True
-                    )
-                else:
-                    print(
-                        f"\r  {downloaded / 1024 / 1024:.1f} MB",
-                        end="",
-                        flush=True
-                    )
-
-    print()
+        raise
 
 
 def decompress_gzip(source, destination):
-    print(f"Decompressing:")
+    temp_destination = destination.with_suffix(
+        destination.suffix + ".part"
+    )
+
+    print("Decompressing:")
     print(f"  {source}")
     print(f"  -> {destination}")
 
-    with gzip.open(source, "rb") as compressed:
-        with open(destination, "wb") as output:
-            shutil.copyfileobj(
-                compressed,
-                output,
-                length=1024 * 1024
-            )
+    if temp_destination.exists():
+        temp_destination.unlink()
+
+    try:
+        with gzip.open(source, "rb") as compressed:
+            with open(temp_destination, "wb") as output:
+                shutil.copyfileobj(
+                    compressed,
+                    output,
+                    length=1024 * 1024
+                )
+
+        # Only expose final XML after successful decompression.
+        temp_destination.replace(destination)
+
+    except Exception:
+        if temp_destination.exists():
+            temp_destination.unlink()
+
+        raise
 
 
 def process_source(source):
@@ -99,21 +156,21 @@ def process_source(source):
     print(name)
     print("=" * 60)
 
-    # If the final XML already exists, leave it alone.
+    # If final XML is already present, do nothing.
     if output.exists():
-        print(f"Already exists:")
+        print("Already exists:")
         print(f"  {output}")
         print("Skipping download.")
         return
 
-    # Download compressed source if needed.
+    # Download archive if it is not already available.
     if not archive.exists():
         download_file(
             url,
             archive
         )
     else:
-        print(f"Archive already exists:")
+        print("Archive already exists:")
         print(f"  {archive}")
         print("Skipping download.")
 
@@ -133,7 +190,8 @@ def process_source(source):
         f"({output.stat().st_size / 1024 / 1024:.1f} MB)"
     )
 
-    # The .gz is no longer needed once extraction succeeded.
+    # Compressed archive is no longer needed after
+    # successful extraction.
     archive.unlink()
 
     print(
