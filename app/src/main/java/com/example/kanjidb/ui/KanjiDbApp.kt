@@ -76,21 +76,20 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(innerPadding).fillMaxSize()
         ) {
             composable(SEARCH) {
-                SearchScreen(onOpenDetails = { openDetails("sample-kanji") })
+                SearchScreen(onOpenDetails = openDetails)
             }
             composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = { openDetails("sample-kanji") })
+                MyKanjiScreen(onOpenDetails = { openDetails("mountain") })
             }
             composable(TRAINING) {
-                TrainingScreen(onOpenDetails = { openDetails("sample-kanji") })
+                TrainingScreen(onOpenDetails = { openDetails("mountain") })
             }
             composable(
                 route = DETAILS,
                 arguments = listOf(navArgument(KANJI_ID) { type = NavType.StringType })
             ) { entry ->
                 KanjiDetailsScreen(
-                    kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID)),
-                    onBack = { navController.popBackStack() }
+                    kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID))
                 )
             }
         }
