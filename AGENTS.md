@@ -24,7 +24,7 @@ Planned core features:
 - Do not add unnecessary modules or abstractions
 - Prefer AndroidX / Jetpack components
 - Use Room for user-owned persistent data
-- Dictionary data will eventually come from a prebuilt local SQLite database
+- Dictionary data will eventually come from a prebuilt local SQLite datab~~~~ase
 - The app should work offline
 - Do not modify unrelated files
 - Preserve existing functionality unless explicitly asked to change it
