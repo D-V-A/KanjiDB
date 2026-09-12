@@ -1,4 +1,14 @@
 <resources>
+    <string name="word_readings">Readings</string>
+    <string name="word_preferred_reading">Preferred reading</string>
+    <string name="word_not_found">Word not found.</string>
+    <string name="word_no_meanings">No meanings found.</string>
+    <string name="word_english">English</string>
+    <string name="details_loading">Loading dictionary...</string>
+    <string name="details_load_error">Could not load dictionary. Please reopen this screen to retry.</string>
+    <string name="details_no_words">No common words found.</string>
+    <string name="details_grade">Grade: %1$d</string>
+    <string name="details_frequency">Frequency rank: %1$d</string>
     <string name="app_name">KanjiDB</string>
     <string name="details_joyo">Jōyō</string>
     <string name="details_meanings">Meanings</string>
@@ -7,7 +17,7 @@
     <string name="details_glyph">Glyph</string>
     <string name="details_strokes">Strokes</string>
     <string name="details_stroke_placeholder">Stroke order coming soon</string>
-    <string name="details_recommended">Recommended words</string>
+    <string name="details_recommended">Common words</string>
     <string name="details_other">Other words</string>
     <string name="details_learning">Learning</string>
     <string name="details_known">Known</string>

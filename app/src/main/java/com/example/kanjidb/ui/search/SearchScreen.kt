@@ -49,10 +49,11 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, modifier: Modifier = Modifier)
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(mockKanji, key = { it.id }) { kanji ->
+                val character = stringResource(kanji.character)
                 Card(
                     onClick = {
                         keyboardController?.hide()
-                        onOpenDetails(kanji.id)
+                        onOpenDetails(character)
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {

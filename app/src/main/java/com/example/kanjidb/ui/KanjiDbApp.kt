@@ -18,6 +18,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.kanjidb.ui.details.KanjiDetailsScreen
+import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
 import com.example.kanjidb.ui.search.SearchScreen
 import com.example.kanjidb.ui.training.TrainingScreen
@@ -26,6 +27,7 @@ private const val SEARCH = "search"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
+private const val WORD_DETAILS = "word/{entryId}/{written}"
 private const val DETAILS = "details/{$KANJI_ID}"
 
 private val topLevelDestinations = listOf(
@@ -79,17 +81,35 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 SearchScreen(onOpenDetails = openDetails)
             }
             composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = { openDetails("mountain") })
+                MyKanjiScreen(onOpenDetails = { openDetails("\u5C71") })
             }
             composable(TRAINING) {
-                TrainingScreen(onOpenDetails = { openDetails("mountain") })
+                TrainingScreen(onOpenDetails = { openDetails("\u5C71") })
+            }
+            composable(
+                route = WORD_DETAILS,
+                arguments = listOf(
+                    navArgument("entryId") { type = NavType.LongType },
+                    navArgument("written") { type = NavType.StringType }
+                )
+            ) { entry ->
+                val arguments = requireNotNull(entry.arguments)
+                WordDetailsScreen(
+                    entryId = arguments.getLong("entryId"),
+                    written = requireNotNull(arguments.getString("written"))
+                )
             }
             composable(
                 route = DETAILS,
                 arguments = listOf(navArgument(KANJI_ID) { type = NavType.StringType })
             ) { entry ->
                 KanjiDetailsScreen(
-                    kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID))
+                    kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID)),
+                    onOpenWord = { entryId, written ->
+                        navController.navigate("word/$entryId/${Uri.encode(written)}") {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
         }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -20,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -29,21 +31,53 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.R
 import com.example.kanjidb.ui.LearningState
-import com.example.kanjidb.ui.MockKanji
-import com.example.kanjidb.ui.MockWord
-import com.example.kanjidb.ui.mockKanji
+import com.example.kanjidb.data.dictionary.DictionaryDatabase
+import com.example.kanjidb.data.dictionary.DictionaryKanji
+import com.example.kanjidb.data.dictionary.DictionaryWord
+import kotlinx.coroutines.CancellationException
 
 @Composable
-fun KanjiDetailsScreen(kanjiId: String, modifier: Modifier = Modifier) {
-    val kanji = mockKanji.find { it.id == kanjiId }
+fun KanjiDetailsScreen(
+    kanjiId: String,
+    onOpenWord: (Long, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val dictionary = remember(context) { DictionaryDatabase(context) }
+    var loadedKanji by remember(kanjiId) { mutableStateOf<DictionaryKanji?>(null) }
+    var loading by remember(kanjiId) { mutableStateOf(true) }
+    var failed by remember(kanjiId) { mutableStateOf(false) }
+    LaunchedEffect(dictionary, kanjiId) {
+        try {
+            loadedKanji = dictionary.getKanji(kanjiId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.e("KanjiDetails", "Cannot load dictionary", error)
+            failed = true
+        } finally {
+            loading = false
+        }
+    }
+    if (loading || failed) {
+        Text(
+            stringResource(if (loading) R.string.details_loading else R.string.details_load_error),
+            modifier.padding(16.dp)
+        )
+        return
+    }
+    val kanji = loadedKanji
     if (kanji == null) {
         Text(stringResource(R.string.details_not_found), modifier.padding(16.dp))
         return
@@ -56,6 +90,7 @@ fun KanjiDetailsScreen(kanjiId: String, modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomPadding
@@ -68,7 +103,7 @@ fun KanjiDetailsScreen(kanjiId: String, modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        stringResource(kanji.title),
+                        kanji.meanings.firstOrNull() ?: kanji.character,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.headlineLarge
                     )
@@ -91,14 +126,12 @@ fun KanjiDetailsScreen(kanjiId: String, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            items(kanji.recommendedWords) { word -> WordRow(word, recommended = true) }
-            item {
-                Text(
-                    stringResource(R.string.details_other),
-                    style = MaterialTheme.typography.titleLarge
-                )
+            items(kanji.words, key = { "${it.entryId}:${it.written}" }) { word ->
+                WordRow(word, recommended = true, onClick = { onOpenWord(word.entryId, word.written) })
             }
-            items(kanji.otherWords) { word -> WordRow(word, recommended = false) }
+            if (kanji.words.isEmpty()) {
+                item { Text(stringResource(R.string.details_no_words)) }
+            }
         }
 
         Surface(
@@ -154,7 +187,7 @@ fun KanjiDetailsScreen(kanjiId: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun KanjiOverview(
-    kanji: MockKanji,
+    kanji: DictionaryKanji,
     showStrokes: Boolean,
     onShowStrokes: (Boolean) -> Unit
 ) {
@@ -200,16 +233,22 @@ private fun KanjiOverview(
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
-                        Text(stringResource(kanji.character), fontSize = 88.sp, lineHeight = 104.sp)
+                        Text(kanji.character, fontSize = 88.sp, lineHeight = 104.sp)
                     }
                 }
             }
-            Text(
-                pluralStringResource(
-                    R.plurals.details_stroke_count, kanji.strokeCount, kanji.strokeCount
-                ),
-                style = MaterialTheme.typography.bodySmall
-            )
+            kanji.strokeCount?.let { count ->
+                Text(
+                    pluralStringResource(R.plurals.details_stroke_count, count, count),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            kanji.grade?.let {
+                Text(stringResource(R.string.details_grade, it), style = MaterialTheme.typography.bodySmall)
+            }
+            kanji.frequency?.let {
+                Text(stringResource(R.string.details_frequency, it), style = MaterialTheme.typography.bodySmall)
+            }
         }
         Column(
             modifier = Modifier.weight(0.56f).padding(top = 8.dp),
@@ -217,7 +256,7 @@ private fun KanjiOverview(
         ) {
             Text(stringResource(R.string.details_meanings),
                 style = MaterialTheme.typography.titleSmall)
-            kanji.meanings.forEach { Text(stringResource(it)) }
+            kanji.meanings.forEach { Text(it) }
             Row(
                 modifier = Modifier.padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -225,12 +264,12 @@ private fun KanjiOverview(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.details_on),
                         style = MaterialTheme.typography.titleSmall)
-                    Text(stringResource(kanji.onyomi))
+                    Text(kanji.onReadings.joinToString("\n"))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.details_kun),
                         style = MaterialTheme.typography.titleSmall)
-                    Text(stringResource(kanji.kunyomi))
+                    Text(kanji.kunReadings.joinToString("\n"))
                 }
             }
         }
@@ -238,8 +277,9 @@ private fun KanjiOverview(
 }
 
 @Composable
-private fun WordRow(word: MockWord, recommended: Boolean) {
+private fun WordRow(word: DictionaryWord, recommended: Boolean, onClick: () -> Unit) {
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (recommended) {
@@ -254,13 +294,30 @@ private fun WordRow(word: MockWord, recommended: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(0.42f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(word.writing), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(word.reading), style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.weight(0.38f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    word.written,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    word.reading,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Column(Modifier.weight(0.58f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                word.meanings.forEach {
-                    Text(stringResource(it), style = MaterialTheme.typography.bodyMedium)
+            val visibleMeanings = word.meanings.take(3)
+            Column(Modifier.weight(0.62f)) {
+                visibleMeanings.forEachIndexed { index, meaning ->
+                    Text(
+                        meaning,
+                        style = MaterialTheme.typography.bodyMedium,
+                        // Share a three-line budget without hiding later meanings.
+                        maxLines = if (index == 0) 4 - visibleMeanings.size else 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

@@ -15,3 +15,4 @@
 local.properties
 tools/data/
 app/src/main/assets/dictionary.db
+.vs/
