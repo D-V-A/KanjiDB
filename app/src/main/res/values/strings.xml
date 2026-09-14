@@ -1,4 +1,5 @@
 <resources>
+    <string name="search_recommended_placeholder">Recommended kanji is not available yet.</string>
     <string name="search_clear">Clear</string>
     <string name="search_kanji_hint">Search kanji</string>
     <string name="search_words_hint">Search words</string>
@@ -6,8 +7,8 @@
     <string name="search_mode_words">Word search. Switch to kanji</string>
     <string name="search_recommended_kanji">Recommended kanji</string>
     <string name="search_explore_words">Explore words</string>
-    <string name="search_new_kanji">New kanji</string>
-    <string name="search_new_words">New words</string>
+    <string name="search_new_kanji">Refresh kanji</string>
+    <string name="search_new_words">Refresh words</string>
     <string name="search_dictionary_loading">Loading...</string>
     <string name="search_dictionary_error">Could not load dictionary results. Please try again.</string>
     <string name="search_dictionary_empty">No results found.</string>
