@@ -81,7 +81,11 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 .fillMaxSize()
         ) {
             composable(SEARCH) {
-                SearchScreen(onOpenDetails = openDetails)
+                SearchScreen(onOpenDetails = openDetails, onOpenWord = { entryId, written ->
+                    navController.navigate("word/$entryId/${Uri.encode(written)}") {
+                        launchSingleTop = true
+                    }
+                })
             }
             composable(MY_KANJI) {
                 MyKanjiScreen(onOpenDetails = { openDetails("\u5C71") })
@@ -94,7 +98,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 arguments = listOf(
                     navArgument("entryId") { type = NavType.LongType },
                     navArgument("written") { type = NavType.StringType },
-                    navArgument("sourceKanji") { type = NavType.StringType }
+                    navArgument("sourceKanji") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { entry ->
                 val arguments = requireNotNull(entry.arguments)

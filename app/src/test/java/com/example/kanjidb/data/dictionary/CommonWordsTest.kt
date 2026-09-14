@@ -63,4 +63,26 @@ class CommonWordsTest {
             listOf(first, middle, last).groupCommonWords()
         )
     }
+    @Test
+    fun combinedWordsKeepCommonFirstAndDoNotRepeatWrittenForms() {
+        for (commonCount in listOf(0, 3, 6, 8)) {
+            val common = (1..commonCount).map { word("common$it", listOf("meaning$it"), entryId = it.toLong()) }
+            val ordinary = (20..29).map { word("other$it", listOf("meaning$it"), entryId = it.toLong()) }
+            val all = ordinary + common.map { it.copy(reading = "another reading") }
+            val merged = mergeKanjiWords(common, all).deduplicateCommonWords()
+            assertEquals(common + ordinary, merged)
+            assertEquals((common + ordinary).take(6), merged.take(6))
+        }
+    }
+
+    @Test
+    fun equivalenceIsAppliedAfterMergingBothSources() {
+        val common = word("first", listOf("a", "b", "c"))
+        val alternative = word("alternative", listOf("a", "b", "c", "d"))
+        val remaining = (2..6).map { word("other$it", listOf("meaning$it"), entryId = it.toLong()) }
+        val merged = mergeKanjiWords(listOf(common), listOf(alternative) + remaining)
+            .deduplicateCommonWords()
+        assertEquals(listOf(common) + remaining, merged)
+        assertEquals(6, merged.size)
+    }
 }

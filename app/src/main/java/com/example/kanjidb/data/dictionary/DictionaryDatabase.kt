@@ -19,8 +19,7 @@ data class DictionaryKanji(
     val meanings: List<String>,
     val onReadings: List<String>,
     val kunReadings: List<String>,
-    val words: List<DictionaryWord>,
-    val hasCommonWords: Boolean
+    val words: List<DictionaryWord>
 )
 
 data class DictionaryWord(
@@ -79,6 +78,35 @@ class DictionaryDatabase(context: Context) {
         }
     }
 
+    suspend fun searchWords(query: String, limit: Int): WordSearchPage = withContext(Dispatchers.IO) {
+        require(limit in 1 until Int.MAX_VALUE)
+        val text = query.trim().lowercase(Locale.ROOT)
+        if (text.isEmpty()) return@withContext WordSearchPage(emptyList(), false)
+        val reading = normalizeReading(text).orEmpty()
+        val rows = queryWordSummaries(SEARCH_WORDS_SQL,
+            arrayOf(text, reading, toKatakana(reading), (limit + 1).toString()))
+        WordSearchPage(rows.take(limit), rows.size > limit)
+    }
+
+    suspend fun getExploreWords(): List<DictionaryWord> = withContext(Dispatchers.IO) {
+        queryWordSummaries(EXPLORE_WORDS_SQL, emptyArray())
+    }
+
+    private suspend fun queryWordSummaries(sql: String, args: Array<String>): List<DictionaryWord> =
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            db.rawQuery(sql, args).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        add(DictionaryWord(cursor.getLong(0), cursor.getString(1), cursor.getString(2),
+                            if (cursor.isNull(3)) emptyList() else listOf(cursor.getString(3))))
+                    }
+                }
+            }
+        }
+
     suspend fun getKanji(character: String): DictionaryKanji? = withContext(Dispatchers.IO) {
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
@@ -108,8 +136,7 @@ class DictionaryDatabase(context: Context) {
                         "SELECT reading FROM kanji_reading WHERE kanji_id = ? AND type = 'kun' ORDER BY id",
                         id
                     ),
-                    words = wordSection.words.deduplicateCommonWords(),
-                    hasCommonWords = wordSection.hasCommonWords
+                    words = wordSection.deduplicateCommonWords()
                 )
             }
         }
@@ -123,7 +150,7 @@ class DictionaryDatabase(context: Context) {
                 val args = arrayOf(entryId.toString(), written)
                 val kanjiId = db.strings("SELECT id FROM kanji WHERE character = ?", sourceKanji)
                     .firstOrNull()
-                val group = kanjiId?.let { getKanjiWords(db, it).words.groupCommonWords() }
+                val group = kanjiId?.let { getKanjiWords(db, it).groupCommonWords() }
                     ?.firstOrNull { forms ->
                         forms.any { it.entryId == entryId && it.written == written }
                     }
@@ -151,14 +178,10 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
-    private data class KanjiWords(val words: List<DictionaryWord>, val hasCommonWords: Boolean)
-
-    // Both details screens must reconstruct the same group, including the fallback.
-    private fun getKanjiWords(db: SQLiteDatabase, kanjiId: String): KanjiWords {
-        val common = getWords(db, kanjiId, commonOnly = true)
-        return if (common.isNotEmpty()) KanjiWords(common, hasCommonWords = true)
-        else KanjiWords(getWords(db, kanjiId, commonOnly = false), hasCommonWords = false)
-    }
+    // Common forms retain their preferred reading and precede all remaining forms.
+    private fun getKanjiWords(db: SQLiteDatabase, kanjiId: String): List<DictionaryWord> =
+        mergeKanjiWords(getWords(db, kanjiId, commonOnly = true),
+            getWords(db, kanjiId, commonOnly = false))
 
     private fun getWords(db: SQLiteDatabase, kanjiId: String, commonOnly: Boolean): List<DictionaryWord> =
         db.rawQuery(WORDS_SQL, arrayOf(kanjiId, if (commonOnly) "1" else "0",
@@ -271,3 +294,6 @@ internal fun List<DictionaryWord>.groupCommonWords(): List<List<DictionaryWord>>
     }
     return groups
 }
+
+internal fun mergeKanjiWords(common: List<DictionaryWord>, all: List<DictionaryWord>): List<DictionaryWord> =
+    (common + all).distinctBy { it.entryId to it.written }
