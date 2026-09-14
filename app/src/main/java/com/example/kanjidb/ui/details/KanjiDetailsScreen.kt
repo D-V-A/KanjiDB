@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +59,7 @@ fun KanjiDetailsScreen(
     var loadedKanji by remember(kanjiId) { mutableStateOf<DictionaryKanji?>(null) }
     var loading by remember(kanjiId) { mutableStateOf(true) }
     var failed by remember(kanjiId) { mutableStateOf(false) }
+    var commonWordsExpanded by remember(kanjiId) { mutableStateOf(false) }
     LaunchedEffect(dictionary, kanjiId) {
         try {
             loadedKanji = dictionary.getKanji(kanjiId)
@@ -82,6 +84,8 @@ fun KanjiDetailsScreen(
         Text(stringResource(R.string.details_not_found), modifier.padding(16.dp))
         return
     }
+
+    val visibleWords = if (commonWordsExpanded) kanji.words else kanji.words.take(6)
 
     var learningState by rememberSaveable(kanjiId) { mutableStateOf(LearningState.NONE) }
     var showStrokes by rememberSaveable(kanjiId) { mutableStateOf(false) }
@@ -126,8 +130,18 @@ fun KanjiDetailsScreen(
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            items(kanji.words, key = { "${it.entryId}:${it.written}" }) { word ->
+            items(visibleWords, key = { "${it.entryId}:${it.written}" }) { word ->
                 WordRow(word, recommended = true, onClick = { onOpenWord(word.entryId, word.written) })
+            }
+            if (kanji.words.size > 6) {
+                item(key = "common_words_toggle") {
+                    TextButton(onClick = { commonWordsExpanded = !commonWordsExpanded }) {
+                        Text(stringResource(
+                            if (commonWordsExpanded) R.string.details_show_less
+                            else R.string.details_show_more
+                        ))
+                    }
+                }
             }
             if (kanji.words.isEmpty()) {
                 item { Text(stringResource(R.string.details_no_words)) }

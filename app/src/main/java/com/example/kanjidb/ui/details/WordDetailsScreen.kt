@@ -2,6 +2,7 @@ package com.example.kanjidb.ui.details
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,15 +28,15 @@ import com.example.kanjidb.data.dictionary.DictionaryWordDetails
 import kotlinx.coroutines.CancellationException
 
 @Composable
-fun WordDetailsScreen(entryId: Long, written: String, modifier: Modifier = Modifier) {
+fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
-    var word by remember(entryId, written) { mutableStateOf<DictionaryWordDetails?>(null) }
-    var loading by remember(entryId, written) { mutableStateOf(true) }
-    var failed by remember(entryId, written) { mutableStateOf(false) }
-    LaunchedEffect(dictionary, entryId, written) {
+    var word by remember(entryId, written, sourceKanji) { mutableStateOf<DictionaryWordDetails?>(null) }
+    var loading by remember(entryId, written, sourceKanji) { mutableStateOf(true) }
+    var failed by remember(entryId, written, sourceKanji) { mutableStateOf(false) }
+    LaunchedEffect(dictionary, entryId, written, sourceKanji) {
         try {
-            word = dictionary.getWord(entryId, written)
+            word = dictionary.getWord(entryId, written, sourceKanji)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -63,7 +64,16 @@ fun WordDetailsScreen(entryId: Long, written: String, modifier: Modifier = Modif
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text(details.written, style = MaterialTheme.typography.displaySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(details.written, style = MaterialTheme.typography.displaySmall)
+                if (details.alternativeWrittenForms.isNotEmpty()) {
+                    Text(
+                        details.alternativeWrittenForms.joinToString(" \u00B7 "),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
         item {
             Text(stringResource(R.string.word_readings), style = MaterialTheme.typography.titleLarge)
@@ -74,15 +84,22 @@ fun WordDetailsScreen(entryId: Long, written: String, modifier: Modifier = Modif
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.secondaryContainer
             ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.word_preferred_reading),
-                        style = MaterialTheme.typography.labelSmall)
-                    Text(details.readings.first(), style = MaterialTheme.typography.titleLarge)
+                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.word_preferred_reading),
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(details.preferredReading, style = MaterialTheme.typography.titleLarge)
+                    }
+                    val otherReadings = details.readings.filter { it != details.preferredReading }
+                    if (otherReadings.isNotEmpty()) {
+                        Text(
+                            otherReadings.joinToString(" \u00B7 "),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
             }
-        }
-        items(details.readings.drop(1)) { reading ->
-            Text(reading, style = MaterialTheme.typography.bodyLarge)
         }
         item {
             Text(stringResource(R.string.details_meanings), style = MaterialTheme.typography.titleLarge)
@@ -91,11 +108,8 @@ fun WordDetailsScreen(entryId: Long, written: String, modifier: Modifier = Modif
             item { Text(stringResource(R.string.word_no_meanings)) }
         }
         details.meaningGroups.forEach { (language, meanings) ->
-            item {
-                Text(
-                    if (language == "en") stringResource(R.string.word_english) else language,
-                    style = MaterialTheme.typography.titleSmall
-                )
+            if (language != "en") {
+                item { Text(language, style = MaterialTheme.typography.titleSmall) }
             }
             items(meanings) { meaning ->
                 Text(meaning, style = MaterialTheme.typography.bodyMedium)

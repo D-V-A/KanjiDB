@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -30,7 +31,9 @@ data class DictionaryWordDetails(
     val entryId: Long,
     val written: String,
     val readings: List<String>,
-    val meaningGroups: Map<String, List<String>>
+    val meaningGroups: Map<String, List<String>>,
+    val alternativeWrittenForms: List<String>,
+    val preferredReading: String
 )
 
 /** Independent asset dictionary; never creates or writes SQLite tables. */
@@ -65,20 +68,31 @@ class DictionaryDatabase(context: Context) {
                         "SELECT reading FROM kanji_reading WHERE kanji_id = ? AND type = 'kun' ORDER BY id",
                         id
                     ),
-                    words = getCommonWords(db, id)
+                    words = getCommonWords(db, id).deduplicateCommonWords()
                 )
             }
         }
     }
 
-    suspend fun getWord(entryId: Long, written: String): DictionaryWordDetails? =
+    suspend fun getWord(entryId: Long, written: String, sourceKanji: String): DictionaryWordDetails? =
         withContext(Dispatchers.IO) {
             SQLiteDatabase.openDatabase(
                 dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
             ).use { db ->
                 val args = arrayOf(entryId.toString(), written)
-                val readings = db.rawQuery(WORD_READINGS_SQL, args).use { cursor ->
-                    buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+                val kanjiId = db.strings("SELECT id FROM kanji WHERE character = ?", sourceKanji)
+                    .firstOrNull()
+                val group = kanjiId?.let { getCommonWords(db, it).groupCommonWords() }
+                    ?.firstOrNull { forms ->
+                        forms.any { it.entryId == entryId && it.written == written }
+                    }
+                val writtenForms = group?.map { it.written }?.toSet() ?: setOf(written)
+                val readings = db.rawQuery(WORD_READINGS_SQL, arrayOf(entryId.toString())).use { cursor ->
+                    buildList {
+                        while (cursor.moveToNext()) {
+                            if (cursor.getString(1) in writtenForms) add(cursor.getString(0))
+                        }
+                    }.distinct()
                 }
                 if (readings.isEmpty()) return@withContext null
                 val groups = linkedMapOf<String, MutableList<String>>()
@@ -88,7 +102,11 @@ class DictionaryDatabase(context: Context) {
                             .add(cursor.getString(1))
                     }
                 }
-                DictionaryWordDetails(entryId, written, readings, groups)
+                DictionaryWordDetails(
+                    entryId, written, readings, groups,
+                    alternativeWrittenForms = writtenForms.filter { it != written },
+                    preferredReading = group?.first()?.reading ?: readings.first()
+                )
             }
         }
 
@@ -138,8 +156,8 @@ class DictionaryDatabase(context: Context) {
         val copyLock = Any()
 
         const val WORD_READINGS_SQL = """
-            SELECT reading FROM word_form
-            WHERE entry_id = ? AND written = ?
+            SELECT reading, written FROM word_form
+            WHERE entry_id = ?
             ORDER BY reading_priority DESC, reading_order ASC, id ASC
         """
 
@@ -175,4 +193,30 @@ class DictionaryDatabase(context: Context) {
             ORDER BY wf.written, wf.entry_id
         """
     }
+}
+
+/** Keeps the first equivalent form in the existing Common words order. */
+internal fun List<DictionaryWord>.deduplicateCommonWords(): List<DictionaryWord> =
+    groupCommonWords().map { it.first() }
+
+/** Retains group members without changing representative selection or order. */
+internal fun List<DictionaryWord>.groupCommonWords(): List<List<DictionaryWord>> {
+    val groups = mutableListOf<MutableList<DictionaryWord>>()
+    val representatives = mutableMapOf<Pair<Long, String>, MutableList<Pair<Set<String>, Int>>>()
+    for (word in this) {
+        val meanings = word.meanings.map { it.trim().lowercase(Locale.ROOT) }.toSet()
+        val previous = representatives.getOrPut(word.entryId to word.reading) { mutableListOf() }
+        // Compare only with retained forms: similarity is not transitive.
+        val match = previous.firstOrNull { (other, _) ->
+            val largerSize = maxOf(meanings.size, other.size)
+            largerSize > 0 && meanings.intersect(other).size.toDouble() / largerSize >= 0.75
+        }
+        if (match == null) {
+            previous.add(meanings to groups.size)
+            groups.add(mutableListOf(word))
+        } else {
+            groups[match.second].add(word)
+        }
+    }
+    return groups
 }

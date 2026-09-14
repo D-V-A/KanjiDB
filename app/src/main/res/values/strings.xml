@@ -6,6 +6,8 @@
     <string name="word_english">English</string>
     <string name="details_loading">Loading dictionary...</string>
     <string name="details_load_error">Could not load dictionary. Please reopen this screen to retry.</string>
+    <string name="details_show_more">Show more</string>
+    <string name="details_show_less">Show less</string>
     <string name="details_no_words">No common words found.</string>
     <string name="details_grade">Grade: %1$d</string>
     <string name="details_frequency">Frequency rank: %1$d</string>

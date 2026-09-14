@@ -27,7 +27,7 @@ private const val SEARCH = "search"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
-private const val WORD_DETAILS = "word/{entryId}/{written}"
+private const val WORD_DETAILS = "word/{entryId}/{written}?sourceKanji={sourceKanji}"
 private const val DETAILS = "details/{$KANJI_ID}"
 
 private val topLevelDestinations = listOf(
@@ -90,23 +90,26 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 route = WORD_DETAILS,
                 arguments = listOf(
                     navArgument("entryId") { type = NavType.LongType },
-                    navArgument("written") { type = NavType.StringType }
+                    navArgument("written") { type = NavType.StringType },
+                    navArgument("sourceKanji") { type = NavType.StringType }
                 )
             ) { entry ->
                 val arguments = requireNotNull(entry.arguments)
                 WordDetailsScreen(
                     entryId = arguments.getLong("entryId"),
-                    written = requireNotNull(arguments.getString("written"))
+                    written = requireNotNull(arguments.getString("written")),
+                    sourceKanji = requireNotNull(arguments.getString("sourceKanji"))
                 )
             }
             composable(
                 route = DETAILS,
                 arguments = listOf(navArgument(KANJI_ID) { type = NavType.StringType })
             ) { entry ->
+                val kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID))
                 KanjiDetailsScreen(
-                    kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID)),
+                    kanjiId = kanjiId,
                     onOpenWord = { entryId, written ->
-                        navController.navigate("word/$entryId/${Uri.encode(written)}") {
+                        navController.navigate("word/$entryId/${Uri.encode(written)}?sourceKanji=${Uri.encode(kanjiId)}") {
                             launchSingleTop = true
                         }
                     }
