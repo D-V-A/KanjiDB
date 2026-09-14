@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.kanjidb.ui.about.AboutScreen
 import com.example.kanjidb.ui.details.KanjiDetailsScreen
 import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
@@ -25,6 +26,7 @@ import com.example.kanjidb.ui.search.SearchScreen
 import com.example.kanjidb.ui.training.TrainingScreen
 
 private const val SEARCH = "search"
+private const val ABOUT = "about"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
@@ -81,11 +83,16 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 .fillMaxSize()
         ) {
             composable(SEARCH) {
-                SearchScreen(onOpenDetails = openDetails, onOpenWord = { entryId, written ->
+                SearchScreen(onOpenDetails = openDetails, onOpenAbout = {
+                    navController.navigate(ABOUT) { launchSingleTop = true }
+                }, onOpenWord = { entryId, written ->
                     navController.navigate("word/$entryId/${Uri.encode(written)}") {
                         launchSingleTop = true
                     }
                 })
+            }
+            composable(ABOUT) {
+                AboutScreen(onBack = { navController.popBackStack() })
             }
             composable(MY_KANJI) {
                 MyKanjiScreen(onOpenDetails = { openDetails("\u5C71") })

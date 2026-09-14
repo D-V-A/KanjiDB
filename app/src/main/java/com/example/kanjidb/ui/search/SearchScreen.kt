@@ -53,7 +53,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, modifier: Modifier = Modifier) {
+fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, modifier: Modifier = Modifier) {
     var query by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
@@ -92,7 +92,14 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
         modifier = modifier.fillMaxSize().imePadding().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(stringResource(R.string.search_title), style = MaterialTheme.typography.headlineMedium)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.search_title), modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium)
+            IconButton(onClick = onOpenAbout) {
+                Icon(painterResource(R.drawable.ic_info),
+                    contentDescription = stringResource(R.string.about_open))
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val modeDescription = stringResource(
