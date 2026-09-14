@@ -126,7 +126,7 @@ fun KanjiDetailsScreen(
             }
             item {
                 Text(
-                    stringResource(R.string.details_recommended),
+                    stringResource(if (kanji.hasCommonWords) R.string.details_recommended else R.string.details_words),
                     style = MaterialTheme.typography.titleLarge
                 )
             }

@@ -1,6 +1,7 @@
 package com.example.kanjidb.ui
 
 import android.net.Uri
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
@@ -75,7 +76,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
         NavHost(
             navController = navController,
             startDestination = SEARCH,
-            modifier = Modifier.padding(innerPadding).fillMaxSize()
+            modifier = Modifier.padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .fillMaxSize()
         ) {
             composable(SEARCH) {
                 SearchScreen(onOpenDetails = openDetails)

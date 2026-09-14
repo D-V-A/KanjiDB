@@ -6,6 +6,8 @@ import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.withContext
 
 data class DictionaryKanji(
@@ -17,7 +19,8 @@ data class DictionaryKanji(
     val meanings: List<String>,
     val onReadings: List<String>,
     val kunReadings: List<String>,
-    val words: List<DictionaryWord>
+    val words: List<DictionaryWord>,
+    val hasCommonWords: Boolean
 )
 
 data class DictionaryWord(
@@ -40,6 +43,42 @@ data class DictionaryWordDetails(
 class DictionaryDatabase(context: Context) {
     private val context = context.applicationContext
 
+    suspend fun getExploreKanji(): List<KanjiSummary> = withContext(Dispatchers.IO) {
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            db.rawQuery(EXPLORE_KANJI_SQL, null).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        add(KanjiSummary(cursor.getString(0), cursor.getString(1)))
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun searchKanji(query: String, limit: Int): KanjiSearchPage = withContext(Dispatchers.IO) {
+        require(limit in 1 until Int.MAX_VALUE)
+        val text = query.trim().lowercase(Locale.ROOT)
+        if (text.isEmpty()) return@withContext KanjiSearchPage(emptyList(), false)
+        val reading = normalizeReading(text).orEmpty()
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            val args = arrayOf(text, reading, toKatakana(reading), (limit + 1).toString())
+            val rows = db.rawQuery(SEARCH_KANJI_SQL, args).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        add(KanjiSummary(cursor.getString(0), cursor.getString(1)))
+                    }
+                }
+            }
+            KanjiSearchPage(rows.take(limit), rows.size > limit)
+        }
+    }
+
     suspend fun getKanji(character: String): DictionaryKanji? = withContext(Dispatchers.IO) {
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
@@ -50,6 +89,7 @@ class DictionaryDatabase(context: Context) {
             ).use { cursor ->
                 if (!cursor.moveToFirst()) return@withContext null
                 val id = cursor.getLong(0).toString()
+                val wordSection = getKanjiWords(db, id)
                 DictionaryKanji(
                     character = cursor.getString(1),
                     strokeCount = cursor.nullableInt(2),
@@ -68,7 +108,8 @@ class DictionaryDatabase(context: Context) {
                         "SELECT reading FROM kanji_reading WHERE kanji_id = ? AND type = 'kun' ORDER BY id",
                         id
                     ),
-                    words = getCommonWords(db, id).deduplicateCommonWords()
+                    words = wordSection.words.deduplicateCommonWords(),
+                    hasCommonWords = wordSection.hasCommonWords
                 )
             }
         }
@@ -82,7 +123,7 @@ class DictionaryDatabase(context: Context) {
                 val args = arrayOf(entryId.toString(), written)
                 val kanjiId = db.strings("SELECT id FROM kanji WHERE character = ?", sourceKanji)
                     .firstOrNull()
-                val group = kanjiId?.let { getCommonWords(db, it).groupCommonWords() }
+                val group = kanjiId?.let { getKanjiWords(db, it).words.groupCommonWords() }
                     ?.firstOrNull { forms ->
                         forms.any { it.entryId == entryId && it.written == written }
                     }
@@ -110,8 +151,18 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
-    private fun getCommonWords(db: SQLiteDatabase, kanjiId: String): List<DictionaryWord> =
-        db.rawQuery(COMMON_WORDS_SQL, arrayOf(kanjiId)).use { cursor ->
+    private data class KanjiWords(val words: List<DictionaryWord>, val hasCommonWords: Boolean)
+
+    // Both details screens must reconstruct the same group, including the fallback.
+    private fun getKanjiWords(db: SQLiteDatabase, kanjiId: String): KanjiWords {
+        val common = getWords(db, kanjiId, commonOnly = true)
+        return if (common.isNotEmpty()) KanjiWords(common, hasCommonWords = true)
+        else KanjiWords(getWords(db, kanjiId, commonOnly = false), hasCommonWords = false)
+    }
+
+    private fun getWords(db: SQLiteDatabase, kanjiId: String, commonOnly: Boolean): List<DictionaryWord> =
+        db.rawQuery(WORDS_SQL, arrayOf(kanjiId, if (commonOnly) "1" else "0",
+            if (commonOnly) "1" else "0")).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
                     add(DictionaryWord(
@@ -173,20 +224,20 @@ class DictionaryDatabase(context: Context) {
 
         // GROUP BY also removes repeated occurrences of the kanji in one written form.
         // Correlated selection works on SDK 26 without SQLite window functions.
-        const val COMMON_WORDS_SQL = """
+        const val WORDS_SQL = """
             SELECT wf.id, wf.entry_id, wf.written, wf.reading
             FROM (
                 SELECT f.entry_id, f.written
                 FROM word_kanji wk
                 JOIN word_form f ON f.id = wk.word_form_id
-                WHERE wk.kanji_id = ? AND f.common = 1
+                WHERE wk.kanji_id = ? AND (? = '0' OR f.common = 1)
                 GROUP BY f.entry_id, f.written
             ) grouped
             JOIN word_form wf ON wf.id = (
                 SELECT preferred.id FROM word_form preferred
                 WHERE preferred.entry_id = grouped.entry_id
                   AND preferred.written = grouped.written
-                  AND preferred.common = 1
+                  AND (? = '0' OR preferred.common = 1)
                 ORDER BY preferred.reading_priority DESC, preferred.reading_order ASC, preferred.id ASC
                 LIMIT 1
             )
