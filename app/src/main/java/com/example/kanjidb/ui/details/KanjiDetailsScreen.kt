@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.R
 import com.example.kanjidb.ui.DictionaryText
+import com.example.kanjidb.ui.FloatingActionPanel
 import com.example.kanjidb.ui.standaloneKanjiMeaning
 import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
@@ -150,52 +151,43 @@ fun KanjiDetailsScreen(
             }
         }
 
-        Surface(
+        FloatingActionPanel(
             modifier = Modifier.align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .onSizeChanged { panelHeight = it.height }
-                .padding(12.dp),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 6.dp,
-            shadowElevation = 6.dp
+                .padding(12.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            FilterChip(
+                selected = learningState == LearningState.LEARNING,
+                onClick = {
+                    learningState = if (learningState == LearningState.LEARNING) {
+                        LearningState.NONE
+                    } else {
+                        LearningState.LEARNING
+                    }
+                },
+                label = { Text(stringResource(R.string.details_learning)) },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = learningState == LearningState.KNOWN,
+                onClick = {
+                    learningState = if (learningState == LearningState.KNOWN) {
+                        LearningState.NONE
+                    } else {
+                        LearningState.KNOWN
+                    }
+                },
+                label = { Text(stringResource(R.string.details_known)) },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                modifier = Modifier.weight(1f)
             ) {
-                FilterChip(
-                    selected = learningState == LearningState.LEARNING,
-                    onClick = {
-                        learningState = if (learningState == LearningState.LEARNING) {
-                            LearningState.NONE
-                        } else {
-                            LearningState.LEARNING
-                        }
-                    },
-                    label = { Text(stringResource(R.string.details_learning)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = learningState == LearningState.KNOWN,
-                    onClick = {
-                        learningState = if (learningState == LearningState.KNOWN) {
-                            LearningState.NONE
-                        } else {
-                            LearningState.KNOWN
-                        }
-                    },
-                    label = { Text(stringResource(R.string.details_known)) },
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(
-                    onClick = {},
-                    enabled = false,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.details_add_to_list))
-                }
+                Text(stringResource(R.string.details_add_to_list))
             }
         }
     }

@@ -10,7 +10,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.example.kanjidb.R
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -22,6 +25,7 @@ import com.example.kanjidb.ui.about.AboutScreen
 import com.example.kanjidb.ui.details.KanjiDetailsScreen
 import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
+import com.example.kanjidb.ui.lists.MyKanjiMockState
 import com.example.kanjidb.ui.search.SearchScreen
 import com.example.kanjidb.ui.training.TrainingScreen
 
@@ -34,14 +38,15 @@ private const val WORD_DETAILS = "word/{entryId}/{written}?sourceKanji={sourceKa
 private const val DETAILS = "details/{$KANJI_ID}"
 
 private val topLevelDestinations = listOf(
-    SEARCH to "Search",
-    MY_KANJI to "My Kanji",
-    TRAINING to "Training"
+    SEARCH to R.string.search_title,
+    MY_KANJI to R.string.my_kanji_title,
+    TRAINING to R.string.training_title
 )
 
 @Composable
 fun KanjiDbApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+    val myKanjiState = remember { MyKanjiMockState() }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val openDetails: (String) -> Unit = { kanjiId ->
@@ -55,7 +60,8 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
         bottomBar = {
             if (topLevelDestinations.any { it.first == currentRoute }) {
                 NavigationBar {
-                    topLevelDestinations.forEach { (route, label) ->
+                    topLevelDestinations.forEach { (route, labelResource) ->
+                        val label = stringResource(labelResource)
                         NavigationBarItem(
                             selected = currentRoute == route,
                             onClick = {
@@ -95,7 +101,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 AboutScreen(onBack = { navController.popBackStack() })
             }
             composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = { openDetails("\u5C71") })
+                MyKanjiScreen(onOpenDetails = openDetails, state = myKanjiState)
             }
             composable(TRAINING) {
                 TrainingScreen(onOpenDetails = { openDetails("\u5C71") })

@@ -1,4 +1,19 @@
 <resources>
+    <string name="my_kanji_title">My Kanji</string>
+    <string name="my_lists_title">My Lists</string>
+    <string name="kanji_groups_title">Kanji Groups</string>
+    <string name="training_title">Training</string>
+    <string name="my_kanji_section_count">%1$s (%2$d)</string>
+    <string name="my_kanji_remove_learning">Remove from Learning</string>
+    <string name="my_kanji_remove_known">Remove from Known</string>
+    <string name="my_kanji_move_learning">Move to Learning</string>
+    <string name="my_kanji_move_known">Move to Known</string>
+    <string name="my_kanji_cancel">Cancel</string>
+    <string name="my_kanji_expanded">Expanded</string>
+    <string name="my_kanji_collapsed">Collapsed</string>
+    <string name="my_kanji_select">Select kanji</string>
+    <string name="my_kanji_no_reading">&#8212;</string>
+    <string name="my_kanji_reading_pending">&#8230;</string>
     <string name="about_title">About</string>
     <string name="about_open">About KanjiDB</string>
     <string name="about_back">Back</string>
