@@ -10,3 +10,4 @@
 - Make changes in small, reviewable steps and explain significant architectural decisions.
 - After significant changes, run `./gradlew.bat :app:assembleDebug` on Windows (`./gradlew :app:assembleDebug` elsewhere); fix compilation errors before completion.
 - Do not commit or push without an explicit request.
+- After significant architectural or user-visible changes, update docs/PROJECT_CONTEXT.md and/or docs/TODO.md when the documented state has changed.

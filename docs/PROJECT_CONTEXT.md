@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and future training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **0.1.0-alpha**, `versionCode = 1`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **0.1.1-alpha**, `versionCode = 2`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
 Implemented in v0.1 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji, Training, Recommended Kanji, list assignment and stroke order are unfinished UI placeholders, not completed features.
 
@@ -55,6 +55,8 @@ SQL avoids window functions for SDK 26 compatibility. Internal SQLite IDs can ch
 - [ExploreState](../app/src/main/java/com/example/kanjidb/ui/search/ExploreState.kt) retains both selections for the process lifetime, including navigation and Activity recreation. Refresh is explicit; process restart resets selections. This is not a daily or personalized recommendation system.
 
 ## Details and word semantics
+
+Standalone English kanji meanings in Details and Search/Explore capitalize only the first letter, preserving the rest of the source text. Dictionary text in both detail screens and Search/Explore/related-word rows supports standard selection and copying in individual text blocks; interface controls remain outside selection.
 
 **Kanji Details** shows English meanings, on/kun readings, glyph, stroke count, grade, frequency and a conditional Jōyō badge. Related words open Word Details. The stroke view is a placeholder; Add to list is disabled.
 

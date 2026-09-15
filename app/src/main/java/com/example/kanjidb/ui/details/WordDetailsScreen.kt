@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.kanjidb.R
+import com.example.kanjidb.ui.DictionaryText
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryWordDetails
 import kotlinx.coroutines.CancellationException
@@ -65,9 +66,9 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String, modif
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(details.written, style = MaterialTheme.typography.displaySmall)
+                DictionaryText(details.written, style = MaterialTheme.typography.displaySmall)
                 if (details.alternativeWrittenForms.isNotEmpty()) {
-                    Text(
+                    DictionaryText(
                         details.alternativeWrittenForms.joinToString(" \u00B7 "),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -88,11 +89,11 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String, modif
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(stringResource(R.string.word_preferred_reading),
                             style = MaterialTheme.typography.labelSmall)
-                        Text(details.preferredReading, style = MaterialTheme.typography.titleLarge)
+                        DictionaryText(details.preferredReading, style = MaterialTheme.typography.titleLarge)
                     }
                     val otherReadings = details.readings.filter { it != details.preferredReading }
                     if (otherReadings.isNotEmpty()) {
-                        Text(
+                        DictionaryText(
                             otherReadings.joinToString(" \u00B7 "),
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyLarge
@@ -112,7 +113,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String, modif
                 item { Text(language, style = MaterialTheme.typography.titleSmall) }
             }
             items(meanings) { meaning ->
-                Text(meaning, style = MaterialTheme.typography.bodyMedium)
+                DictionaryText(meaning, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

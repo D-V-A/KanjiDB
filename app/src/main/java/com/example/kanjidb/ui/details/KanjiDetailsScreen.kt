@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.R
+import com.example.kanjidb.ui.DictionaryText
+import com.example.kanjidb.ui.standaloneKanjiMeaning
 import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryKanji
@@ -106,8 +108,8 @@ fun KanjiDetailsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        kanji.meanings.firstOrNull() ?: kanji.character,
+                    DictionaryText(
+                        kanji.meanings.firstOrNull()?.standaloneKanjiMeaning() ?: kanji.character,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.headlineLarge
                     )
@@ -247,7 +249,7 @@ private fun KanjiOverview(
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
-                        Text(kanji.character, fontSize = 88.sp, lineHeight = 104.sp)
+                        DictionaryText(kanji.character, fontSize = 88.sp, lineHeight = 104.sp)
                     }
                 }
             }
@@ -270,7 +272,7 @@ private fun KanjiOverview(
         ) {
             Text(stringResource(R.string.details_meanings),
                 style = MaterialTheme.typography.titleSmall)
-            kanji.meanings.forEach { Text(it) }
+            kanji.meanings.forEach { DictionaryText(it.standaloneKanjiMeaning()) }
             Row(
                 modifier = Modifier.padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -278,12 +280,12 @@ private fun KanjiOverview(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.details_on),
                         style = MaterialTheme.typography.titleSmall)
-                    Text(kanji.onReadings.joinToString("\n"))
+                    DictionaryText(kanji.onReadings.joinToString("\n"))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.details_kun),
                         style = MaterialTheme.typography.titleSmall)
-                    Text(kanji.kunReadings.joinToString("\n"))
+                    DictionaryText(kanji.kunReadings.joinToString("\n"))
                 }
             }
         }
@@ -309,13 +311,13 @@ private fun WordRow(word: DictionaryWord, recommended: Boolean, onClick: () -> U
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(0.38f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
+                DictionaryText(
                     word.written,
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
+                DictionaryText(
                     word.reading,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
@@ -325,7 +327,7 @@ private fun WordRow(word: DictionaryWord, recommended: Boolean, onClick: () -> U
             val visibleMeanings = word.meanings.take(3)
             Column(Modifier.weight(0.62f)) {
                 visibleMeanings.forEachIndexed { index, meaning ->
-                    Text(
+                    DictionaryText(
                         meaning,
                         style = MaterialTheme.typography.bodyMedium,
                         // Share a three-line budget without hiding later meanings.

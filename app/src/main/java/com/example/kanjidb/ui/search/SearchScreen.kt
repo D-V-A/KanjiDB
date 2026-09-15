@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.example.kanjidb.R
+import com.example.kanjidb.ui.DictionaryText
+import com.example.kanjidb.ui.standaloneKanjiMeaning
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryWord
 import com.example.kanjidb.data.dictionary.WordSearchPage
@@ -266,12 +268,12 @@ private fun KanjiRow(kanji: KanjiSummary, compact: Boolean, modifier: Modifier =
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
+        DictionaryText(
             kanji.character,
             style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displaySmall
         )
-        Text(
-            kanji.primaryMeaning, modifier = Modifier.weight(1f),
+        DictionaryText(
+            kanji.primaryMeaning.standaloneKanjiMeaning(), modifier = Modifier.weight(1f),
             style = if (compact) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium
         )
     }
@@ -282,10 +284,10 @@ private fun SearchWordRow(word: DictionaryWord, modifier: Modifier = Modifier) {
     Row(modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(word.written, style = MaterialTheme.typography.titleLarge)
-            Text(word.reading, style = MaterialTheme.typography.bodySmall)
+            DictionaryText(word.written, style = MaterialTheme.typography.titleLarge)
+            DictionaryText(word.reading, style = MaterialTheme.typography.bodySmall)
         }
-        Text(word.meanings.firstOrNull().orEmpty(), modifier = Modifier.weight(1f),
+        DictionaryText(word.meanings.firstOrNull().orEmpty(), modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium)
     }
 }

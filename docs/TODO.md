@@ -1,7 +1,7 @@
 ﻿# Plans and TODO
 
 Current implementation and limitations: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
-All items below are pending; existing placeholders do not count as completed milestones.
+Checked items are complete; existing placeholders do not count as completed milestones.
 
 ## Milestones
 
@@ -14,8 +14,8 @@ All items below are pending; existing placeholders do not count as completed mil
 
 ## TODO
 
-- [ ] Capitalise standalone English kanji meanings in the UI.
-- [ ] Make dictionary text selectable/copyable.
+- [x] Capitalise standalone English kanji meanings in the UI.
+- [x] Make dictionary text selectable/copyable.
 - [ ] Implement Recommended words.
 - [ ] Improve word ranking beyond common=1.
 - [ ] Improve presentation of huge reading sets such as 生.
