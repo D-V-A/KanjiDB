@@ -1,39 +1,12 @@
-# KanjiDB
+﻿# KanjiDB
 
-Android application written in Kotlin with Jetpack Compose.
-
-## Project goals
-
-KanjiDB is an offline-first Japanese kanji reference and training application.
-
-Planned core features:
-- Search by kanji, kana, or romaji
-- Kanji details: meanings, on'yomi, kun'yomi, example words, stroke order
-- Personal kanji states and custom lists
-- Training mode based on writing answers on paper
-- Local dictionary data
-- No backend or account required for MVP
-
-## Technical rules
-
-- Kotlin
-- Jetpack Compose
-- Minimum SDK 26
-- Keep architecture simple
-- Do not introduce dependency injection frameworks unless explicitly requested
-- Do not add unnecessary modules or abstractions
-- Prefer AndroidX / Jetpack components
-- Use Room for user-owned persistent data
-- Dictionary data will eventually come from a prebuilt local SQLite datab~~~~ase
-- The app should work offline
-- Do not modify unrelated files
-- Preserve existing functionality unless explicitly asked to change it
-- Build the project after significant changes
-- Fix compilation errors before considering a task complete
-- Do not commit or push unless explicitly asked
-
-## Workflow
-
-- Inspect existing code before large changes
-- Explain significant architectural decisions
-- Make changes in small, reviewable steps
+- Before changing anything, read [project context](docs/PROJECT_CONTEXT.md), consult [plans](docs/TODO.md), and inspect the current implementation.
+- Keep the app offline-first; MVP requires no backend or account.
+- The dictionary is prebuilt, read-only SQLite. Keep user-owned persistent data in a separate Room database.
+- Do not change dictionary schema or import pipeline unless the task requires it.
+- Use Kotlin, Jetpack Compose and existing models/logic; do not duplicate them.
+- Keep architecture simple, preserve minimum SDK 26, and prefer AndroidX/Jetpack. Do not add DI frameworks unless explicitly requested.
+- Preserve existing functionality; avoid unrelated changes, refactors, modules and abstractions.
+- Make changes in small, reviewable steps and explain significant architectural decisions.
+- After significant changes, run `./gradlew.bat :app:assembleDebug` on Windows (`./gradlew :app:assembleDebug` elsewhere); fix compilation errors before completion.
+- Do not commit or push without an explicit request.
