@@ -4,6 +4,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KanjiCollectionStateTest {
+    @Test fun subgroupCollapseAndHeaderSelectionPreservePresentationAcrossRestore() {
+        val state = KanjiCollectionState()
+        state.toggleExpanded("N5")
+        state.toggleSubgroup("N5:UNRANKED")
+        state.selectAll("N5", listOf("ranked", "unranked"))
+        assertEquals(setOf("N5"), state.expandedKeys)
+        assertEquals(setOf("N5:UNRANKED"), state.collapsedSubgroups)
+        assertEquals(setOf("ranked", "unranked"), state.selected)
+        assertNull(state.revealCharacter)
+        val restored = KanjiCollectionState.restore(state.save())
+        assertEquals(state.expandedKeys, restored.expandedKeys)
+        assertEquals(state.collapsedSubgroups, restored.collapsedSubgroups)
+        assertEquals(state.selected, restored.selected)
+        assertNull(restored.revealCharacter)
+        restored.cancel()
+        restored.toggleSubgroup("N5:RANKED")
+        assertEquals(setOf("N5:UNRANKED", "N5:RANKED"), restored.collapsedSubgroups)
+        restored.toggleSubgroup("N5:UNRANKED")
+        assertEquals(setOf("N5:RANKED"), restored.collapsedSubgroups)
+    }
+
+    @Test fun legacyStateRestoresFlagsButNeverReplaysOldCardReveal() {
+        val state = KanjiCollectionState.restore(listOf("N5", "one", "1", "N5", "one", "two"))
+        assertEquals("N5", state.section)
+        assertEquals(setOf("N5"), state.expandedKeys)
+        assertEquals(setOf("one", "two"), state.selected)
+        assertNull(state.revealCharacter)
+    }
+
     @Test fun headerSelectionPreservesViewportWhileCardSelectionRequestsReveal() {
         val state = KanjiCollectionState()
         state.selectAll("N5", listOf("one", "two"))
@@ -53,7 +82,7 @@ class KanjiCollectionStateTest {
         val restored = KanjiCollectionState.restore(state.save())
         assertEquals("KNOWN", restored.section)
         assertEquals(setOf("one", "two"), restored.selected)
-        assertEquals("one", restored.revealCharacter)
+        assertNull(restored.revealCharacter)
         assertEquals(setOf("LEARNING"), restored.expandedKeys)
         restored.cancel()
         assertEquals(setOf("LEARNING"), restored.expandedKeys)

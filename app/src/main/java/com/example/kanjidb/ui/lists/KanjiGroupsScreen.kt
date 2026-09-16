@@ -1,12 +1,16 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.kanjidb.R
@@ -26,7 +30,7 @@ private data class GroupResult(
 @Composable
 internal fun KanjiGroupsPage(
     dictionary: DictionaryDatabase, rows: List<UserKanjiStateEntity>?,
-    state: KanjiCollectionState, writer: KanjiStateWriter,
+    state: KanjiCollectionState, writer: KanjiStateWriter, grid: LazyGridState,
     activePage: Boolean, onOpenDetails: (String) -> Unit
 ) {
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
@@ -65,8 +69,13 @@ internal fun KanjiGroupsPage(
             KanjiGroupBy.GRADE -> if (group.level == null) stringResource(R.string.groups_no_grade)
                 else stringResource(R.string.groups_grade_level, group.level)
         }
-        KanjiSection("${groupBy.name}:${group.level}", title,
-            group.kanji.map { KanjiCardItem(it.character, it.reading) })
+        val key = "${groupBy.name}:${group.level}"
+        KanjiSection(key, title, group.kanji.map { KanjiCardItem(it.character, it.reading) },
+            group.frequencyGroups.map { subgroup ->
+                KanjiSubgroup("$key:${subgroup.kind.name}",
+                    stringResource(if (subgroup.kind == FrequencyGroup.RANKED) R.string.groups_ranked else R.string.groups_unranked),
+                    subgroup.kanji.map { KanjiCardItem(it.character, it.reading) })
+            })
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,16 +100,23 @@ internal fun KanjiGroupsPage(
                 )
                 TextButton(onClick = { options = options.copy(descending = !options.descending) },
                     enabled = !writer.saving) {
-                    Text(stringResource(if (options.descending) R.string.groups_descending else R.string.groups_ascending))
+                    Text(stringResource(options.sortDirectionLabel))
                 }
             }
         }
-        OutlinedButton(onClick = { rulesOpen = true }, enabled = !writer.saving) {
-            Text(if (options.activeRules == 0) stringResource(R.string.groups_rules_none)
-                else stringResource(R.string.groups_rules_active, options.activeRules))
+        val context = LocalContext.current
+        val summary = options.rulesSummary { context.getString(it) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { rulesOpen = true }, enabled = !writer.saving) {
+                Text(stringResource(R.string.groups_rules))
+            }
+            if (summary.isNotEmpty()) Text(summary, Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         KanjiCollectionGrid(
             sections = sections, state = state, onOpenDetails = onOpenDetails,
+            grid = grid, contentAvailable = result != null,
             actions = listOf(
                 KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }, 1.4f),
                 KanjiSelectionAction(R.string.groups_add_known, { writer.assign(it, LearningState.KNOWN) }, 1.3f)
@@ -132,6 +148,11 @@ internal fun KanjiGroupsPage(
                             KanjiStatusRule.EITHER -> R.string.groups_either
                             KanjiStatusRule.NEITHER -> R.string.groups_neither
                         }) }, onSelect = { options = options.copy(status = it) })
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { options = options.resetRules() }, enabled = options.activeRules > 0) {
+                    Text(stringResource(R.string.groups_reset_rules))
                 }
             },
             confirmButton = { TextButton(onClick = { rulesOpen = false }) { Text(stringResource(R.string.groups_done)) } }

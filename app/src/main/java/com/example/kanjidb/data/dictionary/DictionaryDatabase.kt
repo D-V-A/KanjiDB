@@ -19,7 +19,8 @@ data class DictionaryKanji(
     val meanings: List<String>,
     val onReadings: List<String>,
     val kunReadings: List<String>,
-    val words: List<DictionaryWord>
+    val words: List<DictionaryWord>,
+    val jlpt: Int? = null
 )
 
 data class DictionaryWord(
@@ -179,6 +180,13 @@ class DictionaryDatabase(context: Context) {
                 if (!cursor.moveToFirst()) return@withContext null
                 val id = cursor.getLong(0).toString()
                 val wordSection = getKanjiWords(db, id)
+                // Older installed dictionary copies may predate the optional JLPT table.
+                val hasJlpt = db.rawQuery(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jlpt_kanji'", null
+                ).use { it.moveToFirst() }
+                val jlpt = if (hasJlpt) db.rawQuery(
+                    "SELECT level FROM jlpt_kanji WHERE kanji_id = ?", arrayOf(id)
+                ).use { if (it.moveToFirst()) it.getInt(0) else null } else null
                 DictionaryKanji(
                     character = cursor.getString(1),
                     strokeCount = cursor.nullableInt(2),
@@ -197,7 +205,8 @@ class DictionaryDatabase(context: Context) {
                         "SELECT reading FROM kanji_reading WHERE kanji_id = ? AND type = 'kun' ORDER BY id",
                         id
                     ),
-                    words = wordSection.deduplicateCommonWords()
+                    words = wordSection.deduplicateCommonWords(),
+                    jlpt = jlpt
                 )
             }
         }

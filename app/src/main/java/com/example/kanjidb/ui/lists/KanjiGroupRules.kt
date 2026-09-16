@@ -1,6 +1,7 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.compose.runtime.saveable.listSaver
+import com.example.kanjidb.R
 import com.example.kanjidb.data.dictionary.KanjiGroupEntry
 import com.example.kanjidb.ui.LearningState
 
@@ -38,6 +39,39 @@ data class KanjiGroupOptions(
     val activeRules: Int get() = listOf(jlpt, grade, joyo).count { it != PresenceRule.ANY } +
         if (status == KanjiStatusRule.ANY) 0 else 1
 
+    val sortDirectionLabel: Int get() = when (sortBy) {
+        KanjiSortBy.FREQUENCY -> if (descending) R.string.groups_rarer_first else R.string.groups_frequent_first
+        KanjiSortBy.STROKES -> if (descending) R.string.groups_complex_first else R.string.groups_simpler_first
+    }
+
+    fun rulesSummary(label: (Int) -> String): String = buildList {
+        when (jlpt) {
+            PresenceRule.ONLY -> add(R.string.groups_jlpt_only)
+            PresenceRule.NOT -> add(R.string.groups_not_jlpt)
+            PresenceRule.ANY -> Unit
+        }
+        when (grade) {
+            PresenceRule.ONLY -> add(R.string.groups_grade_only)
+            PresenceRule.NOT -> add(R.string.groups_no_grade_rule)
+            PresenceRule.ANY -> Unit
+        }
+        when (joyo) {
+            PresenceRule.ONLY -> add(R.string.groups_joyo_only)
+            PresenceRule.NOT -> add(R.string.groups_not_joyo)
+            PresenceRule.ANY -> Unit
+        }
+        when (status) {
+            KanjiStatusRule.KNOWN -> add(R.string.details_known)
+            KanjiStatusRule.LEARNING -> add(R.string.details_learning)
+            KanjiStatusRule.EITHER -> add(R.string.groups_either)
+            KanjiStatusRule.NEITHER -> add(R.string.groups_neither)
+            KanjiStatusRule.ANY -> Unit
+        }
+    }.joinToString(", ") { label(it) }
+
+    fun resetRules(): KanjiGroupOptions = copy(jlpt = PresenceRule.ANY, grade = PresenceRule.ANY,
+        joyo = PresenceRule.ANY, status = KanjiStatusRule.ANY)
+
     companion object {
         val Saver = listSaver<KanjiGroupOptions, String>(
             save = { listOf(it.groupBy.name, it.reverseGroups.toString(), it.sortBy.name,
@@ -49,7 +83,21 @@ data class KanjiGroupOptions(
     }
 }
 
-data class KanjiGroup(val level: Int?, val kanji: List<KanjiGroupEntry>)
+enum class FrequencyGroup { RANKED, UNRANKED }
+data class KanjiFrequencyGroup(val kind: FrequencyGroup, val kanji: List<KanjiGroupEntry>)
+data class KanjiGroup(
+    val level: Int?, val kanji: List<KanjiGroupEntry>,
+    val frequencyGroups: List<KanjiFrequencyGroup> = emptyList()
+)
+
+/** Presentation only; retain existing sorted order and never split homogeneous groups. */
+internal fun splitFrequencyGroups(kanji: List<KanjiGroupEntry>, sortBy: KanjiSortBy): List<KanjiFrequencyGroup> {
+    if (sortBy != KanjiSortBy.FREQUENCY) return emptyList()
+    val (ranked, unranked) = kanji.partition { it.frequency != null }
+    if (ranked.isEmpty() || unranked.isEmpty()) return emptyList()
+    return listOf(KanjiFrequencyGroup(FrequencyGroup.RANKED, ranked),
+        KanjiFrequencyGroup(FrequencyGroup.UNRANKED, unranked))
+}
 
 /** Pure transformation; callers run large collections on Dispatchers.Default. */
 fun groupKanji(
@@ -84,5 +132,8 @@ fun groupKanji(
             else -> a.compareTo(b)
         }
     }).let { if (options.reverseGroups) it.reversed() else it }
-    return levels.map { KanjiGroup(it, grouped.getValue(it).sortedWith(sort)) }
+    return levels.map { level ->
+        val sorted = grouped.getValue(level).sortedWith(sort)
+        KanjiGroup(level, sorted, splitFrequencyGroups(sorted, options.sortBy))
+    }
 }

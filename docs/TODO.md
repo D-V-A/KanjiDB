@@ -20,6 +20,7 @@ Checked items are complete; existing placeholders do not count as completed mile
 - [ ] Improve word ranking beyond common=1.
 - [ ] Improve presentation of huge reading sets such as 生.
 - [ ] Test that the Jōyō badge is absent for joyo=0.
+- [ ] Correct the JLPT source mapping for 分 (expected N5): the current local tools/data/jlpt.tsv omits it, and the asset import matches that source. No runtime override is used.
 - [ ] Define and implement a dictionary.db version/update mechanism.
 - [ ] Verify EDRDG attribution and licenses.
 - [ ] Verify KanjiVG attribution/license before integration.

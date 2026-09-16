@@ -1,4 +1,18 @@
 <resources>
+    <string name="groups_frequent_first">Frequent first</string>
+    <string name="groups_rarer_first">Rarer first</string>
+    <string name="groups_simpler_first">Simpler first</string>
+    <string name="groups_complex_first">Complex first</string>
+    <string name="groups_ranked">Ranked</string>
+    <string name="groups_unranked">Unranked</string>
+    <string name="groups_jlpt_only">JLPT Only</string>
+    <string name="groups_not_jlpt">Not JLPT</string>
+    <string name="groups_grade_only">Grade Only</string>
+    <string name="groups_no_grade_rule">No Grade</string>
+    <string name="groups_joyo_only">Jōyō Only</string>
+    <string name="groups_not_joyo">Not Jōyō</string>
+    <string name="groups_reset_rules">Reset rules</string>
+
     <string name="my_lists_placeholder">My Lists is not available yet.</string>
     <string name="kanji_select_section">Select all kanji in this section</string>
     <string name="kanji_state_save_error">Could not save kanji states. Please try the action again.</string>
@@ -7,14 +21,10 @@
     <string name="groups_rules">Rules</string>
     <string name="groups_jlpt">JLPT</string>
     <string name="groups_grade">Grade</string>
-    <string name="groups_frequency">Frequency</string>
+    <string name="groups_frequency">Frequency rank</string>
     <string name="groups_strokes">Strokes</string>
     <string name="groups_easier_first">Easier first</string>
     <string name="groups_harder_first">Harder first</string>
-    <string name="groups_ascending">Ascending</string>
-    <string name="groups_descending">Descending</string>
-    <string name="groups_rules_none">Rules: None</string>
-    <string name="groups_rules_active">Rules: %1$d active</string>
     <string name="groups_no_jlpt">No JLPT</string>
     <string name="groups_no_grade">No grade</string>
     <string name="groups_jlpt_level">N%1$d</string>

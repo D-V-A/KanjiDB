@@ -14,6 +14,12 @@ DB_PATH = (
 
 JLPT_PATH = BASE_DIR / "data" / "jlpt.tsv"
 
+# Explicit KanjiDB overrides applied by import_jlpt.py on top of the
+# upstream community JLPT dataset.
+JLPT_OVERRIDES = {
+    "分": 5,
+}
+
 
 def fail(message):
     print(f"[FAIL] {message}")
@@ -316,24 +322,27 @@ try:
             """).fetchall()
         )
 
+        expected_jlpt = dict(source_jlpt)
+        expected_jlpt.update(JLPT_OVERRIDES)
+
         missing_from_db = sorted(
-            set(source_jlpt) - set(db_jlpt)
+            set(expected_jlpt) - set(db_jlpt)
         )
 
         extra_in_db = sorted(
-            set(db_jlpt) - set(source_jlpt)
+            set(db_jlpt) - set(expected_jlpt)
         )
 
         wrong_levels = sorted(
             (
                 character,
-                source_jlpt[character],
+                expected_jlpt[character],
                 db_jlpt[character],
             )
             for character in (
-                set(source_jlpt) & set(db_jlpt)
+                set(expected_jlpt) & set(db_jlpt)
             )
-            if source_jlpt[character]
+            if expected_jlpt[character]
             != db_jlpt[character]
         )
 
@@ -343,9 +352,14 @@ try:
             and not wrong_levels
         ):
             ok(
-                "JLPT table exactly matches "
-                "jlpt.tsv"
+                "JLPT table matches jlpt.tsv "
+                "+ KanjiDB overrides"
             )
+
+            for character, level in JLPT_OVERRIDES.items():
+                ok(
+                    f"JLPT override: {character} = N{level}"
+                )
         else:
             if missing_from_db:
                 success = fail(
@@ -362,7 +376,7 @@ try:
             if wrong_levels:
                 success = fail(
                     "JLPT level mismatches "
-                    "(character, source, DB): "
+                    "(character, expected, DB): "
                     f"{wrong_levels[:20]}"
                 ) and success
 

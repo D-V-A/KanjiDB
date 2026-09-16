@@ -1,6 +1,8 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
@@ -37,6 +39,9 @@ internal fun MyKanjiScreen(
     val myWriter = rememberKanjiStateWriter(userDao, state.collection)
     val groupsWriter = rememberKanjiStateWriter(userDao, groupsState)
     val saving = myWriter.saving || groupsWriter.saving
+    // Separate saveable list states owned by the destination, not ephemeral pager content.
+    val myGrid = rememberLazyGridState()
+    val groupsGrid = rememberLazyGridState()
     val pager = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -49,16 +54,16 @@ internal fun MyKanjiScreen(
                         text = { Text(stringResource(title)) })
                 }
         }
-        HorizontalPager(state = pager, userScrollEnabled = !saving, beyondViewportPageCount = 2,
+        HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
             modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
             when (index) {
-                0 -> MyKanjiPage(state, dictionary, myWriter, collectionLoaded,
+                0 -> MyKanjiPage(state, dictionary, myWriter, collectionLoaded, myGrid,
                     activePage = pager.currentPage == 0, onOpenDetails = onOpenDetails)
                 1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.my_lists_placeholder),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                2 -> KanjiGroupsPage(dictionary, rows, groupsState, groupsWriter,
+                2 -> KanjiGroupsPage(dictionary, rows, groupsState, groupsWriter, groupsGrid,
                     activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails)
             }
         }
@@ -68,7 +73,7 @@ internal fun MyKanjiScreen(
 @Composable
 private fun MyKanjiPage(
     state: MyKanjiState, dictionary: DictionaryDatabase, writer: KanjiStateWriter,
-    collectionLoaded: Boolean, activePage: Boolean, onOpenDetails: (String) -> Unit
+    collectionLoaded: Boolean, grid: LazyGridState, activePage: Boolean, onOpenDetails: (String) -> Unit
 ) {
     val readings = remember { mutableStateMapOf<String, String?>() }
     var loading by remember { mutableStateOf(true) }
@@ -98,6 +103,7 @@ private fun MyKanjiPage(
     val learning = state.selectionSection == LearningState.LEARNING
     KanjiCollectionGrid(
         sections = sections, state = state.collection, onOpenDetails = onOpenDetails,
+        grid = grid, contentAvailable = collectionLoaded,
         actions = listOf(
             KanjiSelectionAction(if (learning) R.string.my_kanji_remove_learning else R.string.my_kanji_remove_known,
                 { writer.assign(it, LearningState.NONE) }, 1.4f),

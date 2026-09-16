@@ -149,6 +149,12 @@ fun KanjiDetailsScreen(
                             )
                         }
                     }
+                    kanji.jlpt?.let { level ->
+                        Badge {
+                            Text(stringResource(R.string.groups_jlpt_level, level),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                        }
+                    }
                 }
             }
             if (writeFailed) {

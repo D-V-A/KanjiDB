@@ -15,11 +15,18 @@ internal class KanjiCollectionState {
         private set
     var expandedKeys by mutableStateOf(emptySet<String>())
         private set
+    var collapsedSubgroups by mutableStateOf(emptySet<String>())
+        private set
     val selecting: Boolean get() = section != null
 
     fun toggleExpanded(key: String) {
         if (selecting) return
         expandedKeys = if (key in expandedKeys) expandedKeys - key else expandedKeys + key
+    }
+
+    fun toggleSubgroup(key: String) {
+        if (selecting) return
+        collapsedSubgroups = if (key in collapsedSubgroups) collapsedSubgroups - key else collapsedSubgroups + key
     }
 
     fun begin(key: String, characters: Collection<String>) {
@@ -31,10 +38,13 @@ internal class KanjiCollectionState {
 
     /** Header selection preserves the viewport, including when extending a card selection. */
     fun selectAll(key: String, characters: Collection<String>) {
-        if (!selecting) begin(key, characters)
-        else selected = selected + characters
-        // No individual card needs revealing; also cancel any pending card autoscroll.
+        // Do not enter through begin(): headers never create a card-reveal request.
         revealCharacter = null
+        if (!selecting) {
+            if (characters.isEmpty()) return
+            section = key
+        }
+        selected = selected + characters
     }
 
     fun toggle(character: String) {
@@ -57,17 +67,26 @@ internal class KanjiCollectionState {
         revealCharacter = null
     }
 
-    // Only UI flags/character keys, never dictionary metadata or Room snapshots.
-    fun save(): List<String> = listOf(section.orEmpty(), revealCharacter.orEmpty(), expandedKeys.size.toString()) +
-        expandedKeys + selected
+    // Reveal requests are transient gestures, not state to replay after Back/recreation.
+    fun save(): List<String> = listOf("v2", section.orEmpty(), expandedKeys.size.toString(),
+        collapsedSubgroups.size.toString()) + expandedKeys + collapsedSubgroups + selected
 
     companion object {
         fun restore(saved: List<String>): KanjiCollectionState = KanjiCollectionState().apply {
-            section = saved[0].ifEmpty { null }
-            revealCharacter = saved[1].ifEmpty { null }
-            val expandedEnd = 3 + saved[2].toInt()
-            expandedKeys = saved.subList(3, expandedEnd).toSet()
-            selected = saved.drop(expandedEnd).toSet()
+            if (saved[0] == "v2") {
+                section = saved[1].ifEmpty { null }
+                val expandedEnd = 4 + saved[2].toInt()
+                val collapsedEnd = expandedEnd + saved[3].toInt()
+                expandedKeys = saved.subList(4, expandedEnd).toSet()
+                collapsedSubgroups = saved.subList(expandedEnd, collapsedEnd).toSet()
+                selected = saved.drop(collapsedEnd).toSet()
+            } else {
+                // Saved state from v0.3.0: ignore its obsolete pending reveal character.
+                section = saved[0].ifEmpty { null }
+                val expandedEnd = 3 + saved[2].toInt()
+                expandedKeys = saved.subList(3, expandedEnd).toSet()
+                selected = saved.drop(expandedEnd).toSet()
+            }
         }
         val Saver = listSaver<KanjiCollectionState, String>(save = { it.save() }, restore = { restore(it) })
     }

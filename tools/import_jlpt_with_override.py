@@ -13,6 +13,13 @@ DB_PATH = (
     / "dictionary.db"
 )
 
+# Explicit KanjiDB overrides on top of the upstream JLPT dataset.
+# Keep these small and documented: the upstream classification is unofficial
+# and may change in future versions.
+JLPT_OVERRIDES = {
+    "分": 5,
+}
+
 
 def normalize_level(raw_level: str) -> int:
     """
@@ -151,6 +158,35 @@ def main():
                 inserted_characters.add(character)
                 inserted_count += 1
 
+    # Apply explicit KanjiDB overrides after importing the upstream dataset.
+    # UPSERT keeps the override authoritative if upstream later adds the
+    # same character with another level.
+    override_count = 0
+
+    for character, level in JLPT_OVERRIDES.items():
+        kanji_id = kanji_by_character.get(character)
+
+        if kanji_id is None:
+            raise RuntimeError(
+                f"JLPT override character not found in kanji table: {character}"
+            )
+
+        cur.execute("""
+            INSERT INTO jlpt_kanji (
+                kanji_id,
+                level
+            )
+            VALUES (?, ?)
+            ON CONFLICT(kanji_id) DO UPDATE SET
+                level = excluded.level
+        """, (
+            kanji_id,
+            level
+        ))
+
+        inserted_characters.add(character)
+        override_count += 1
+
     conn.commit()
 
     print()
@@ -158,6 +194,13 @@ def main():
     print(f"Inserted JLPT kanji: {inserted_count}")
     print(f"Duplicates skipped:  {duplicate_count}")
     print(f"Missing in DB:        {missing_count}")
+    print(f"KanjiDB overrides:    {override_count}")
+
+    if JLPT_OVERRIDES:
+        print()
+        print("Applied KanjiDB JLPT overrides:")
+        for character, level in JLPT_OVERRIDES.items():
+            print(f"  {character}: N{level}")
 
     print()
     print("Counts by JLPT level:")
