@@ -48,11 +48,16 @@ import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryKanji
 import com.example.kanjidb.data.dictionary.DictionaryWord
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.kanjidb.data.user.UserKanjiStateDao
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
 @Composable
 fun KanjiDetailsScreen(
     kanjiId: String,
+    userDao: UserKanjiStateDao,
     onOpenWord: (Long, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -90,7 +95,29 @@ fun KanjiDetailsScreen(
 
     val visibleWords = if (commonWordsExpanded) kanji.words else kanji.words.take(6)
 
-    var learningState by rememberSaveable(kanjiId) { mutableStateOf(LearningState.NONE) }
+    val savedState by remember(userDao, kanjiId) { userDao.observeState(kanjiId) }
+        .collectAsStateWithLifecycle(initialValue = null)
+    val learningState = savedState?.state ?: LearningState.NONE
+    val scope = rememberCoroutineScope()
+    var saving by remember(kanjiId) { mutableStateOf(false) }
+    var writeFailed by remember(kanjiId) { mutableStateOf(false) }
+    fun toggleState(target: LearningState) {
+        if (saving) return
+        saving = true
+        writeFailed = false
+        scope.launch {
+            try {
+                userDao.toggle(kanjiId, target)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.e("KanjiDetails", "Cannot save kanji state", error)
+                writeFailed = true
+            } finally {
+                saving = false
+            }
+        }
+    }
     var showStrokes by rememberSaveable(kanjiId) { mutableStateOf(false) }
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
@@ -123,6 +150,9 @@ fun KanjiDetailsScreen(
                         }
                     }
                 }
+            }
+            if (writeFailed) {
+                item { Text(stringResource(R.string.search_error)) }
             }
             item {
                 KanjiOverview(kanji, showStrokes, onShowStrokes = { showStrokes = it })
@@ -159,25 +189,15 @@ fun KanjiDetailsScreen(
         ) {
             FilterChip(
                 selected = learningState == LearningState.LEARNING,
-                onClick = {
-                    learningState = if (learningState == LearningState.LEARNING) {
-                        LearningState.NONE
-                    } else {
-                        LearningState.LEARNING
-                    }
-                },
+                enabled = !saving,
+                onClick = { toggleState(LearningState.LEARNING) },
                 label = { Text(stringResource(R.string.details_learning)) },
                 modifier = Modifier.weight(1f)
             )
             FilterChip(
                 selected = learningState == LearningState.KNOWN,
-                onClick = {
-                    learningState = if (learningState == LearningState.KNOWN) {
-                        LearningState.NONE
-                    } else {
-                        LearningState.KNOWN
-                    }
-                },
+                enabled = !saving,
+                onClick = { toggleState(LearningState.KNOWN) },
                 label = { Text(stringResource(R.string.details_known)) },
                 modifier = Modifier.weight(1f)
             )

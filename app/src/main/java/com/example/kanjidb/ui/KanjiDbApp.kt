@@ -25,7 +25,7 @@ import com.example.kanjidb.ui.about.AboutScreen
 import com.example.kanjidb.ui.details.KanjiDetailsScreen
 import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
-import com.example.kanjidb.ui.lists.MyKanjiMockState
+import com.example.kanjidb.ui.lists.MyKanjiState
 import com.example.kanjidb.ui.search.SearchScreen
 import com.example.kanjidb.ui.training.TrainingScreen
 
@@ -46,7 +46,11 @@ private val topLevelDestinations = listOf(
 @Composable
 fun KanjiDbApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
-    val myKanjiState = remember { MyKanjiMockState() }
+    val myKanjiState = remember { MyKanjiState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val userDao = remember(context) {
+        com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val openDetails: (String) -> Unit = { kanjiId ->
@@ -101,7 +105,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 AboutScreen(onBack = { navController.popBackStack() })
             }
             composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = openDetails, state = myKanjiState)
+                MyKanjiScreen(onOpenDetails = openDetails, state = myKanjiState, userDao = userDao)
             }
             composable(TRAINING) {
                 TrainingScreen(onOpenDetails = { openDetails("\u5C71") })
@@ -128,6 +132,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 val kanjiId = requireNotNull(entry.arguments?.getString(KANJI_ID))
                 KanjiDetailsScreen(
                     kanjiId = kanjiId,
+                    userDao = userDao,
                     onOpenWord = { entryId, written ->
                         navController.navigate("word/$entryId/${Uri.encode(written)}?sourceKanji=${Uri.encode(kanjiId)}") {
                             launchSingleTop = true

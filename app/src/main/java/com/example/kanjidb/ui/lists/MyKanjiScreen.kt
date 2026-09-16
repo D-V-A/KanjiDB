@@ -57,31 +57,57 @@ import com.example.kanjidb.R
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.ui.FloatingActionPanel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.kanjidb.data.user.UserKanjiStateDao
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun MyKanjiScreen(
     onOpenDetails: (String) -> Unit,
-    state: MyKanjiMockState,
+    state: MyKanjiState,
+    userDao: UserKanjiStateDao,
     modifier: Modifier = Modifier
 ) {
+    val rows by remember(userDao) { userDao.observeAll() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    LaunchedEffect(rows) { state.updateCollections(rows) }
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var writeFailed by remember { mutableStateOf(false) }
+    fun saveSelection(target: LearningState) {
+        if (saving || state.selected.isEmpty()) return
+        val characters = state.selected.toList()
+        saving = true
+        writeFailed = false
+        scope.launch {
+            try {
+                userDao.setState(characters, target)
+                state.cancelSelection()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                android.util.Log.e("MyKanji", "Cannot save kanji states", error)
+                writeFailed = true
+            } finally {
+                saving = false
+            }
+        }
+    }
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
     val readings = remember { mutableStateMapOf<String, String?>() }
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
-    LaunchedEffect(dictionary, retry) {
+    LaunchedEffect(dictionary, retry, state.learning, state.known) {
         loading = true
         failed = false
         try {
-            for (character in (state.learning + state.known).distinct()) {
-                if (character in readings) continue
-                val kanji = dictionary.getKanji(character)
-                readings[character] = kanji?.kunReadings?.firstOrNull()
-                    ?: kanji?.onReadings?.firstOrNull()
-            }
+            val missing = (state.learning + state.known).filterNot { it in readings }
+            readings.putAll(dictionary.getCardReadings(missing))
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -115,7 +141,7 @@ internal fun MyKanjiScreen(
             panelTop != null && panelHeight > 0 &&
                 layout.afterContentPadding >= panelHeight &&
                 layout.totalItemsCount == state.kanji(state.selectionSection).size + 1 +
-                    (if (loading || failed) 1 else 0)
+                    (if (loading || failed || writeFailed) 1 else 0)
         }.first { it }
 
         // Hiding the other section can change the item's index. Resolve by its stable key.
@@ -209,11 +235,11 @@ internal fun MyKanjiScreen(
                         }
                     }
                 }
-                if (loading || failed) {
+                if (loading || failed || writeFailed) {
                     item(key = "reading_status", span = { GridItemSpan(maxLineSpan) }) {
                         Column {
                             Text(stringResource(
-                                if (failed) R.string.search_error else R.string.search_loading
+                                if (failed || writeFailed) R.string.search_error else R.string.search_loading
                             ))
                             if (failed) {
                                 TextButton(onClick = { retry++ }) {
@@ -228,9 +254,12 @@ internal fun MyKanjiScreen(
             if (selecting) {
                 SelectionPanel(
                     section = state.selectionSection,
-                    hasSelection = state.selected.isNotEmpty(),
-                    onRemove = state::removeSelected,
-                    onMove = state::moveSelected,
+                    hasSelection = state.selected.isNotEmpty() && !saving,
+                    onRemove = { saveSelection(LearningState.NONE) },
+                    onMove = {
+                        saveSelection(if (state.selectionSection == LearningState.LEARNING)
+                            LearningState.KNOWN else LearningState.LEARNING)
+                    },
                     onCancel = state::cancelSelection,
                     modifier = Modifier.align(Alignment.BottomCenter)
                         .fillMaxWidth().onSizeChanged { panelHeight = it.height }

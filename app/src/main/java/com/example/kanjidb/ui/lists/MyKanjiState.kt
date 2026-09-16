@@ -5,12 +5,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.kanjidb.ui.LearningState
 
-/** UI-only sample collection. Owned by the app composition, never saved to disk. */
-internal class MyKanjiMockState {
-    var learning by mutableStateOf(listOf("山", "川", "水", "火", "木", "金", "土", "日", "月", "人", "大", "小", "上", "下", "中", "左", "右", "白", "赤", "青", "空", "雨", "田", "花", "草", "虫", "犬", "貝", "石", "竹"))
+/** Transient collection snapshot and selection/expansion state; Room owns all saved data. */
+internal class MyKanjiState {
+    var learning by mutableStateOf(emptyList<String>())
         private set
-    var known by mutableStateOf(listOf("一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千", "円", "年", "時", "分", "今", "先", "学", "生", "本", "名", "文", "字", "男", "女", "子", "目", "耳", "口"))
+    var known by mutableStateOf(emptyList<String>())
         private set
+
+    fun updateCollections(rows: List<com.example.kanjidb.data.user.UserKanjiStateEntity>) {
+        learning = rows.filter { it.state == LearningState.LEARNING }.map { it.character }
+        known = rows.filter { it.state == LearningState.KNOWN }.map { it.character }
+        selected = selected.intersect(kanji(selectionSection).toSet())
+    }
     var learningExpanded by mutableStateOf(false)
         private set
     var knownExpanded by mutableStateOf(false)
@@ -58,24 +64,4 @@ internal class MyKanjiMockState {
         selectionSection = LearningState.NONE
     }
 
-    fun removeSelected() = finishSelection(move = false)
-
-    fun moveSelected() = finishSelection(move = true)
-
-    private fun finishSelection(move: Boolean) {
-        if (selected.isEmpty()) return
-        val moved = kanji(selectionSection).filter { it in selected }
-        when (selectionSection) {
-            LearningState.LEARNING -> {
-                learning = learning.filterNot { it in selected }
-                if (move) known = (known + moved).distinct()
-            }
-            LearningState.KNOWN -> {
-                known = known.filterNot { it in selected }
-                if (move) learning = (learning + moved).distinct()
-            }
-            LearningState.NONE -> return
-        }
-        cancelSelection()
-    }
 }

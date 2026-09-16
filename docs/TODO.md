@@ -1,11 +1,11 @@
-﻿# Plans and TODO
+# Plans and TODO
 
 Current implementation and limitations: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 Checked items are complete; existing placeholders do not count as completed milestones.
 
 ## Milestones
 
-- [ ] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details. The mock collection UI and selection/Move/Remove interactions are implemented.
+- [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
 - [ ] **Jōyō Kanji Browser:** browse levels and support bulk Known/Learning assignment.
 - [ ] **Recommended Kanji:** implement automatic suggestions using sufficiently confirmed Japanese kanji; follow the discovery/Search distinction in project context.
 - [ ] **Training:** implement practice sessions with answers written on paper.

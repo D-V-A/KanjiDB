@@ -107,6 +107,32 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
+    /** Only card readings: no meanings or related words are loaded. Missing entries map to null. */
+    suspend fun getCardReadings(characters: List<String>): Map<String, String?> =
+        withContext(Dispatchers.IO) {
+            if (characters.isEmpty()) return@withContext emptyMap()
+            val result = characters.associateWith<String, String?> { null }.toMutableMap()
+            SQLiteDatabase.openDatabase(
+                dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+            ).use { db ->
+                characters.distinct().chunked(900).forEach { chunk ->
+                    coroutineContext.ensureActive()
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    db.rawQuery("""
+                        SELECT k.character, COALESCE(
+                            (SELECT reading FROM kanji_reading WHERE kanji_id = k.id AND type = 'kun' ORDER BY id LIMIT 1),
+                            (SELECT reading FROM kanji_reading WHERE kanji_id = k.id AND type = 'on' ORDER BY id LIMIT 1)
+                        ) FROM kanji k WHERE k.character IN ($placeholders)
+                    """.trimIndent(), chunk.toTypedArray()).use { cursor ->
+                        while (cursor.moveToNext()) {
+                            result[cursor.getString(0)] = if (cursor.isNull(1)) null else cursor.getString(1)
+                        }
+                    }
+                }
+            }
+            result
+        }
+
     suspend fun getKanji(character: String): DictionaryKanji? = withContext(Dispatchers.IO) {
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY

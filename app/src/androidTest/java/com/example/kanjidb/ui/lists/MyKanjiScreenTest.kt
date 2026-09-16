@@ -11,6 +11,10 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.ui.theme.KanjiDBTheme
 import org.junit.Assert.*
+import androidx.room.Room
+import com.example.kanjidb.data.user.UserDatabase
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 
@@ -18,15 +22,23 @@ class MyKanjiScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val state = MyKanjiMockState()
+    private val state = MyKanjiState()
+    private lateinit var database: UserDatabase
+    @After fun closeDatabase() { if (::database.isInitialized) database.close() }
     private val opened = mutableListOf<String>()
 
     private fun showScreen(modifier: Modifier = Modifier) {
+        database = Room.inMemoryDatabaseBuilder(compose.activity, UserDatabase::class.java).build()
+        runBlocking {
+            database.kanjiStates().setState(listOf("山", "川", "水", "火", "木", "金", "土", "日", "月", "人", "大", "小", "上", "下", "中", "左", "右", "白", "赤", "青", "空", "雨", "田", "花", "草", "虫", "犬", "貝", "石", "竹"), LearningState.LEARNING)
+            database.kanjiStates().setState(listOf("一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千", "円", "年", "時", "分", "今", "先", "学", "生", "本", "名", "文", "字", "男", "女", "子", "目", "耳", "口"), LearningState.KNOWN)
+        }
         compose.setContent {
             KanjiDBTheme {
-                MyKanjiScreen(onOpenDetails = { opened.add(it) }, state = state, modifier = modifier)
+                MyKanjiScreen(onOpenDetails = { opened.add(it) }, state = state, userDao = database.kanjiStates(), modifier = modifier)
             }
         }
+        compose.waitUntil(10_000) { state.learning.size == 30 && state.known.size == 30 }
     }
 
     @Test
@@ -93,11 +105,13 @@ class MyKanjiScreenTest {
         compose.onNodeWithText("山").performTouchInput { longClick() }
         compose.onNodeWithText("川").performClick()
         compose.onNodeWithText("Move to Known").performClick()
+        compose.waitUntil(10_000) { state.learning.size == 28 && state.selectionSection == LearningState.NONE }
         compose.onNodeWithText("Learning (28)").assertIsDisplayed()
         compose.onNodeWithTag("my_kanji_grid").performScrollToIndex(0)
         compose.onNodeWithText("Cancel").assertDoesNotExist()
         compose.onNodeWithText("水").performTouchInput { longClick() }
         compose.onNodeWithText("Remove from Learning").performClick()
+        compose.waitUntil(10_000) { state.learning.size == 27 && state.selectionSection == LearningState.NONE }
         compose.onNodeWithText("Learning (27)").assertIsDisplayed()
         compose.onNodeWithTag("my_kanji_grid")
             .performScrollToNode(hasText("Known (32)"))

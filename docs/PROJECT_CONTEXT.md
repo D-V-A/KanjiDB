@@ -1,12 +1,12 @@
-﻿# Project context
+# Project context
 
 ## Purpose and current state
 
 KanjiDB is an offline-first Android kanji reference and future training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **0.1.9-alpha**, `versionCode = 3`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **0.2.0-alpha**, `versionCode = 4`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
-Implemented in v0.1 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji has a working mock collection UI. Training, Recommended Kanji, list assignment and stroke order remain unfinished placeholders; My Lists and Kanji Groups are disabled tabs.
+Implemented in v0.2 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Training, Recommended Kanji, list assignment and stroke order remain unfinished placeholders; My Lists and Kanji Groups are disabled tabs.
 
 ## Stack and code map
 
@@ -18,7 +18,7 @@ Single `:app` module: Kotlin, Jetpack Compose/Material 3, Navigation Compose, co
 - [KanjiSearch](../app/src/main/java/com/example/kanjidb/data/dictionary/KanjiSearch.kt) and [WordSearch](../app/src/main/java/com/example/kanjidb/data/dictionary/WordSearch.kt) contain search/explore SQL; reading normalization is shared.
 - Screens under `ui/` call the dictionary directly using Compose effects; database work runs on Dispatchers.IO. There is no ViewModel/repository/DI layer to extend by assumption.
 
-Room is the chosen future store for user-owned data, but is not yet a dependency or implementation. Kanji Details still uses independent screen-local rememberSaveable Known/Learning state. My Kanji uses an in-memory mock collection owned by the app composition, retained across navigation but reset when that composition is recreated; neither is a persistent personal collection, and the two are not synchronized.
+User-owned kanji state is stored in a separate Room `user.db` (schema version 1), independent of the read-only dictionary. `UserKanjiStateEntity` stores only the Unicode character primary key and LEARNING/KNOWN; an absent row means NONE. Dictionary IDs and content are never copied into user storage. The database starts empty, has no demo seeding or destructive migration fallback, and exports its schema to `app/schemas`. `UserKanjiStateDao` exposes Flow observations and transactional toggle/bulk assignment/removal. Screens collect with lifecycle awareness; suspend DAO calls run asynchronously. There is no repository or DI layer.
 
 ## Dictionary and import pipeline
 
@@ -68,14 +68,14 @@ Kanji Details merges common forms first, then remaining forms, unique by (entry_
 
 **Word Details** identifies a word by entry_id and written, with optional sourceKanji. From Kanji Details, that context reconstructs the deduplication group, exposing alternative written forms and their readings while preserving the representative's preferred reading. From Search/Explore, only the selected written form is used. Meanings are deduplicated and grouped by language for the selected written form, not merged from every alternative.
 
-## My Kanji (mock UI)
+## My Kanji
 
-My Kanji contains Learning and Known sections, initially collapsed, with live counts, sticky collapsible headers and compact adaptive square-card grids. Each starts with thirty real dictionary characters; cards show the first kun reading, then the first on reading as fallback, or a dash when neither exists. Normal taps open the existing Kanji Details.
+My Kanji contains Learning and Known sections, initially collapsed, with live counts, sticky collapsible headers and compact adaptive square-card grids. Both start empty and are populated through Kanji Details; cards show the first kun reading, then the first on reading as fallback, or a dash when neither exists. Normal taps open the existing Kanji Details.
 
-Long press selects a card and enters section-specific multi-selection. The other section is hidden without changing either expansion flag. Deselecting every card keeps selection mode active. Cancel, system Back or a long press on empty content space exits selection; mock Move/Remove also exit and update counts without duplicates. A single-row outlined action panel sits above bottom navigation and shares its container with Kanji Details. On selection entry, the grid scrolls only as needed to reveal the initial card above the measured panel; Training is disabled. Mock changes are never written to storage. The persistent My Kanji milestone remains open.
+Long press selects a card and enters section-specific multi-selection. The other section is hidden without changing either expansion flag. Deselecting every card keeps selection mode active. Cancel, system Back or a long press on empty content space exits selection; transactional Move/Remove also exit and update counts without duplicates. A single-row outlined action panel sits above bottom navigation and shares its container with Kanji Details. On selection entry, the grid scrolls only as needed to reveal the initial card above the measured panel; Training is disabled. Room observations update both counts and collections automatically. Card readings are fetched in batches from the dictionary, preferring first kun, then first on; missing dictionary entries display a dash and Details handles them as not found. Kanji Details observes the same saved state; pressing an active Learning/Known button removes the row, while pressing the other replaces the state.
 
 ## Verification and next work
 
-Existing focused JVM tests cover kanji search/normalization and common-word merge/grouping under `app/src/test/.../data/dictionary/`. The Python verifier checks the generated dictionary. Run the debug build after significant implementation changes as specified in [AGENTS.md](../AGENTS.md).
+Instrumented tests cover Room toggle/bulk/removal semantics, database reopening, and the existing My Kanji interactions using an isolated test database. JVM tests cover empty initial collections, toggling and transient selection/expansion. Existing focused JVM tests also cover kanji search/normalization and common-word merge/grouping under `app/src/test/.../data/dictionary/`. The Python verifier checks the generated dictionary. Run the debug build after significant implementation changes as specified in [AGENTS.md](../AGENTS.md).
 
 Future work and unresolved checks are maintained only in [TODO.md](TODO.md). About currently names KANJIDIC2/JMdict and EDRDG; this is not confirmation that attribution/license requirements have been fully verified.
