@@ -55,6 +55,19 @@ class UserKanjiStateDaoTest {
         assertTrue(dao.observeAll().first().isEmpty())
     }
 
+    @Test fun bulkOverwriteIgnoresEveryPreviousStateAndIsIdempotent() = runBlocking {
+        for (target in listOf(LearningState.LEARNING, LearningState.KNOWN)) {
+            val dao = MemoryDao()
+            dao.setState(listOf("learning"), LearningState.LEARNING)
+            dao.setState(listOf("known", "untouched"), LearningState.KNOWN)
+            val selected = listOf("none", "learning", "known")
+            repeat(2) { dao.setState(selected, target) }
+            selected.forEach { assertEquals(target, dao.getState(it)) }
+            assertEquals(LearningState.KNOWN, dao.getState("untouched"))
+            assertEquals(4, dao.observeAll().first().size)
+        }
+    }
+
     private class MemoryDao : UserKanjiStateDao() {
         private val rows = MutableStateFlow<Map<String, UserKanjiStateEntity>>(emptyMap())
         override fun observeState(character: String) = rows.map { it[character] }

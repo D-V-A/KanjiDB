@@ -3,65 +3,44 @@ package com.example.kanjidb.ui.lists
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
+import com.example.kanjidb.data.user.UserKanjiStateEntity
 import com.example.kanjidb.ui.LearningState
 
-/** Transient collection snapshot and selection/expansion state; Room owns all saved data. */
-internal class MyKanjiState {
+/** Room-derived collection snapshot; all selection/expansion behavior lives in the common state. */
+internal class MyKanjiState(val collection: KanjiCollectionState = KanjiCollectionState()) {
     var learning by mutableStateOf(emptyList<String>())
         private set
     var known by mutableStateOf(emptyList<String>())
         private set
+    val learningExpanded get() = expanded(LearningState.LEARNING)
+    val knownExpanded get() = expanded(LearningState.KNOWN)
+    val selectionSection get() = collection.section?.let(LearningState::valueOf) ?: LearningState.NONE
+    val selected get() = collection.selected
 
-    fun updateCollections(rows: List<com.example.kanjidb.data.user.UserKanjiStateEntity>) {
+    fun updateCollections(rows: List<UserKanjiStateEntity>) {
         learning = rows.filter { it.state == LearningState.LEARNING }.map { it.character }
         known = rows.filter { it.state == LearningState.KNOWN }.map { it.character }
-        selected = selected.intersect(kanji(selectionSection).toSet())
+        collection.retain(kanji(selectionSection).toSet())
     }
-    var learningExpanded by mutableStateOf(false)
-        private set
-    var knownExpanded by mutableStateOf(false)
-        private set
-    var selectionSection by mutableStateOf(LearningState.NONE)
-        private set
-    var selected by mutableStateOf(emptySet<String>())
-        private set
-
     fun kanji(section: LearningState): List<String> = when (section) {
         LearningState.LEARNING -> learning
         LearningState.KNOWN -> known
         LearningState.NONE -> emptyList()
     }
-
-    fun expanded(section: LearningState): Boolean = when (section) {
-        LearningState.LEARNING -> learningExpanded
-        LearningState.KNOWN -> knownExpanded
-        LearningState.NONE -> false
-    }
-
-    fun toggleExpanded(section: LearningState) {
-        // Selection temporarily controls visibility without changing either saved expansion flag.
-        if (selectionSection != LearningState.NONE) return
-        when (section) {
-            LearningState.LEARNING -> learningExpanded = !learningExpanded
-            LearningState.KNOWN -> knownExpanded = !knownExpanded
-            LearningState.NONE -> Unit
-        }
-    }
-
+    fun expanded(section: LearningState) = section.name in collection.expandedKeys
+    fun toggleExpanded(section: LearningState) = collection.toggleExpanded(section.name)
     fun beginSelection(section: LearningState, character: String) {
-        if (selectionSection != LearningState.NONE || character !in kanji(section)) return
-        selectionSection = section
-        selected = setOf(character)
+        if (character in kanji(section)) collection.begin(section.name, listOf(character))
     }
-
     fun toggleSelection(character: String) {
-        if (character !in kanji(selectionSection)) return
-        selected = if (character in selected) selected - character else selected + character
+        if (character in kanji(selectionSection)) collection.toggle(character)
     }
+    fun cancelSelection() = collection.cancel()
 
-    fun cancelSelection() {
-        selected = emptySet()
-        selectionSection = LearningState.NONE
+    companion object {
+        val Saver = listSaver<MyKanjiState, String>(
+            save = { it.collection.save() }, restore = { MyKanjiState(KanjiCollectionState.restore(it)) }
+        )
     }
-
 }

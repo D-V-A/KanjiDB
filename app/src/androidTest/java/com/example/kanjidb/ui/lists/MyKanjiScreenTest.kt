@@ -44,8 +44,8 @@ class MyKanjiScreenTest {
     @Test
     fun cardTapSelectDeselectAndEmptySpaceCancel() {
         showScreen()
-        compose.onNodeWithText("My Lists").assertIsNotEnabled()
-        compose.onNodeWithText("Kanji Groups").assertIsNotEnabled()
+        compose.onNodeWithText("My Lists").assertIsEnabled()
+        compose.onNodeWithText("Kanji Groups").assertIsEnabled()
         compose.onNodeWithText("Learning (30)").performClick()
         compose.onNodeWithText("山").performClick()
         compose.runOnIdle { assertEquals(listOf("山"), opened) }

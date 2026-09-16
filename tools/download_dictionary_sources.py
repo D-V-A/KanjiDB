@@ -13,12 +13,23 @@ SOURCES = [
         "url": "https://www.edrdg.org/pub/Nihongo/kanjidic2.xml.gz",
         "archive": DATA_DIR / "kanjidic2.xml.gz",
         "output": DATA_DIR / "kanjidic2.xml",
+        "compression": "gzip",
     },
     {
         "name": "JMdict",
         "url": "https://www.edrdg.org/pub/Nihongo/JMdict_e.gz",
         "archive": DATA_DIR / "JMdict_e.gz",
         "output": DATA_DIR / "jmdict.xml",
+        "compression": "gzip",
+    },
+    {
+        "name": "JLPT kanji levels",
+        "url": (
+            "https://raw.githubusercontent.com/"
+            "onlyskin/kanjiapi.dev/master/jlpt.tsv"
+        ),
+        "output": DATA_DIR / "jlpt.tsv",
+        "compression": None,
     },
 ]
 
@@ -103,7 +114,7 @@ def download_file(url, destination):
                     f"got {actual_size} bytes."
                 )
 
-        # Replace final archive only after the download
+        # Replace final file only after the download
         # has completed successfully.
         temp_destination.replace(destination)
 
@@ -135,7 +146,7 @@ def decompress_gzip(source, destination):
                     length=1024 * 1024
                 )
 
-        # Only expose final XML after successful decompression.
+        # Only expose final output after successful decompression.
         temp_destination.replace(destination)
 
     except Exception:
@@ -148,37 +159,62 @@ def decompress_gzip(source, destination):
 def process_source(source):
     name = source["name"]
     url = source["url"]
-    archive = source["archive"]
     output = source["output"]
+    compression = source.get("compression")
 
     print()
     print("=" * 60)
     print(name)
     print("=" * 60)
 
-    # If final XML is already present, do nothing.
+    # If the final source file is already present, do nothing.
     if output.exists():
         print("Already exists:")
         print(f"  {output}")
         print("Skipping download.")
         return
 
-    # Download archive if it is not already available.
-    if not archive.exists():
+    if compression is None:
+        # Plain source file: download it directly to its final path.
         download_file(
             url,
-            archive
+            output
         )
-    else:
-        print("Archive already exists:")
-        print(f"  {archive}")
-        print("Skipping download.")
 
-    # Extract XML.
-    decompress_gzip(
-        archive,
-        output
-    )
+    elif compression == "gzip":
+        archive = source["archive"]
+
+        # Download archive if it is not already available.
+        if not archive.exists():
+            download_file(
+                url,
+                archive
+            )
+        else:
+            print("Archive already exists:")
+            print(f"  {archive}")
+            print("Skipping download.")
+
+        # Extract compressed source.
+        decompress_gzip(
+            archive,
+            output
+        )
+
+        # Compressed archive is no longer needed after
+        # successful extraction.
+        if output.exists():
+            archive.unlink()
+
+            print(
+                f"Removed temporary archive: {archive.name}"
+            )
+
+    else:
+        raise ValueError(
+            f"Unsupported compression type for {name}: "
+            f"{compression}"
+        )
 
     if not output.exists():
         raise RuntimeError(
@@ -188,14 +224,6 @@ def process_source(source):
     print(
         f"Created: {output} "
         f"({output.stat().st_size / 1024 / 1024:.1f} MB)"
-    )
-
-    # Compressed archive is no longer needed after
-    # successful extraction.
-    archive.unlink()
-
-    print(
-        f"Removed temporary archive: {archive.name}"
     )
 
 

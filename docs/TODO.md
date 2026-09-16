@@ -6,7 +6,7 @@ Checked items are complete; existing placeholders do not count as completed mile
 ## Milestones
 
 - [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
-- [ ] **Jōyō Kanji Browser:** browse levels and support bulk Known/Learning assignment.
+- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. My Lists remains a placeholder and Training actions remain disabled.
 - [ ] **Recommended Kanji:** implement automatic suggestions using sufficiently confirmed Japanese kanji; follow the discovery/Search distinction in project context.
 - [ ] **Training:** implement practice sessions with answers written on paper.
 - [ ] **User Lists:** create/manage custom lists and enable assignment from details.

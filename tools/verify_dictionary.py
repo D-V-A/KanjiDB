@@ -12,6 +12,8 @@ DB_PATH = (
     / "dictionary.db"
 )
 
+JLPT_PATH = BASE_DIR / "data" / "jlpt.tsv"
+
 
 def fail(message):
     print(f"[FAIL] {message}")
@@ -90,6 +92,7 @@ try:
         "word_form",
         "word_meaning",
         "word_kanji",
+        "jlpt_kanji",
     }
 
     actual_tables = {
@@ -133,6 +136,7 @@ try:
         "word_form",
         "word_meaning",
         "word_kanji",
+        "jlpt_kanji",
     ]:
         count = cur.execute(
             f"SELECT COUNT(*) FROM {table}"
@@ -158,6 +162,209 @@ try:
         success = fail(
             "Word table is empty"
         ) and success
+
+    if counts["jlpt_kanji"] > 0:
+        ok("JLPT table is not empty")
+    else:
+        success = fail(
+            "JLPT table is empty"
+        ) and success
+
+    # --------------------------------------------------------
+    # JLPT data
+    # --------------------------------------------------------
+
+    print()
+    print("JLPT levels:")
+
+    jlpt_level_counts = dict(
+        cur.execute("""
+            SELECT level, COUNT(*)
+            FROM jlpt_kanji
+            GROUP BY level
+            ORDER BY level
+        """).fetchall()
+    )
+
+    for level in range(1, 6):
+        print(
+            f"  N{level}: "
+            f"{jlpt_level_counts.get(level, 0)}"
+        )
+
+    invalid_jlpt_levels = cur.execute("""
+        SELECT COUNT(*)
+        FROM jlpt_kanji
+        WHERE level NOT BETWEEN 1 AND 5
+    """).fetchone()[0]
+
+    if invalid_jlpt_levels == 0:
+        ok("JLPT levels are within N1-N5")
+    else:
+        success = fail(
+            f"Invalid JLPT levels: "
+            f"{invalid_jlpt_levels}"
+        ) and success
+
+    missing_jlpt_levels = [
+        level
+        for level in range(1, 6)
+        if jlpt_level_counts.get(level, 0) == 0
+    ]
+
+    if not missing_jlpt_levels:
+        ok("All JLPT levels N1-N5 are present")
+    else:
+        success = fail(
+            "Missing JLPT levels: "
+            f"{missing_jlpt_levels}"
+        ) and success
+
+    # Compare the imported table with the downloaded source.
+    # This avoids hard-coding counts that could change if the
+    # upstream community classification is updated.
+    if not JLPT_PATH.exists():
+        success = fail(
+            f"JLPT source file not found: {JLPT_PATH}"
+        ) and success
+    else:
+        source_jlpt = {}
+        source_duplicates = []
+        source_format_errors = []
+
+        with open(
+            JLPT_PATH,
+            "r",
+            encoding="utf-8-sig"
+        ) as source_file:
+            for line_number, line in enumerate(
+                source_file,
+                start=1
+            ):
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                parts = line.split("\t")
+
+                if len(parts) != 2:
+                    source_format_errors.append(
+                        (line_number, line)
+                    )
+                    continue
+
+                raw_level, characters = parts
+
+                try:
+                    level = int(
+                        raw_level.strip()
+                        .upper()
+                        .removeprefix("N")
+                    )
+                except ValueError:
+                    source_format_errors.append(
+                        (line_number, line)
+                    )
+                    continue
+
+                if level not in range(1, 6):
+                    source_format_errors.append(
+                        (line_number, line)
+                    )
+                    continue
+
+                for character in characters.strip():
+                    previous_level = source_jlpt.get(
+                        character
+                    )
+
+                    if previous_level is not None:
+                        source_duplicates.append(
+                            (
+                                character,
+                                previous_level,
+                                level,
+                            )
+                        )
+                        continue
+
+                    source_jlpt[character] = level
+
+        if source_format_errors:
+            success = fail(
+                "Invalid jlpt.tsv rows: "
+                f"{source_format_errors[:5]}"
+            ) and success
+        else:
+            ok("JLPT source format")
+
+        if source_duplicates:
+            success = fail(
+                "Duplicate kanji in jlpt.tsv: "
+                f"{source_duplicates[:10]}"
+            ) and success
+        else:
+            ok("No duplicate kanji in JLPT source")
+
+        db_jlpt = dict(
+            cur.execute("""
+                SELECT k.character, j.level
+                FROM jlpt_kanji j
+                JOIN kanji k
+                    ON k.id = j.kanji_id
+            """).fetchall()
+        )
+
+        missing_from_db = sorted(
+            set(source_jlpt) - set(db_jlpt)
+        )
+
+        extra_in_db = sorted(
+            set(db_jlpt) - set(source_jlpt)
+        )
+
+        wrong_levels = sorted(
+            (
+                character,
+                source_jlpt[character],
+                db_jlpt[character],
+            )
+            for character in (
+                set(source_jlpt) & set(db_jlpt)
+            )
+            if source_jlpt[character]
+            != db_jlpt[character]
+        )
+
+        if (
+            not missing_from_db
+            and not extra_in_db
+            and not wrong_levels
+        ):
+            ok(
+                "JLPT table exactly matches "
+                "jlpt.tsv"
+            )
+        else:
+            if missing_from_db:
+                success = fail(
+                    "JLPT kanji missing from DB: "
+                    f"{missing_from_db[:20]}"
+                ) and success
+
+            if extra_in_db:
+                success = fail(
+                    "Extra JLPT kanji in DB: "
+                    f"{extra_in_db[:20]}"
+                ) and success
+
+            if wrong_levels:
+                success = fail(
+                    "JLPT level mismatches "
+                    "(character, source, DB): "
+                    f"{wrong_levels[:20]}"
+                ) and success
 
     # --------------------------------------------------------
     # Language-code consistency
@@ -549,6 +756,14 @@ try:
            OR k.id IS NULL
     """).fetchone()[0]
 
+    orphan_jlpt_links = cur.execute("""
+        SELECT COUNT(*)
+        FROM jlpt_kanji j
+        LEFT JOIN kanji k
+            ON k.id = j.kanji_id
+        WHERE k.id IS NULL
+    """).fetchone()[0]
+
     if orphan_kanji_meanings == 0:
         ok("No orphan kanji meanings")
     else:
@@ -579,6 +794,14 @@ try:
         success = fail(
             "Orphan word-kanji links: "
             f"{orphan_word_links}"
+        ) and success
+
+    if orphan_jlpt_links == 0:
+        ok("No orphan JLPT-kanji links")
+    else:
+        success = fail(
+            "Orphan JLPT-kanji links: "
+            f"{orphan_jlpt_links}"
         ) and success
 
     # --------------------------------------------------------

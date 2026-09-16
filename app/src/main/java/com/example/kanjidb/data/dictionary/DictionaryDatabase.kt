@@ -107,6 +107,41 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
+    /** Two bulk queries, independent of the number of kanji; no per-card detail/word lookups. */
+    suspend fun getKanjiGroups(): List<KanjiGroupEntry> = withContext(Dispatchers.IO) {
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            val kun = mutableMapOf<Long, String>()
+            val on = mutableMapOf<Long, String>()
+            db.rawQuery("SELECT kanji_id, type, reading FROM kanji_reading ORDER BY id", null).use { cursor ->
+                while (cursor.moveToNext()) {
+                    coroutineContext.ensureActive()
+                    val readings = if (cursor.getString(1) == "kun") kun else on
+                    readings.putIfAbsent(cursor.getLong(0), cursor.getString(2))
+                }
+            }
+            db.rawQuery("""
+                SELECT k.id, k.character, k.grade, k.frequency, k.stroke_count, k.joyo, j.level
+                FROM kanji k LEFT JOIN jlpt_kanji j ON j.kanji_id = k.id
+                ORDER BY k.character
+            """.trimIndent(), null).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        val id = cursor.getLong(0)
+                        add(KanjiGroupEntry(
+                            character = cursor.getString(1), reading = kun[id] ?: on[id],
+                            grade = cursor.nullableInt(2), frequency = cursor.nullableInt(3),
+                            strokeCount = cursor.nullableInt(4), isJoyo = cursor.getInt(5) == 1,
+                            jlpt = cursor.nullableInt(6)
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
     /** Only card readings: no meanings or related words are loaded. Missing entries map to null. */
     suspend fun getCardReadings(characters: List<String>): Map<String, String?> =
         withContext(Dispatchers.IO) {
