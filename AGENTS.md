@@ -12,3 +12,9 @@
 - Do not commit or push without an explicit request.
 - After significant architectural or user-visible changes, update docs/PROJECT_CONTEXT.md and/or docs/TODO.md when the documented state has changed.
 - Do not run emulator. And do not run any Device/UI tests without permission. 
+- Every task that changes application code or resources must increment the Android `versionCode` by exactly 1 before the final build.
+- Increment `versionCode` only once per task/session, not once per Gradle invocation.
+- Do not change `versionName` unless the task explicitly requires a version change.
+- Verification-only builds that make no project changes must not increment `versionCode`.
+- The final `./gradlew.bat :app:assembleDebug` must use the incremented `versionCode`.
+- After finishing task tell developer current application version from `versionName` and `versionCode`.

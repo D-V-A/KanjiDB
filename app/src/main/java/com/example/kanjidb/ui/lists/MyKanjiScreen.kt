@@ -44,18 +44,33 @@ internal fun MyKanjiScreen(
     val groupsGrid = rememberLazyGridState()
     val pager = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
-    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
-        TabRow(selectedTabIndex = pager.currentPage) {
-            listOf(R.string.my_kanji_title, R.string.my_lists_title, R.string.kanji_groups_title)
-                .forEachIndexed { index, title ->
-                    Tab(selected = pager.currentPage == index, enabled = !saving,
-                        onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        text = { Text(stringResource(title)) })
+    var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
+    var rulesOpen by rememberSaveable { mutableStateOf(false) }
+    CollapsingCollectionHeader(
+        currentPage = pager.currentPage,
+        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp).padding(bottom = 16.dp),
+        scrollEnabled = pager.currentPage != 1 && !saving && !rulesOpen,
+        keepVisible = pager.currentPage == 1,
+        header = {
+            Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
+                TabRow(selectedTabIndex = pager.currentPage) {
+                    listOf(R.string.my_kanji_title, R.string.my_lists_title, R.string.kanji_groups_title)
+                        .forEachIndexed { index, title ->
+                            Tab(selected = pager.currentPage == index, enabled = !saving,
+                                onClick = { scope.launch { pager.animateScrollToPage(index) } },
+                                text = { Text(stringResource(title)) })
+                        }
                 }
+                if (pager.currentPage == 2) {
+                    KanjiGroupsControls(options, { options = it }, rulesOpen, { rulesOpen = it }, groupsWriter.saving)
+                }
+            }
         }
+    ) {
         HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
-            modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
+            modifier = Modifier.fillMaxSize()) { index ->
             when (index) {
                 0 -> MyKanjiPage(state, dictionary, myWriter, collectionLoaded, myGrid,
                     activePage = pager.currentPage == 0, onOpenDetails = onOpenDetails)
@@ -64,7 +79,8 @@ internal fun MyKanjiScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 2 -> KanjiGroupsPage(dictionary, rows, groupsState, groupsWriter, groupsGrid,
-                    activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails)
+                    activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
+                    options = options, rulesOpen = rulesOpen)
             }
         }
     }
