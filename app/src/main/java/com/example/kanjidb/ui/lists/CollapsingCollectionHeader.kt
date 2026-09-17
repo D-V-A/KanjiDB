@@ -20,13 +20,12 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.roundToInt
 
-/** Shared enter-always header; saved across navigation, reset on each tab change. */
+/** Page-owned controls below fixed tabs; saved across navigation, reset on each tab change. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CollapsingCollectionHeader(
     currentPage: Int,
     scrollEnabled: Boolean,
-    keepVisible: Boolean,
     modifier: Modifier = Modifier,
     header: @Composable () -> Unit,
     content: @Composable () -> Unit
@@ -52,8 +51,7 @@ internal fun CollapsingCollectionHeader(
             state.heightOffsetLimit = limit
             state.heightOffset = limit * fraction
         }
-        // The placeholder has no vertical scrolling with which to bring its tabs back.
-        val offset = if (keepVisible) 0 else state.heightOffset.roundToInt()
+        val offset = state.heightOffset.roundToInt()
         val visibleHeight = (headerPlaceable.height + offset).coerceAtLeast(0)
         val contentPlaceable = measurables[1].measure(
             Constraints.fixed(constraints.maxWidth, (constraints.maxHeight - visibleHeight).coerceAtLeast(0))

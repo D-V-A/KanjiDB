@@ -15,10 +15,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kanjidb.R
+import com.example.kanjidb.data.dictionary.KanjiGroupEntry
+import com.example.kanjidb.data.user.UserKanjiStateEntity
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.user.UserKanjiStateDao
 import com.example.kanjidb.ui.LearningState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 @Composable
@@ -31,9 +35,8 @@ internal fun MyKanjiScreen(
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
     val rows by remember(userDao) { userDao.observeAll() }.collectAsStateWithLifecycle(initialValue = null)
-    var collectionLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(rows) {
-        rows?.let { state.updateCollections(it); collectionLoaded = true }
+        rows?.let { state.updateCollections(it) }
     }
     val groupsState = rememberSaveable(saver = KanjiCollectionState.Saver) { KanjiCollectionState() }
     val myWriter = rememberKanjiStateWriter(userDao, state.collection)
@@ -46,80 +49,104 @@ internal fun MyKanjiScreen(
     val scope = rememberCoroutineScope()
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
-    CollapsingCollectionHeader(
-        currentPage = pager.currentPage,
-        modifier = modifier.fillMaxSize().padding(horizontal = 16.dp).padding(bottom = 16.dp),
-        scrollEnabled = pager.currentPage != 1 && !saving && !rulesOpen,
-        keepVisible = pager.currentPage == 1,
-        header = {
-            Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
-                TabRow(selectedTabIndex = pager.currentPage) {
-                    listOf(R.string.my_kanji_title, R.string.my_lists_title, R.string.kanji_groups_title)
-                        .forEachIndexed { index, title ->
-                            Tab(selected = pager.currentPage == index, enabled = !saving,
-                                onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                                text = { Text(stringResource(title)) })
-                        }
-                }
-                if (pager.currentPage == 2) {
-                    KanjiGroupsControls(options, { options = it }, rulesOpen, { rulesOpen = it }, groupsWriter.saving)
-                }
-            }
+    var myOptions by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
+        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.NONE))
+    }
+    var myRulesOpen by rememberSaveable { mutableStateOf(false) }
+    // Both pages share the same bulk metadata/readings load; user data stays in Room.
+    var entries by remember(dictionary) { mutableStateOf<List<KanjiGroupEntry>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var retry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(dictionary, retry) {
+        failed = false
+        try {
+            entries = dictionary.getKanjiGroups()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.e("KanjiCollections", "Cannot load dictionary groups", error)
+            failed = true
         }
-    ) {
+    }
+    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
+        TabRow(selectedTabIndex = pager.currentPage) {
+            listOf(R.string.my_kanji_title, R.string.my_lists_title, R.string.kanji_groups_title)
+                .forEachIndexed { index, title ->
+                    Tab(selected = pager.currentPage == index, enabled = !saving,
+                        onClick = { scope.launch { pager.animateScrollToPage(index) } },
+                        text = { Text(stringResource(title)) })
+                }
+        }
+        // Reset controls after a completed tab change, avoiding a jump on the outgoing page mid-swipe.
         HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
-            modifier = Modifier.fillMaxSize()) { index ->
+            modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
             when (index) {
-                0 -> MyKanjiPage(state, dictionary, myWriter, collectionLoaded, myGrid,
-                    activePage = pager.currentPage == 0, onOpenDetails = onOpenDetails)
+                0 -> CollapsingCollectionHeader(
+                    currentPage = pager.settledPage,
+                    scrollEnabled = pager.currentPage == 0 && !saving && !myRulesOpen,
+                    modifier = Modifier.fillMaxSize(),
+                    header = {
+                        Box(Modifier.padding(bottom = 8.dp)) {
+                            KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
+                                { myRulesOpen = it }, myWriter.saving, personal = true)
+                        }
+                    }
+                ) {
+                    MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
+                        activePage = pager.currentPage == 0 && !myRulesOpen,
+                        onOpenDetails = onOpenDetails, options = myOptions)
+                }
                 1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.my_lists_placeholder),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                2 -> KanjiGroupsPage(dictionary, rows, groupsState, groupsWriter, groupsGrid,
-                    activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
-                    options = options, rulesOpen = rulesOpen)
+                2 -> CollapsingCollectionHeader(
+                    currentPage = pager.settledPage,
+                    scrollEnabled = pager.currentPage == 2 && !saving && !rulesOpen,
+                    modifier = Modifier.fillMaxSize(),
+                    header = {
+                        Box(Modifier.padding(bottom = 8.dp)) {
+                            KanjiCollectionControls(options, { options = it }, rulesOpen,
+                                { rulesOpen = it }, groupsWriter.saving)
+                        }
+                    }
+                ) {
+                    KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,
+                        activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
+                        options = options, rulesOpen = rulesOpen)
+                }
             }
         }
     }
 }
 
+private data class PersonalGroupResult(
+    val source: List<KanjiGroupEntry>, val rows: List<UserKanjiStateEntity>,
+    val options: KanjiGroupOptions, val sections: List<PersonalKanjiSection>
+)
+
 @Composable
 private fun MyKanjiPage(
-    state: MyKanjiState, dictionary: DictionaryDatabase, writer: KanjiStateWriter,
-    collectionLoaded: Boolean, grid: LazyGridState, activePage: Boolean, onOpenDetails: (String) -> Unit
+    state: MyKanjiState, entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
+    failed: Boolean, onRetry: () -> Unit, writer: KanjiStateWriter, grid: LazyGridState,
+    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions
 ) {
-    val readings = remember { mutableStateMapOf<String, String?>() }
-    var loading by remember { mutableStateOf(true) }
-    var failed by remember { mutableStateOf(false) }
-    var retry by remember { mutableIntStateOf(0) }
-    LaunchedEffect(dictionary, retry, state.learning, state.known) {
-        loading = true
-        failed = false
-        try {
-            val missing = (state.learning + state.known).filterNot { it in readings }
-            readings.putAll(dictionary.getCardReadings(missing))
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            android.util.Log.e("MyKanji", "Cannot load dictionary readings", error)
-            failed = true
-        } finally {
-            loading = false
+    var result by remember { mutableStateOf<PersonalGroupResult?>(null) }
+    LaunchedEffect(entries, rows, options) {
+        val source = entries ?: return@LaunchedEffect
+        val owned = rows ?: return@LaunchedEffect
+        result = withContext(Dispatchers.Default) {
+            PersonalGroupResult(source, owned, options, groupMyKanji(source, owned, options))
         }
     }
-    val pending = stringResource(R.string.my_kanji_reading_pending)
-    val sections = listOf(LearningState.LEARNING, LearningState.KNOWN).map { section ->
-        KanjiSection(section.name, stringResource(if (section == LearningState.LEARNING)
-            R.string.details_learning else R.string.details_known),
-            state.kanji(section).map { KanjiCardItem(it, if (it in readings) readings[it] else pending) })
-    }
+    val ready = result?.let { it.source === entries && it.rows == rows && it.options == options } == true
+    val sections = personalKanjiSections(result?.sections.orEmpty(), result?.options?.groupBy ?: options.groupBy)
     val learning = state.selectionSection == LearningState.LEARNING
     KanjiCollectionGrid(
         sections = sections, state = state.collection, onOpenDetails = onOpenDetails,
-        grid = grid, contentAvailable = collectionLoaded,
+        // Do not measure restored grid state until Room + metadata + organization are ready.
+        grid = grid, contentAvailable = result != null,
         actions = listOf(
             KanjiSelectionAction(if (learning) R.string.my_kanji_remove_learning else R.string.my_kanji_remove_known,
                 { writer.assign(it, LearningState.NONE) }, 1.4f),
@@ -127,13 +154,13 @@ private fun MyKanjiPage(
                 { writer.assign(it, if (learning) LearningState.KNOWN else LearningState.LEARNING) }, 1.3f)
         ),
         modifier = Modifier.fillMaxSize(), activePage = activePage, isolateSection = true,
-        ready = collectionLoaded, loading = loading || !collectionLoaded, busy = writer.saving,
+        ready = ready, loading = !ready && !failed, busy = writer.saving,
         error = when {
             writer.failed -> stringResource(R.string.kanji_state_save_error)
-            failed -> stringResource(R.string.search_error)
+            failed -> stringResource(R.string.groups_load_error)
             else -> null
         },
-        onRetry = if (failed) ({ retry++ }) else null,
+        onRetry = if (failed) onRetry else null,
         tag = "my_kanji"
     )
 }

@@ -13,11 +13,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.kanjidb.R
-import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.KanjiGroupEntry
 import com.example.kanjidb.data.user.UserKanjiStateEntity
 import com.example.kanjidb.ui.LearningState
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,26 +26,13 @@ private data class GroupResult(
 
 @Composable
 internal fun KanjiGroupsPage(
-    dictionary: DictionaryDatabase, rows: List<UserKanjiStateEntity>?,
+    entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
+    failed: Boolean, onRetry: () -> Unit,
     state: KanjiCollectionState, writer: KanjiStateWriter, grid: LazyGridState,
     activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions,
     rulesOpen: Boolean
 ) {
-    var entries by remember(dictionary) { mutableStateOf<List<KanjiGroupEntry>?>(null) }
-    var failed by remember { mutableStateOf(false) }
-    var retry by remember { mutableIntStateOf(0) }
     var result by remember { mutableStateOf<GroupResult?>(null) }
-    LaunchedEffect(dictionary, retry) {
-        failed = false
-        try {
-            entries = dictionary.getKanjiGroups()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            android.util.Log.e("KanjiGroups", "Cannot load dictionary groups", error)
-            failed = true
-        }
-    }
     LaunchedEffect(entries, rows, options) {
         val source = entries ?: return@LaunchedEffect
         val states = rows ?: return@LaunchedEffect
@@ -61,19 +46,9 @@ internal fun KanjiGroupsPage(
     val groups = result?.groups.orEmpty()
     val groupBy = result?.options?.groupBy ?: options.groupBy
     val sections = groups.map { group ->
-        val title = when (groupBy) {
-            KanjiGroupBy.JLPT -> if (group.level == null) stringResource(R.string.groups_no_jlpt)
-                else stringResource(R.string.groups_jlpt_level, group.level)
-            KanjiGroupBy.GRADE -> if (group.level == null) stringResource(R.string.groups_no_grade)
-                else stringResource(R.string.groups_grade_level, group.level)
-        }
         val key = "${groupBy.name}:${group.level}"
-        KanjiSection(key, title, group.kanji.map { KanjiCardItem(it.character, it.reading) },
-            group.frequencyGroups.map { subgroup ->
-                KanjiSubgroup("$key:${subgroup.kind.name}",
-                    stringResource(if (subgroup.kind == FrequencyGroup.RANKED) R.string.groups_ranked else R.string.groups_unranked),
-                    subgroup.kanji.map { KanjiCardItem(it.character, it.reading) })
-            })
+        KanjiSection(key, kanjiGroupTitle(groupBy, group.level), group.kanji.cards(),
+            frequencySubgroups(key, group))
     }
     KanjiCollectionGrid(
         sections = sections, state = state, onOpenDetails = onOpenDetails,
@@ -89,39 +64,48 @@ internal fun KanjiGroupsPage(
             writer.failed -> stringResource(R.string.kanji_state_save_error)
             else -> null
         },
-        onRetry = if (failed) ({ retry++ }) else null,
+        onRetry = if (failed) onRetry else null,
         emptyMessage = stringResource(R.string.groups_empty)
     )
 }
 
 @Composable
-internal fun KanjiGroupsControls(
+internal fun KanjiCollectionControls(
     options: KanjiGroupOptions, onOptionsChange: (KanjiGroupOptions) -> Unit,
-    rulesOpen: Boolean, onRulesOpenChange: (Boolean) -> Unit, saving: Boolean
+    rulesOpen: Boolean, onRulesOpenChange: (Boolean) -> Unit, saving: Boolean,
+    personal: Boolean = false
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.weight(1f)) {
                 ChoiceMenu(
                     label = stringResource(R.string.groups_group_by), value = options.groupBy,
-                    choices = KanjiGroupBy.entries, enabled = !saving,
-                    title = { stringResource(if (it == KanjiGroupBy.JLPT) R.string.groups_jlpt else R.string.groups_grade) },
+                    choices = KanjiGroupBy.entries.filter { personal || it != KanjiGroupBy.NONE }, enabled = !saving,
+                    title = { stringResource(when (it) {
+                        KanjiGroupBy.NONE -> R.string.groups_rule_na
+                        KanjiGroupBy.JLPT -> R.string.groups_jlpt
+                        KanjiGroupBy.GRADE -> R.string.groups_grade
+                    }) },
                     onSelect = { onOptionsChange(options.copy(groupBy = it)) }
                 )
                 TextButton(onClick = { onOptionsChange(options.copy(reverseGroups = !options.reverseGroups)) },
-                    enabled = !saving) {
+                    enabled = !saving && options.groupBy != KanjiGroupBy.NONE) {
                     Text(stringResource(if (options.reverseGroups) R.string.groups_harder_first else R.string.groups_easier_first))
                 }
             }
             Column(Modifier.weight(1f)) {
                 ChoiceMenu(
                     label = stringResource(R.string.groups_sort_by), value = options.sortBy,
-                    choices = KanjiSortBy.entries, enabled = !saving,
-                    title = { stringResource(if (it == KanjiSortBy.FREQUENCY) R.string.groups_frequency else R.string.groups_strokes) },
+                    choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.NONE }, enabled = !saving,
+                    title = { stringResource(when (it) {
+                        KanjiSortBy.NONE -> R.string.groups_rule_na
+                        KanjiSortBy.FREQUENCY -> R.string.groups_frequency
+                        KanjiSortBy.STROKES -> R.string.groups_strokes
+                    }) },
                     onSelect = { onOptionsChange(options.copy(sortBy = it)) }
                 )
                 TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
-                    enabled = !saving) {
+                    enabled = !saving && options.sortBy != KanjiSortBy.NONE) {
                     Text(stringResource(options.sortDirectionLabel))
                 }
             }
@@ -145,7 +129,7 @@ internal fun KanjiGroupsControls(
                     PresenceMenu(stringResource(R.string.groups_jlpt), options.jlpt) { onOptionsChange(options.copy(jlpt = it)) }
                     PresenceMenu(stringResource(R.string.groups_grade), options.grade) { onOptionsChange(options.copy(grade = it)) }
                     PresenceMenu(stringResource(R.string.details_joyo), options.joyo) { onOptionsChange(options.copy(joyo = it)) }
-                    ChoiceMenu(stringResource(R.string.groups_status), options.status, KanjiStatusRule.entries,
+                    if (!personal) ChoiceMenu(stringResource(R.string.groups_status), options.status, KanjiStatusRule.entries,
                         title = { stringResource(when (it) {
                             KanjiStatusRule.ANY -> R.string.groups_any
                             KanjiStatusRule.KNOWN -> R.string.details_known

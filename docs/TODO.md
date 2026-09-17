@@ -14,6 +14,10 @@ Checked items are complete; existing placeholders do not count as completed mile
 
 ## TODO
 
+- [x] Keep collection tabs fixed and collapse only page-owned controls with shared nested scroll; reset controls after tab changes.
+- [x] Add shared Group by / Sort by / Rules inside My Kanji Learning/Known, including selectable JLPT/Grade groups and nested technical Ranked/Unranked sections.
+- [ ] Manually verify 0.3.3 collection UX on a phone: fixed tabs/page controls during tap/swipe, controls reset, nested header selection, card clearance, section restoration and Details -> Back in both collections.
+
 - [x] Capitalise standalone English kanji meanings in the UI.
 - [x] Make dictionary text selectable/copyable.
 - [ ] Implement Recommended words.

@@ -28,7 +28,21 @@ import com.example.kanjidb.ui.FloatingActionPanel
 import kotlinx.coroutines.flow.first
 
 internal data class KanjiCardItem(val character: String, val reading: String?)
-internal data class KanjiSubgroup(val key: String, val title: String, val cards: List<KanjiCardItem>)
+internal data class KanjiSubgroup(
+    val key: String, val title: String, val cards: List<KanjiCardItem>,
+    val subgroups: List<KanjiSubgroup> = emptyList(), val selectable: Boolean = false
+)
+
+/** Same traversal as rendering, used by selected-card clearance to resolve real item indices. */
+internal fun subgroupItemKeys(subgroups: List<KanjiSubgroup>, collapsed: Set<String>): List<String> = buildList {
+    subgroups.forEach { subgroup ->
+        add("subheader:${subgroup.key}")
+        if (subgroup.key !in collapsed) {
+            if (subgroup.subgroups.isEmpty()) addAll(subgroup.cards.map { it.character })
+            else addAll(subgroupItemKeys(subgroup.subgroups, collapsed))
+        }
+    }
+}
 internal data class KanjiSection(
     val key: String, val title: String, val cards: List<KanjiCardItem>,
     val subgroups: List<KanjiSubgroup> = emptyList()
@@ -84,10 +98,7 @@ internal fun KanjiCollectionGrid(
             add("header:${section.key}")
             if (section.key in expanded) {
                 if (section.subgroups.isEmpty()) addAll(section.cards.map { it.character })
-                else section.subgroups.forEach { subgroup ->
-                    add("subheader:${subgroup.key}")
-                    if (subgroup.key !in state.collapsedSubgroups) addAll(subgroup.cards.map { it.character })
-                }
+                else addAll(subgroupItemKeys(section.subgroups, state.collapsedSubgroups))
             }
         }
         if (footer) add("status")
@@ -174,16 +185,27 @@ internal fun KanjiCollectionGrid(
                             )
                         }
                     }
-                    if (section.subgroups.isEmpty()) kanjiCards(section.cards)
-                    else section.subgroups.forEach { subgroup ->
-                        val subgroupExpanded = subgroup.key !in state.collapsedSubgroups
-                        item(key = "subheader:${subgroup.key}", span = { GridItemSpan(maxLineSpan) }) {
-                            KanjiSubgroupHeader(subgroup.title, subgroup.cards.size, subgroupExpanded,
-                                enabled = interactionEnabled && !selecting,
-                                onClick = { state.toggleSubgroup(subgroup.key) })
+                    fun LazyGridScope.kanjiSubgroups(subgroups: List<KanjiSubgroup>, depth: Int = 1) {
+                        subgroups.forEach { subgroup ->
+                            val subgroupExpanded = subgroup.key !in state.collapsedSubgroups
+                            item(key = "subheader:${subgroup.key}", span = { GridItemSpan(maxLineSpan) }) {
+                                KanjiSubgroupHeader(subgroup.title, subgroup.cards.size, subgroupExpanded,
+                                    enabled = interactionEnabled && (subgroup.selectable || !selecting),
+                                    depth = depth,
+                                    onClick = { state.toggleSubgroup(subgroup.key) },
+                                    onLongClick = if (subgroup.selectable) ({
+                                        // Keep Learning/Known as the selection owner for isolate/Move/Remove.
+                                        state.selectAll(section.key, subgroup.cards.map { it.character })
+                                    }) else null)
+                            }
+                            if (subgroupExpanded) {
+                                if (subgroup.subgroups.isEmpty()) kanjiCards(subgroup.cards)
+                                else kanjiSubgroups(subgroup.subgroups, depth + 1)
+                            }
                         }
-                        if (subgroupExpanded) kanjiCards(subgroup.cards)
                     }
+                    if (section.subgroups.isEmpty()) kanjiCards(section.cards)
+                    else kanjiSubgroups(section.subgroups)
                 }
             }
             if (footer) item(key = "status", span = { GridItemSpan(maxLineSpan) }) {
@@ -225,10 +247,17 @@ internal fun KanjiSectionHeader(
 }
 
 @Composable
-private fun KanjiSubgroupHeader(title: String, count: Int, expanded: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun KanjiSubgroupHeader(
+    title: String, count: Int, expanded: Boolean, enabled: Boolean, depth: Int,
+    onClick: () -> Unit, onLongClick: (() -> Unit)?
+) {
     val expansion = stringResource(if (expanded) R.string.my_kanji_expanded else R.string.my_kanji_collapsed)
-    Card(onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(start = 12.dp).semantics { stateDescription = expansion }) {
+    Card(modifier = Modifier.fillMaxWidth().padding(start = (12 * depth).dp)
+        .clip(MaterialTheme.shapes.medium)
+        .combinedClickable(enabled = enabled, role = Role.Button, onClick = onClick,
+            onLongClick = onLongClick,
+            onLongClickLabel = if (onLongClick != null) stringResource(R.string.kanji_select_section) else null)
+        .semantics { stateDescription = expansion }) {
         Text(stringResource(R.string.my_kanji_section_count, title, count), Modifier.padding(12.dp),
             style = MaterialTheme.typography.titleMedium)
     }

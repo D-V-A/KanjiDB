@@ -63,7 +63,7 @@ class KanjiGroupRulesTest {
     @Test fun sortingKeepsNullsLastAndCharacterTiesStableInBothDirections() {
         val entries = listOf(entry("z"), entry("b", frequency = 2, strokes = 2),
             entry("c", frequency = 1, strokes = 1), entry("a", frequency = 2, strokes = 2), entry("y"))
-        for (sort in KanjiSortBy.entries) for (descending in listOf(false, true)) {
+        for (sort in listOf(KanjiSortBy.FREQUENCY, KanjiSortBy.STROKES)) for (descending in listOf(false, true)) {
             val options = KanjiGroupOptions(sortBy = sort, descending = descending)
             val expected = if (descending) listOf("a", "b", "c", "y", "z") else listOf("c", "a", "b", "y", "z")
             assertEquals(expected, groupKanji(entries, emptyMap(), options).single().kanji.map { it.character })

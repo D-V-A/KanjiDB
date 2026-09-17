@@ -3,10 +3,11 @@ package com.example.kanjidb.ui.lists
 import androidx.compose.runtime.saveable.listSaver
 import com.example.kanjidb.R
 import com.example.kanjidb.data.dictionary.KanjiGroupEntry
+import com.example.kanjidb.data.user.UserKanjiStateEntity
 import com.example.kanjidb.ui.LearningState
 
-enum class KanjiGroupBy { JLPT, GRADE }
-enum class KanjiSortBy { FREQUENCY, STROKES }
+enum class KanjiGroupBy { NONE, JLPT, GRADE }
+enum class KanjiSortBy { NONE, FREQUENCY, STROKES }
 enum class PresenceRule {
     ANY, ONLY, NOT;
     fun matches(present: Boolean): Boolean = when (this) {
@@ -40,6 +41,7 @@ data class KanjiGroupOptions(
         if (status == KanjiStatusRule.ANY) 0 else 1
 
     val sortDirectionLabel: Int get() = when (sortBy) {
+        KanjiSortBy.NONE -> R.string.groups_rule_na
         KanjiSortBy.FREQUENCY -> if (descending) R.string.groups_rarer_first else R.string.groups_frequent_first
         KanjiSortBy.STROKES -> if (descending) R.string.groups_complex_first else R.string.groups_simpler_first
     }
@@ -111,6 +113,7 @@ fun groupKanji(
             options.status.matches(states[it.character] ?: LearningState.NONE)
     }
     val sort = Comparator<KanjiGroupEntry> { a, b ->
+        if (options.sortBy == KanjiSortBy.NONE) return@Comparator a.character.compareTo(b.character)
         val first = if (options.sortBy == KanjiSortBy.FREQUENCY) a.frequency else a.strokeCount
         val second = if (options.sortBy == KanjiSortBy.FREQUENCY) b.frequency else b.strokeCount
         val comparison = when {
@@ -122,7 +125,13 @@ fun groupKanji(
         }
         if (comparison == 0) a.character.compareTo(b.character) else comparison
     }
-    val grouped = filtered.groupBy { if (options.groupBy == KanjiGroupBy.JLPT) it.jlpt else it.grade }
+    val grouped = filtered.groupBy {
+        when (options.groupBy) {
+            KanjiGroupBy.NONE -> null
+            KanjiGroupBy.JLPT -> it.jlpt
+            KanjiGroupBy.GRADE -> it.grade
+        }
+    }
     val levels = grouped.keys.sortedWith(Comparator { a, b ->
         when {
             a == null && b == null -> 0
@@ -135,5 +144,21 @@ fun groupKanji(
     return levels.map { level ->
         val sorted = grouped.getValue(level).sortedWith(sort)
         KanjiGroup(level, sorted, splitFrequencyGroups(sorted, options.sortBy))
+    }
+}
+
+internal data class PersonalKanjiSection(val state: LearningState, val groups: List<KanjiGroup>)
+
+/** Same organization inside each user-owned section; Status is deliberately irrelevant here. */
+internal fun groupMyKanji(
+    entries: List<KanjiGroupEntry>, rows: List<UserKanjiStateEntity>, options: KanjiGroupOptions
+): List<PersonalKanjiSection> {
+    val dictionary = entries.associateBy { it.character }
+    val personalOptions = options.copy(status = KanjiStatusRule.ANY)
+    return listOf(LearningState.LEARNING, LearningState.KNOWN).map { state ->
+        val owned = rows.filter { it.state == state }.map { row ->
+            dictionary[row.character] ?: KanjiGroupEntry(row.character, null, null, null, null, false, null)
+        }
+        PersonalKanjiSection(state, groupKanji(owned, emptyMap(), personalOptions))
     }
 }
