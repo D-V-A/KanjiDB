@@ -55,7 +55,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, modifier: Modifier = Modifier) {
+fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
     var query by rememberSaveable { mutableStateOf("") }
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
@@ -135,7 +135,7 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
                     R.string.search_explore_words).forEachIndexed { index, title ->
                     Tab(selected = pagerState.currentPage == index,
                         onClick = { pagerScope.launch { pagerState.animateScrollToPage(index) } },
-                        enabled = index != 1, text = { Text(stringResource(title)) })
+                        text = { Text(stringResource(title)) })
                 }
             }
         } else {
@@ -144,10 +144,17 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
         if (exploring) {
             HorizontalPager(state = pagerState, modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
                 if (index == 1) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.search_recommended_placeholder),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    SearchList(
+                        exploring = true, showingWords = false,
+                        rows = RecommendedState.kanji, wordRows = emptyList(),
+                        loading = RecommendedState.loading, failed = RecommendedState.failed,
+                        hasMore = false,
+                        onRetry = { RecommendedState.initialize(dictionary,
+                            com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()) },
+                        onRefresh = { RecommendedState.refresh() }, onShowMore = {},
+                        onOpenDetails = onOpenRecommended, onOpenWord = onOpenWord,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 } else {
                     val words = index == 2
                     val refresh = {

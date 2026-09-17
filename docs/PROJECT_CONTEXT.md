@@ -4,9 +4,9 @@
 
 KanjiDB is an offline-first Android kanji reference and future training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **0.3.4-alpha**, `versionCode = 10`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **0.4.0-alpha**, `versionCode = 11`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
-Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists remains a placeholder. Training, Recommended Kanji, list assignment and stroke order remain unfinished placeholders.
+Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists remains a placeholder. Training, list assignment and stroke order remain unfinished placeholders.
 
 ## Stack and code map
 
@@ -52,8 +52,26 @@ SQL avoids window functions for SDK 26 compatibility. Internal SQLite IDs can ch
 - **Search Words:** written-form, kana/romaji reading and English gloss matches. Exact written form ranks first, exact reading/meaning next, then partial matches. Results are unique by (entry_id, written); one preferred reading is selected. Search includes non-common forms and is not frequency-ranked by common.
 - **Explore Kanji:** five random characters with an English meaning and on/kun reading, plus at least one of Jōyō status, frequency or a JMdict word link. This is the current evidence-based eligibility heuristic.
 - **Explore Words:** five random distinct entries having common=1; one common form/reading represents each entry.
-- Blank search shows Explore Kanji / Recommended Kanji / Explore Words pages. Recommended Kanji is a placeholder with a disabled tab.
+- Blank search shows Explore Kanji / Recommended Kanji / Explore Words pages. Recommended Kanji is implemented; all three tabs support tap and swipe.
 - [ExploreState](../app/src/main/java/com/example/kanjidb/ui/search/ExploreState.kt) retains both selections for the process lifetime, including navigation and Activity recreation. Refresh is explicit; process restart resets selections. This is not a daily or personalized recommendation system.
+
+## Recommended Kanji (0.4.0-alpha)
+
+Recommended uses the existing Search cards, Refresh, loading/error/retry and HorizontalPager. Search intentionally has no strategy settings or filters. Current strategy is JLPT; the simple strategy identifier reserves Grade/Frequency/Rare for future global Settings, with no algorithms or selector implemented for them.
+
+`data/dictionary/RecommendedKanji.kt` contains the pure Kotlin session and math with injected Random for deterministic JVM tests. `ui/search/RecommendedState.kt` owns it for the process lifetime, analogous to ExploreState: candidate pool, visible five, last-ten history and initialization survive navigation and Activity recreation. Nothing is persisted to Room/DataStore. Process restart builds a new pool. Only visible summaries/loading/error are Compose state; one bulk read-only dictionary query loads compact JLPT metadata (including non-eligible rows for correct progress). No per-candidate detail queries, new schema, repository, ViewModel or DI layer.
+
+Progress is (Learning + Known) / all dictionary kanji in that JLPT level, with equal weight and character String identifiers. No-JLPT ownership is ignored. N5 is always open; N4 -> N3 -> N2 -> N1 open strictly in sequence while the preceding level's raw progress is >=25%. Effective N5 weight is its progress. Each subsequent open level uses its own progress if <= the corrected previous weight, otherwise previous * 0.8. Double precision is retained. Zero total weight explicitly bootstraps from the easiest available level.
+
+Initial pool targets 50 unique eligible unowned kanji. Explore and Recommended share `DISCOVERY_KANJI_GATE` (English meaning, on/kun reading, plus Joyo/frequency/JMdict link); Search remains complete. Each open level with <=10 remaining eligible kanji contributes its entire tail first. Remaining slots use capped largest-remainder quotas, with easier-level tie breaks and shortage redistribution. For weights 60/30/5, this rounding gives 31/16/3. Within each level, frequency rank is normalized linearly from best=1 to worst=0.05; NULL=0.05, equal known ranks=1. Sampling without replacement uses exponential random keys weighted by sqrt(x), so rare/NULL entries retain a nonzero chance.
+
+Refresh randomly chooses up to five from the existing pool, first avoiding the last ten shown characters, then falling back to older candidates if necessary. It never rebuilds the pool or creates duplicates. History appends shown characters and trims to ten. Single-slot replacement also records the outgoing character before choosing and records the incoming character afterward.
+
+One process-owned Room observeAll subscription watches the union of Learning/Known keys from every write path (Details, My Kanji, Groups and bulk actions). Serialized updates remove only newly owned pool members, retain all others and fill only the vacated slots using current progress, open levels and target quota deficits; missing tails have priority. Existing retained cards are never evicted to force a new distribution, so new tails/levels can be fully incorporated only as slots permit or on the next process restart. Move Learning <-> Known is ignored because the union does not change. Remove -> NONE does not immediately reinsert a character. After updating the pool, only invalid visible slots are replaced. If eligible candidates are exhausted, pool and visible list may shrink.
+
+Recommended -> Details is recorded on that Search navigation entry. On resume after Back, only the opened visible card is replaced; other four remain. If Room already replaced it, Back does not replace a second card. Other entry points into Details do not set this marker. In a tiny pool without an alternative, an otherwise eligible opened card remains rather than introducing duplicates.
+
+Focused JVM tests cover progression, corrected weights, bootstrap, quotas/shortage/tails, frequency, pool eligibility/uniqueness, recent history/fallback, incremental state updates and single-slot Details return. Navigation gestures and lifecycle behavior still require manual phone verification.
 
 ## Details and word semantics
 

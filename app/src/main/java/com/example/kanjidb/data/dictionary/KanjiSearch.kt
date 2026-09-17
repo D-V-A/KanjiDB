@@ -87,18 +87,22 @@ private val romajiKana: Map<String, String> = buildMap {
     }
 }
 
-internal const val EXPLORE_KANJI_SQL = """
-    SELECT k.character,
-        COALESCE((SELECT meaning FROM kanji_meaning
-                  WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
-    FROM kanji k
-    WHERE EXISTS (SELECT 1 FROM kanji_meaning m WHERE m.kanji_id = k.id AND m.language = 'en')
+internal const val DISCOVERY_KANJI_GATE = """
+EXISTS (SELECT 1 FROM kanji_meaning m WHERE m.kanji_id = k.id AND m.language = 'en')
       AND EXISTS (SELECT 1 FROM kanji_reading r WHERE r.kanji_id = k.id AND r.type IN ('on', 'kun'))
       AND (k.joyo = 1 OR k.frequency IS NOT NULL OR EXISTS (
           SELECT 1 FROM word_kanji wk
           JOIN word_form f ON f.id = wk.word_form_id
           WHERE wk.kanji_id = k.id
       ))
+"""
+
+internal const val EXPLORE_KANJI_SQL = """
+    SELECT k.character,
+        COALESCE((SELECT meaning FROM kanji_meaning
+                  WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
+    FROM kanji k
+    WHERE $DISCOVERY_KANJI_GATE
     ORDER BY RANDOM() LIMIT 5
 """
 

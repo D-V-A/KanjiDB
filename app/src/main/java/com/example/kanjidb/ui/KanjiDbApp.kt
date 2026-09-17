@@ -8,6 +8,12 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.example.kanjidb.ui.search.RecommendedState
+import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -49,6 +55,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     val userDao = remember(context) {
         com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()
     }
+    LaunchedEffect(userDao) { RecommendedState.initialize(DictionaryDatabase(context), userDao) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val openDetails: (String) -> Unit = { kanjiId ->
@@ -90,8 +97,22 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 .consumeWindowInsets(innerPadding)
                 .fillMaxSize()
         ) {
-            composable(SEARCH) {
-                SearchScreen(onOpenDetails = openDetails, onOpenAbout = {
+            composable(SEARCH) { entry ->
+                DisposableEffect(entry) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            entry.savedStateHandle.remove<String>("recommendedDetails")?.let {
+                                RecommendedState.returnedFromDetails(it)
+                            }
+                        }
+                    }
+                    entry.lifecycle.addObserver(observer)
+                    onDispose { entry.lifecycle.removeObserver(observer) }
+                }
+                SearchScreen(onOpenRecommended = { character ->
+                    entry.savedStateHandle["recommendedDetails"] = character
+                    openDetails(character)
+                }, onOpenDetails = openDetails, onOpenAbout = {
                     navController.navigate(ABOUT) { launchSingleTop = true }
                 }, onOpenWord = { entryId, written ->
                     navController.navigate("word/$entryId/${Uri.encode(written)}") {

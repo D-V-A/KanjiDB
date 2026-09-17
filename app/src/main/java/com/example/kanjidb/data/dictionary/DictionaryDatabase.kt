@@ -43,6 +43,30 @@ data class DictionaryWordDetails(
 class DictionaryDatabase(context: Context) {
     private val context = context.applicationContext
 
+    /** One bulk query: all JLPT rows for progress, with the shared discovery gate for eligibility. */
+    internal suspend fun getRecommendationKanji(): List<RecommendationKanji> = withContext(Dispatchers.IO) {
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            db.rawQuery("""
+                SELECT k.character, j.level, k.frequency,
+                    CASE WHEN $DISCOVERY_KANJI_GATE THEN 1 ELSE 0 END,
+                    COALESCE((SELECT meaning FROM kanji_meaning
+                        WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
+                FROM kanji k JOIN jlpt_kanji j ON j.kanji_id = k.id
+                WHERE j.level BETWEEN 1 AND 5 ORDER BY k.character
+            """.trimIndent(), null).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        add(RecommendationKanji(KanjiSummary(cursor.getString(0), cursor.getString(4)),
+                            cursor.getInt(1), cursor.nullableInt(2), cursor.getInt(3) == 1))
+                    }
+                }
+            }
+        }
+    }
+
     suspend fun getExploreKanji(): List<KanjiSummary> = withContext(Dispatchers.IO) {
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY

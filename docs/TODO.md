@@ -7,12 +7,15 @@ Checked items are complete; existing placeholders do not count as completed mile
 
 - [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
 - [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. My Lists remains a placeholder and Training actions remain disabled.
-- [ ] **Recommended Kanji:** implement automatic suggestions using sufficiently confirmed Japanese kanji; follow the discovery/Search distinction in project context.
+- [x] **Recommended Kanji:** JLPT progression, process-lifetime candidate pool, shared discovery quality gate, weighted sampling, Refresh anti-repeat and incremental Room updates.
 - [ ] **Training:** implement practice sessions with answers written on paper.
 - [ ] **User Lists:** create/manage custom lists and enable assignment from details.
 - [ ] **Stroke Order / KanjiVG:** integrate stroke-order data after checking attribution/license.
 
 ## TODO
+
+- [ ] Global Settings and recommendation strategy selector; implement Grade/Frequency/Rare strategies later.
+- [ ] Manually verify 0.4.0 Recommended on a phone: tab tap/swipe, Refresh anti-repeat, Details -> Back with/without state change, updates from My Kanji/Groups/bulk actions, Activity recreation and process restart.
 
 - [x] Keep collection tabs fixed and collapse only page-owned controls with shared nested scroll; reset controls after tab changes.
 - [x] Add shared Group by / Sort by / Rules inside My Kanji Learning/Known, including selectable JLPT/Grade groups and nested technical Ranked/Unranked sections.
