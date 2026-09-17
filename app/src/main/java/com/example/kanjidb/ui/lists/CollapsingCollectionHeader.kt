@@ -27,12 +27,13 @@ internal fun CollapsingCollectionHeader(
     currentPage: Int,
     scrollEnabled: Boolean,
     modifier: Modifier = Modifier,
+    controlsVisible: Boolean = true,
     header: @Composable () -> Unit,
     content: @Composable () -> Unit
 ) {
     // Key only the header state: leaving a tab discards its collapse state, while
     // Details -> Back restores it for the same tab. Pager/grid composition is unchanged.
-    val state = key(currentPage) { rememberTopAppBarState() }
+    val state = key(currentPage, controlsVisible) { rememberTopAppBarState() }
     val enabled by rememberUpdatedState(scrollEnabled)
     val behavior = TopAppBarDefaults.enterAlwaysScrollBehavior(state, canScroll = { enabled })
     val connection = remember(behavior) {
@@ -40,7 +41,7 @@ internal fun CollapsingCollectionHeader(
     }
     Layout(
         modifier = modifier.clipToBounds().nestedScroll(connection),
-        content = { Box { header() }; Box { content() } }
+        content = { Box { if (controlsVisible) header() }; Box { content() } }
     ) { measurables, constraints ->
         // Measure the real header before the pager, including on the first restored layout.
         val headerPlaceable = measurables[0].measure(constraints.copy(minHeight = 0))

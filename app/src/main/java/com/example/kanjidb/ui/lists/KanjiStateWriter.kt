@@ -18,6 +18,25 @@ internal class KanjiStateWriter(
     var failed by mutableStateOf(false)
         private set
 
+    suspend fun reorder(state: LearningState, before: List<String>, after: List<String>, character: String): Boolean {
+        if (saving) return false
+        saving = true
+        failed = false
+        return try {
+            val saved = dao.reorder(state, before, after)
+            if (saved) selection.finishReorder(character) else failed = true
+            saved
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.e("KanjiState", "Cannot save manual order", error)
+            failed = true
+            false
+        } finally {
+            saving = false
+        }
+    }
+
     fun assign(characters: List<String>, target: LearningState) {
         if (saving || characters.isEmpty()) return
         saving = true

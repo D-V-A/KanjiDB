@@ -1,6 +1,7 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -9,6 +10,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,17 +78,38 @@ internal fun KanjiCollectionGrid(
     onRetry: (() -> Unit)? = null,
     busy: Boolean = false,
     emptyMessage: String? = null,
-    tag: String = "kanji_groups"
+    tag: String = "kanji_groups",
+    onReorder: (suspend (KanjiReorderDrop) -> Boolean)? = null,
+    snackbar: SnackbarHostState? = null
 ) {
     val selecting = state.selecting
-    val shown = remember(sections, isolateSection, state.section) {
+    val sourceSections = remember(sections, isolateSection, state.section) {
         if (isolateSection && selecting) sections.filter { it.key == state.section } else sections
     }
+    val reorder = remember(grid) { KanjiGridReorder(grid) }
+    val scope = rememberCoroutineScope()
+    val sourceSection = sourceSections.singleOrNull()
+    val sourceOrder = sourceSection?.cards?.map { it.character }.orEmpty()
+    val canReorder = onReorder != null && selecting && activePage && ready && !busy &&
+        sourceSection != null && sourceSection.subgroups.isEmpty() && !reorder.saving && !reorder.awaitingCommit
+    val currentCanReorder by rememberUpdatedState(canReorder)
+    val currentSource by rememberUpdatedState(sourceSection)
+    val currentOnReorder by rememberUpdatedState(onReorder)
+    LaunchedEffect(sourceOrder, selecting, activePage, onReorder != null, ready, reorder.awaitingCommit) {
+        if (!selecting || !activePage || onReorder == null) reorder.cancel()
+        else reorder.sync(sourceOrder)
+    }
+    val shown = if (reorder.order != null && sourceSection != null && sourceSection.key == reorder.section) {
+        val cards = sourceSection.cards.associateBy { it.character }
+        listOf(sourceSection.copy(cards = reorder.order.orEmpty().mapNotNull { cards[it] }))
+    } else sourceSections
     val eligible = remember(shown) { shown.flatMap { it.cards }.mapTo(mutableSetOf()) { it.character } }
     LaunchedEffect(eligible, ready) { if (ready) state.retain(eligible) }
     val selected = state.selected.intersect(eligible)
-    val interactionEnabled = ready && !busy
-    BackHandler(enabled = activePage && selecting) { if (!busy) state.cancel() }
+    val interactionEnabled = ready && !busy && reorder.character == null && !reorder.saving && !reorder.awaitingCommit
+    BackHandler(enabled = activePage && selecting) {
+        if (reorder.character != null) reorder.cancel() else if (!busy && !reorder.saving) state.cancel()
+    }
     var panelHeight by remember { mutableIntStateOf(0) }
     var panelTop by remember { mutableStateOf<Float?>(null) }
     var gridTop by remember { mutableStateOf(0f) }
@@ -106,13 +132,13 @@ internal fun KanjiCollectionGrid(
     val currentKeys by rememberUpdatedState(itemKeys)
     val anchor = state.revealCharacter
     // Shared for both pages: measure the panel and reveal only the latest selected card as needed.
-    LaunchedEffect(anchor, selecting, activePage, ready) {
+    LaunchedEffect(anchor, selecting, activePage, ready, reorder.character) {
         if (!selecting) {
             panelHeight = 0
             panelTop = null
             return@LaunchedEffect
         }
-        if (!activePage || !ready || anchor == null) return@LaunchedEffect
+        if (!activePage || !ready || anchor == null || reorder.character != null) return@LaunchedEffect
         snapshotFlow {
             panelTop != null && panelHeight > 0 && grid.layoutInfo.afterContentPadding >= panelHeight &&
                 grid.layoutInfo.totalItemsCount == currentKeys.size
@@ -139,8 +165,43 @@ internal fun KanjiCollectionGrid(
         if (overflow != 0f && state.revealCharacter == anchor) grid.animateScrollBy(overflow)
     }
 
+    val density = LocalDensity.current
+    val edgeSize = with(density) { 56.dp.toPx() }
+    val maxSpeed = with(density) { 800.dp.toPx() }
+    LaunchedEffect(reorder.character) {
+        val draggedCharacter = reorder.character ?: return@LaunchedEffect
+        // Exclusive scroll mutation cancels any previous fling/clearance; no scrollToItem compensation.
+        try {
+            grid.scroll(MutatePriority.UserInput) {
+                var previous = withFrameNanos { it }
+                while (reorder.character != null) {
+                    val now = withFrameNanos { it }
+                    val seconds = ((now - previous) / 1_000_000_000f).coerceAtMost(0.032f)
+                    previous = now
+                    val layout = grid.layoutInfo
+                    val top = maxOf(layout.viewportStartOffset.toFloat(), layout.visibleItemsInfo
+                        .firstOrNull { (it.key as? String)?.startsWith("header:") == true }
+                        ?.let { (it.offset.y + it.size.height).toFloat() } ?: 0f)
+                    val bottom = minOf(layout.viewportEndOffset.toFloat(), panelTop?.minus(gridTop)
+                        ?: layout.viewportEndOffset.toFloat())
+                    val y = reorder.pointer.y
+                    val speed = when {
+                        y < top + edgeSize -> -((top + edgeSize - y) / edgeSize).coerceIn(0f, 1f)
+                        y > bottom - edgeSize -> ((y - bottom + edgeSize) / edgeSize).coerceIn(0f, 1f)
+                        else -> 0f
+                    }
+                    if (speed != 0f) scrollBy(speed * maxSpeed * seconds)
+                    reorder.updateTarget(top, bottom)
+                }
+            }
+        } finally {
+            // Another scroll mutation/disposal must not leave a live drag preview behind.
+            if (reorder.character == draggedCharacter) reorder.cancel()
+        }
+    }
+
     Box(modifier.testTag("${tag}_content").pointerInput(selecting, busy) {
-        if (selecting && !busy) detectTapGestures(onLongPress = { state.cancel() })
+        if (selecting && !busy) detectTapGestures(onLongPress = { if (reorder.character == null && !reorder.saving) state.cancel() })
     }) {
         // Never measure a restored grid against temporary loading rows: a nonempty placeholder
         // layout would clamp its saved index/offset before the real dictionary/Room data arrives.
@@ -156,7 +217,33 @@ internal fun KanjiCollectionGrid(
         LazyVerticalGrid(
             columns = GridCells.Adaptive(76.dp), state = grid,
             modifier = Modifier.fillMaxSize().testTag("${tag}_grid")
-                .onGloballyPositioned { gridTop = it.positionInRoot().y },
+                .onGloballyPositioned { gridTop = it.positionInRoot().y }
+                .pointerInput(reorder) {
+                    detectKanjiReorder(
+                        eligible = { at -> currentCanReorder && grid.layoutInfo.visibleItemsInfo.any {
+                            it.key in currentSource?.cards.orEmpty().map { card -> card.character } &&
+                                at.x >= it.offset.x && at.x < it.offset.x + it.size.width &&
+                                at.y >= it.offset.y && at.y < it.offset.y + it.size.height
+                        } },
+                        start = { at ->
+                            val section = currentSource
+                            if (currentCanReorder && section != null && reorder.start(at, section)) {
+                                state.clearReveal()
+                                true
+                            } else false
+                        },
+                        move = { reorder.move(it) },
+                        drop = {
+                            val request = if (currentCanReorder) reorder.drop() else { reorder.cancel(); null }
+                            val save = currentOnReorder
+                            if (request != null && save != null) scope.launch {
+                                var success = false
+                                try { success = save(request) } finally { reorder.complete(success) }
+                            } else reorder.complete(false)
+                        },
+                        cancel = { reorder.cancel() }
+                    )
+                },
             contentPadding = PaddingValues(bottom = padding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -174,6 +261,9 @@ internal fun KanjiCollectionGrid(
                     fun LazyGridScope.kanjiCards(cards: List<KanjiCardItem>) {
                         items(cards, key = { it.character }, contentType = { "kanji" }) { card ->
                             KanjiCard(
+                                modifier = Modifier.animateItem().graphicsLayer {
+                                    alpha = if (reorder.character == card.character) 0f else 1f
+                                },
                                 character = card.character,
                                 reading = card.reading ?: stringResource(R.string.my_kanji_no_reading),
                                 selecting = selecting, selected = card.character in selected,
@@ -217,15 +307,28 @@ internal fun KanjiCollectionGrid(
                 }
             }
         }
+        val dragged = sourceSection?.cards?.firstOrNull { it.character == reorder.character }
+        if (dragged != null) {
+            KanjiCard(
+                character = dragged.character, reading = dragged.reading ?: stringResource(R.string.my_kanji_no_reading),
+                selected = dragged.character in selected, selecting = true, enabled = false,
+                onClick = {}, onLongClick = {},
+                modifier = Modifier.offset { IntOffset(reorder.position.x.roundToInt(), reorder.position.y.roundToInt()) }
+                    .size(with(density) { reorder.size.width.toDp() }, with(density) { reorder.size.height.toDp() })
+                    .graphicsLayer { shadowElevation = 8.dp.toPx() }
+            )
+        }
         if (selecting) {
             KanjiSelectionPanel(
                 actions = actions, selected = selected.toList(), enabled = interactionEnabled,
-                onCancel = { state.cancel() }, cancelEnabled = !busy,
+                onCancel = { reorder.cancel(); state.cancel() }, cancelEnabled = !busy && reorder.character == null && !reorder.saving,
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     .onSizeChanged { panelHeight = it.height }.padding(12.dp)
                     .testTag("${tag}_panel").onGloballyPositioned { panelTop = it.positionInRoot().y }
             )
         }
+        if (snackbar != null) SnackbarHost(snackbar,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { panelHeight.toDp() }))
     }
 }
 
@@ -296,10 +399,11 @@ internal fun KanjiCard(
     selecting: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+        modifier = modifier.fillMaxWidth().aspectRatio(1f)
             .clip(MaterialTheme.shapes.medium)
             .combinedClickable(
                 enabled = enabled,

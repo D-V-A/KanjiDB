@@ -12,10 +12,10 @@ class MyKanjiOrganizationTest {
         KanjiGroupEntry(character, null, grade, rank, strokes, joyo, jlpt)
     private fun row(character: String, state: LearningState = LearningState.LEARNING) =
         UserKanjiStateEntity(character, state)
-    private val none = KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.NONE)
+    private val none = KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL)
     private fun List<PersonalKanjiSection>.characters() = flatMap { it.groups }.flatMap { it.kanji }.map { it.character }
 
-    @Test fun noGroupingOrSortingKeepsOwnedSectionsAndDeterministicCharacterOrder() {
+    @Test fun manualPositionTiesKeepOwnedSectionsAndDeterministicCharacterOrder() {
         val entries = listOf(entry("z"), entry("a"), entry("b"), entry("outside"))
         val rows = listOf(row("z"), row("b", LearningState.KNOWN), row("a"))
         val result = groupMyKanji(entries, rows, none)
@@ -79,7 +79,7 @@ class MyKanjiOrganizationTest {
             .groups.first().kanji.map { it.character })
     }
 
-    @Test fun rankedSplitIsLocalToMixedGroupsAndNeverUsedForNoneOrStrokes() {
+    @Test fun rankedSplitIsLocalToMixedGroupsAndNeverUsedForManualOrStrokes() {
         val entries = listOf(entry("a", jlpt = 5, rank = 2), entry("b", jlpt = 5),
             entry("c", jlpt = 4, rank = 1), entry("d", jlpt = 4, rank = 3), entry("e", jlpt = 3))
         val rows = entries.map { row(it.character) }

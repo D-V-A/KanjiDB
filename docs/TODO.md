@@ -16,7 +16,10 @@ Checked items are complete; existing placeholders do not count as completed mile
 
 - [x] Keep collection tabs fixed and collapse only page-owned controls with shared nested scroll; reset controls after tab changes.
 - [x] Add shared Group by / Sort by / Rules inside My Kanji Learning/Known, including selectable JLPT/Grade groups and nested technical Ranked/Unranked sections.
-- [ ] Manually verify 0.3.3 collection UX on a phone: fixed tabs/page controls during tap/swipe, controls reset, nested header selection, card clearance, section restoration and Details -> Back in both collections.
+- [ ] Manually verify 0.3.4 collection UX on a phone: fixed tabs/page controls during tap/swipe, controls reset, nested header selection, card clearance, section restoration and Details -> Back in both collections.
+
+- [x] Persist one manual order per Learning/Known with Room v2 migration; allow selection-only 250 ms hold/drag in ungrouped, unfiltered Manually mode, including edge autoscroll and drop deselection.
+- [ ] On a phone, verify upgrade from Room v1 with existing records, manual order after restart, append-on-Move/Add, drag delay versus tap/entry long press, multi-screen edge scrolling in both directions, cancel/failure behavior, controls omission/restoration, Snackbar entry timing and forbidden reorder configurations.
 
 - [x] Capitalise standalone English kanji meanings in the UI.
 - [x] Make dictionary text selectable/copyable.

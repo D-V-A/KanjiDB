@@ -50,9 +50,17 @@ internal fun MyKanjiScreen(
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     var myOptions by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
-        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.NONE))
+        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
     }
     var myRulesOpen by rememberSaveable { mutableStateOf(false) }
+    val manualSelection = state.collection.selecting && myOptions.manualReorderAvailable
+    val snackbar = remember { SnackbarHostState() }
+    val dragHint = stringResource(R.string.my_kanji_drag_hint)
+    LaunchedEffect(state.collection.selectionEntryId, state.collection.selecting) {
+        if (state.collection.selectionEntryId > 0 && manualSelection) {
+            snackbar.showSnackbar(dragHint, duration = SnackbarDuration.Short)
+        } else snackbar.currentSnackbarData?.dismiss()
+    }
     // Both pages share the same bulk metadata/readings load; user data stays in Room.
     var entries by remember(dictionary) { mutableStateOf<List<KanjiGroupEntry>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -84,7 +92,8 @@ internal fun MyKanjiScreen(
             when (index) {
                 0 -> CollapsingCollectionHeader(
                     currentPage = pager.settledPage,
-                    scrollEnabled = pager.currentPage == 0 && !saving && !myRulesOpen,
+                    scrollEnabled = pager.currentPage == 0 && !saving && !myRulesOpen && !manualSelection,
+                    controlsVisible = !manualSelection,
                     modifier = Modifier.fillMaxSize(),
                     header = {
                         Box(Modifier.padding(bottom = 8.dp)) {
@@ -95,7 +104,7 @@ internal fun MyKanjiScreen(
                 ) {
                     MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
                         activePage = pager.currentPage == 0 && !myRulesOpen,
-                        onOpenDetails = onOpenDetails, options = myOptions)
+                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar)
                 }
                 1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.my_lists_placeholder),
@@ -130,7 +139,7 @@ private data class PersonalGroupResult(
 private fun MyKanjiPage(
     state: MyKanjiState, entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
     failed: Boolean, onRetry: () -> Unit, writer: KanjiStateWriter, grid: LazyGridState,
-    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions
+    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions, snackbar: SnackbarHostState
 ) {
     var result by remember { mutableStateOf<PersonalGroupResult?>(null) }
     LaunchedEffect(entries, rows, options) {
@@ -161,6 +170,10 @@ private fun MyKanjiPage(
             else -> null
         },
         onRetry = if (failed) onRetry else null,
-        tag = "my_kanji"
+        tag = "my_kanji",
+        snackbar = snackbar,
+        onReorder = if (options.manualReorderAvailable) ({ drop ->
+            writer.reorder(LearningState.valueOf(drop.section), drop.before, drop.after, drop.character)
+        }) else null
     )
 }

@@ -9,14 +9,17 @@ abstract class UserKanjiStateDao {
     @Query("SELECT * FROM kanji_state WHERE character = :character")
     abstract fun observeState(character: String): Flow<UserKanjiStateEntity?>
 
-    @Query("SELECT * FROM kanji_state ORDER BY rowid")
+    @Query("SELECT * FROM kanji_state ORDER BY manualPosition, character")
     abstract fun observeAll(): Flow<List<UserKanjiStateEntity>>
 
-    @Query("SELECT character FROM kanji_state WHERE state = :state ORDER BY rowid")
+    @Query("SELECT character FROM kanji_state WHERE state = :state ORDER BY manualPosition, character")
     abstract fun observeCharacters(state: LearningState): Flow<List<String>>
 
     @Query("SELECT state FROM kanji_state WHERE character = :character")
     abstract suspend fun getState(character: String): LearningState?
+
+    @Query("SELECT * FROM kanji_state")
+    abstract suspend fun getAll(): List<UserKanjiStateEntity>
 
     @Upsert
     protected abstract suspend fun upsert(rows: List<UserKanjiStateEntity>)
@@ -33,11 +36,21 @@ abstract class UserKanjiStateDao {
 
     @Transaction
     open suspend fun setState(characters: List<String>, state: LearningState) {
-        // Stay below SQLite's bind parameter limit on API 26, within one transaction.
-        characters.distinct().chunked(900).forEach { chunk ->
-            if (state == LearningState.NONE) deleteCharacters(chunk)
-            else upsert(chunk.map { UserKanjiStateEntity(it, state) })
+        if (state == LearningState.NONE) {
+            // Stay below SQLite's bind limit on API 26, within one transaction.
+            characters.distinct().chunked(900).forEach { deleteCharacters(it) }
+        } else {
+            assignedKanjiRows(getAll(), characters, state).chunked(900).forEach { upsert(it) }
         }
+    }
+
+    @Transaction
+    open suspend fun reorder(state: LearningState, before: List<String>, after: List<String>): Boolean {
+        val existing = getAll()
+        val reordered = reorderedKanjiRows(existing, state, before, after) ?: return false
+        val byCharacter = existing.associateBy { it.character }
+        reordered.filter { it != byCharacter[it.character] }.chunked(900).forEach { upsert(it) }
+        return true
     }
 
     suspend fun remove(characters: List<String>) = setState(characters, LearningState.NONE)

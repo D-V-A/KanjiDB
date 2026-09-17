@@ -1,6 +1,7 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
@@ -17,6 +18,8 @@ internal class KanjiCollectionState {
         private set
     var collapsedSubgroups by mutableStateOf(emptySet<String>())
         private set
+    var selectionEntryId by mutableIntStateOf(0)
+        private set
     val selecting: Boolean get() = section != null
 
     fun toggleExpanded(key: String) {
@@ -32,6 +35,7 @@ internal class KanjiCollectionState {
     fun begin(key: String, characters: Collection<String>) {
         if (selecting || characters.isEmpty()) return
         section = key
+        selectionEntryId++
         selected = characters.toSet()
         revealCharacter = characters.first()
     }
@@ -43,6 +47,7 @@ internal class KanjiCollectionState {
         if (!selecting) {
             if (characters.isEmpty()) return
             section = key
+            selectionEntryId++
         }
         selected = selected + characters
     }
@@ -59,6 +64,13 @@ internal class KanjiCollectionState {
     fun retain(visibleCharacters: Set<String>) {
         selected = selected.intersect(visibleCharacters)
         if (revealCharacter !in visibleCharacters) revealCharacter = null
+    }
+
+    fun clearReveal() { revealCharacter = null }
+
+    fun finishReorder(character: String) {
+        selected = selected - character
+        revealCharacter = null
     }
 
     fun cancel() {

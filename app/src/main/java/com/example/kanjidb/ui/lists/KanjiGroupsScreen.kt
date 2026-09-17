@@ -96,29 +96,32 @@ internal fun KanjiCollectionControls(
             Column(Modifier.weight(1f)) {
                 ChoiceMenu(
                     label = stringResource(R.string.groups_sort_by), value = options.sortBy,
-                    choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.NONE }, enabled = !saving,
+                    choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.MANUAL }, enabled = !saving,
                     title = { stringResource(when (it) {
-                        KanjiSortBy.NONE -> R.string.groups_rule_na
+                        KanjiSortBy.MANUAL -> R.string.my_kanji_sort_manually
                         KanjiSortBy.FREQUENCY -> R.string.groups_frequency
                         KanjiSortBy.STROKES -> R.string.groups_strokes
                     }) },
                     onSelect = { onOptionsChange(options.copy(sortBy = it)) }
                 )
                 TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
-                    enabled = !saving && options.sortBy != KanjiSortBy.NONE) {
+                    enabled = !saving && options.sortBy != KanjiSortBy.MANUAL) {
                     Text(stringResource(options.sortDirectionLabel))
                 }
             }
         }
         val context = LocalContext.current
-        val summary = options.rulesSummary { context.getString(it) }
+        val manualHint = personal && options.manualReorderAvailable
+        val summary = if (manualHint) stringResource(R.string.my_kanji_order_hint)
+            else options.rulesSummary { context.getString(it) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { onRulesOpenChange(true) }, enabled = !saving) {
                 Text(stringResource(R.string.groups_rules))
             }
             if (summary.isNotEmpty()) Text(summary, Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                style = MaterialTheme.typography.bodySmall, maxLines = if (manualHint) 2 else 1,
+                overflow = if (manualHint) TextOverflow.Clip else TextOverflow.Ellipsis)
         }
     }
     if (rulesOpen) {

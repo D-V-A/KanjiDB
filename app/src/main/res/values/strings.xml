@@ -160,4 +160,7 @@
     <plurals name="details_stroke_count">
         <item quantity="one">%d stroke</item>
         <item quantity="other">%d strokes</item>
-    </plurals></resources>
+    </plurals>    <string name="my_kanji_sort_manually">Manually</string>
+    <string name="my_kanji_order_hint">To change order, enter selection mode</string>
+    <string name="my_kanji_drag_hint">To change order, hold and drag a kanji</string>
+</resources>

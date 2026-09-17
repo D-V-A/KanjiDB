@@ -68,13 +68,49 @@ class UserKanjiStateDaoTest {
         }
     }
 
+    @Test fun reorderPersistsPositionsAndMovingAppendsWithoutDisturbingOtherState() = runBlocking {
+        val dao = MemoryDao()
+        dao.setState(listOf("a", "b", "c"), LearningState.LEARNING)
+        dao.setState(listOf("x", "y"), LearningState.KNOWN)
+        assertTrue(dao.reorder(LearningState.LEARNING, listOf("a", "b", "c"), listOf("c", "a", "b")))
+        assertEquals(listOf("c", "a", "b"), dao.observeCharacters(LearningState.LEARNING).first())
+        assertEquals(listOf(0L, 1L, 2L), manualOrder(dao.getAll(), LearningState.LEARNING).map { it.manualPosition })
+        dao.setState(listOf("c", "a", "b"), LearningState.LEARNING)
+        assertEquals(listOf("c", "a", "b"), dao.observeCharacters(LearningState.LEARNING).first())
+        dao.setState(listOf("a", "x", "b"), LearningState.KNOWN)
+        assertEquals(listOf("x", "y", "a", "b"), dao.observeCharacters(LearningState.KNOWN).first())
+        assertEquals(listOf("c"), dao.observeCharacters(LearningState.LEARNING).first())
+        dao.setState(listOf("a"), LearningState.LEARNING)
+        assertEquals(listOf("c", "a"), dao.observeCharacters(LearningState.LEARNING).first())
+        assertEquals(listOf("x", "y", "b"), dao.observeCharacters(LearningState.KNOWN).first())
+    }
+
+    @Test fun staleIncompleteDuplicateAndCrossStateReordersWriteNothing() = runBlocking {
+        val dao = MemoryDao()
+        dao.setState(listOf("a", "b", "c"), LearningState.LEARNING)
+        dao.setState(listOf("x"), LearningState.KNOWN)
+        val snapshot = dao.getAll()
+        val before = listOf("a", "b", "c")
+        for (after in listOf(listOf("a", "b"), listOf("a", "a", "c"), listOf("a", "b", "x"))) {
+            assertFalse(dao.reorder(LearningState.LEARNING, before, after))
+            assertEquals(snapshot, dao.getAll())
+        }
+        assertFalse(dao.reorder(LearningState.LEARNING, listOf("b", "a", "c"), before))
+        assertFalse(dao.reorder(LearningState.NONE, before, before))
+        dao.remove(listOf("b"))
+        assertFalse(dao.reorder(LearningState.LEARNING, before, before.reversed()))
+        assertEquals(listOf("a", "c"), dao.observeCharacters(LearningState.LEARNING).first())
+        assertEquals(listOf("x"), dao.observeCharacters(LearningState.KNOWN).first())
+    }
+
     private class MemoryDao : UserKanjiStateDao() {
         private val rows = MutableStateFlow<Map<String, UserKanjiStateEntity>>(emptyMap())
         override fun observeState(character: String) = rows.map { it[character] }
         override fun observeAll() = rows.map { it.values.toList() }
         override fun observeCharacters(state: LearningState) = rows.map { data ->
-            data.values.filter { it.state == state }.map { it.character }
+            manualOrder(data.values.toList(), state).map { it.character }
         }
+        override suspend fun getAll() = rows.value.values.toList()
         override suspend fun getState(character: String) = rows.value[character]?.state
         override suspend fun upsert(rows: List<UserKanjiStateEntity>) {
             this.rows.value = this.rows.value + rows.associateBy { it.character }
