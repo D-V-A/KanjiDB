@@ -4,6 +4,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TrainingReadingsTest {
+    @Test fun everyCanonicallyVoicedKanaUsesTheBaseKey() {
+        var checked = 0
+        for (codePoint in 0x3040..0x30FF) {
+            val original = codePoint.toChar().toString()
+            val decomposed = java.text.Normalizer.normalize(original, java.text.Normalizer.Form.NFD)
+            if (decomposed.length > 1 && decomposed.last() in listOf('\u3099', '\u309A')) {
+                val base = decomposed.dropLast(1)
+                assertEquals(base, trainingReadingKey(original))
+                assertEquals(base, trainingReadingKey(decomposed))
+                checked++
+            }
+        }
+        assertTrue("Exercise the whole kana block, not just a few examples", checked > 40)
+    }
+
+    @Test fun twoSimilarOnReadingsBothRemainVisible() {
+        val readings = listOf("カン", "ガン")
+        assertEquals(readings, trainingReadings(readings))
+    }
+
     @Test fun dakutenIsIgnoredForBothKanaScripts() {
         assertEquals(trainingReadingKey("カン"), trainingReadingKey("ガン"))
         assertEquals(trainingReadingKey("さ"), trainingReadingKey("ざ"))

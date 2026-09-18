@@ -101,7 +101,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            if (topLevelDestinations.any { it.first == currentRoute }) {
+            if (TrainingState.session == null && topLevelDestinations.any { it.first == currentRoute }) {
                 NavigationBar {
                     topLevelDestinations.forEach { (route, labelResource) ->
                         val label = stringResource(labelResource)

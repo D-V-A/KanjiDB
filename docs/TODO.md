@@ -17,7 +17,8 @@ Checked items are complete; existing placeholders do not count as completed mile
 - [x] Training 0.5.1 follow-up: shared session size across sources with capped-value upward rounding, square blank/reveal area, right-side result actions, outlined practice choices, Review actions for both results and bulk-and-finish shortcuts.
 - [ ] Manually verify 0.5.1 Training follow-up on a phone: source switching 25 -> 17 -> 20, square reveal area, right-side actions on narrow screens, outlined practice choices and bulk-and-finish versus cancel. Retain coverage of all three sources, 0/<5/37/>50 sizes and numeric input, small-screen scrolling, repeated subset attempts, grayed-out row actions, pending reset on result change, Finish versus cancel, bottom navigation/Back, rotation and process restart.
 - [x] Training 0.5.2 polish: adaptive On/Kun columns with display-only reading diversity, equal action-area height with centered labels, and no standalone End training button on Results.
-- [ ] Verify 0.5.2 on a phone: independent reading layouts at different font sizes, original reading punctuation, compact one/two-action cards, and unchanged exit confirmation from Results.
+- [x] Training 0.5.3 polish: always-vertical readings in On/Kun columns, hide bottom navigation during an active session, and cap centered individual action button height.
+- [ ] Verify 0.5.3 on a phone: stable reading columns, original punctuation, compact one/two-action cards at different font sizes, navigation hidden throughout attempts/Results and restored after Finish/cancel, and unchanged Back confirmation from Results.
 - [ ] Word Training.
 - [ ] Future Training improvements: stroke order, components/radical Hint and TTS; consider weighting/SRS/statistics only if later needed.
 

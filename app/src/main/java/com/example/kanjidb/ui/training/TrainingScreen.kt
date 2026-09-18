@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
@@ -249,26 +248,17 @@ private fun TrainingQuestion(session: TrainingSession) {
     }
 }
 
-/** Each column independently chooses one unwrapped line or one reading per row. */
+/** Stable On/Kun columns: each selected original reading always gets its own row. */
 @Composable
 private fun TrainingReadingsColumn(title: String, source: List<String>, modifier: Modifier) {
     val readings = remember(source) { trainingReadings(source) }
-    val textMeasurer = rememberTextMeasurer()
-    val style = MaterialTheme.typography.titleLarge
-    BoxWithConstraints(modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (readings.isNotEmpty()) {
-            val joined = readings.joinToString("\u3000")
-            val availableWidth = constraints.maxWidth
-            val fits = textMeasurer.measure(joined, style = style, softWrap = false).size.width <= availableWidth
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                if (fits) Text(joined, style = style, softWrap = false)
-                else readings.forEach { Text(it, style = style) }
-            }
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            readings.forEach { Text(it, style = MaterialTheme.typography.titleLarge) }
         }
     }
 }
-
 /** Dedicated central slot for future hint content; no hint UI or component data in v1. */
 @Composable
 private fun TrainingAnswerArea(kanji: DictionaryKanji, revealed: Boolean, display: AnswerDisplay) {
@@ -292,6 +282,7 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
     val saving = TrainingState.saving
     // Same area for zero, one or two actions; scale with text, not physical screen height.
     val actionAreaHeight = with(LocalDensity.current) { 52.sp.toDp().coerceAtLeast(56.dp) }
+    val singleActionMaxHeight = with(LocalDensity.current) { 32.sp.toDp().coerceAtLeast(32.dp) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (session.bulkTargets().isNotEmpty()) {
@@ -339,8 +330,8 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
                             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                                 actions.forEach { target ->
                                     FilterChip(
-                                        modifier = Modifier.fillMaxWidth().height(
-                                            if (actions.size == 2) (actionAreaHeight - 2.dp) / 2 else actionAreaHeight
+                                        modifier = Modifier.fillMaxWidth().heightIn(
+                                            max = if (actions.size == 2) (actionAreaHeight - 2.dp) / 2 else singleActionMaxHeight
                                         ),
                                         selected = session.pending[character] == target,
                                         enabled = !saving,
