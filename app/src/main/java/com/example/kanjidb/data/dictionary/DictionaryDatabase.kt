@@ -193,7 +193,7 @@ class DictionaryDatabase(context: Context) {
             result
         }
 
-    suspend fun getKanji(character: String): DictionaryKanji? = withContext(Dispatchers.IO) {
+    suspend fun getKanji(character: String, includeWords: Boolean = true): DictionaryKanji? = withContext(Dispatchers.IO) {
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
         ).use { db ->
@@ -203,7 +203,7 @@ class DictionaryDatabase(context: Context) {
             ).use { cursor ->
                 if (!cursor.moveToFirst()) return@withContext null
                 val id = cursor.getLong(0).toString()
-                val wordSection = getKanjiWords(db, id)
+                val wordSection = if (includeWords) getKanjiWords(db, id) else emptyList()
                 // Older installed dictionary copies may predate the optional JLPT table.
                 val hasJlpt = db.rawQuery(
                     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jlpt_kanji'", null

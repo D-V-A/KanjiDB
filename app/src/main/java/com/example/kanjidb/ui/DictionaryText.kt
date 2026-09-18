@@ -41,3 +41,7 @@ internal fun DictionaryText(
         )
     }
 }
+
+// The first English gloss, shared by the Details heading and Training prompts/results.
+internal val com.example.kanjidb.data.dictionary.DictionaryKanji.primaryMeaning: String?
+    get() = meanings.firstOrNull()?.standaloneKanjiMeaning()

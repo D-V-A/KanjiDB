@@ -53,5 +53,13 @@ abstract class UserKanjiStateDao {
         return true
     }
 
+    /** Mixed assignments commit together, preserving existing append/idempotency semantics. */
+    @Transaction
+    open suspend fun applyStates(assignments: Map<String, LearningState>) {
+        assignments.entries.groupBy({ it.value }, { it.key }).forEach { (state, characters) ->
+            setState(characters, state)
+        }
+    }
+
     suspend fun remove(characters: List<String>) = setState(characters, LearningState.NONE)
 }

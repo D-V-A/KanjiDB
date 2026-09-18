@@ -6,13 +6,17 @@ Checked items are complete; existing placeholders do not count as completed mile
 ## Milestones
 
 - [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
-- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. My Lists remains a placeholder and Training actions remain disabled.
+- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. My Lists remains a placeholder and collection-panel Training actions remain disabled.
 - [x] **Recommended Kanji:** JLPT progression, process-lifetime candidate pool, shared discovery quality gate, weighted sampling, Refresh anti-repeat and incremental Room updates.
-- [ ] **Training:** implement practice sessions with answers written on paper.
+- [x] **Kanji Training v1:** Review/Learning/New, paper recall and self-assessment, repeat attempts, full-pool Results and explicit pending Learning/Known changes applied only at Finish.
 - [ ] **User Lists:** create/manage custom lists and enable assignment from details.
 - [ ] **Stroke Order / KanjiVG:** integrate stroke-order data after checking attribution/license.
 
 ## TODO
+
+- [ ] Manually verify 0.5.0 Training on a phone: all three sources, 0/<5/37/>50 sizes and numeric input, small-screen scrolling, repeated subset attempts, grayed-out row actions, pending reset on result change, Finish versus cancel, bottom navigation/Back, rotation and process restart.
+- [ ] Word Training.
+- [ ] Future Training improvements: stroke order, components/radical Hint and TTS; consider weighting/SRS/statistics only if later needed.
 
 - [ ] Global Settings and recommendation strategy selector; implement Grade/Frequency/Rare strategies later.
 - [ ] Manually verify 0.4.0 Recommended on a phone: tab tap/swipe, Refresh anti-repeat, Details -> Back with/without state change, updates from My Kanji/Groups/bulk actions, Activity recreation and process restart.

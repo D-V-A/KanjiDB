@@ -103,6 +103,24 @@ class UserKanjiStateDaoTest {
         assertEquals(listOf("x"), dao.observeCharacters(LearningState.KNOWN).first())
     }
 
+    @Test fun mixedAssignmentsReuseBulkSemanticsAndPreserveOtherRows() = runBlocking {
+        val dao = MemoryDao()
+        dao.setState(listOf("known", "untouched"), LearningState.KNOWN)
+        dao.setState(listOf("learning"), LearningState.LEARNING)
+        val assignments = linkedMapOf(
+            "known" to LearningState.LEARNING,
+            "learning" to LearningState.KNOWN,
+            "new" to LearningState.KNOWN
+        )
+        dao.applyStates(assignments)
+        assignments.forEach { (character, target) -> assertEquals(target, dao.getState(character)) }
+        assertEquals(listOf("untouched", "learning", "new"), dao.observeCharacters(LearningState.KNOWN).first())
+        val snapshot = dao.getAll()
+        dao.applyStates(assignments)
+        dao.applyStates(emptyMap())
+        assertEquals(snapshot, dao.getAll())
+    }
+
     private class MemoryDao : UserKanjiStateDao() {
         private val rows = MutableStateFlow<Map<String, UserKanjiStateEntity>>(emptyMap())
         override fun observeState(character: String) = rows.map { it[character] }

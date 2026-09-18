@@ -21,6 +21,9 @@ internal object RecommendedState {
     private var session: RecommendedKanjiSession? = null
     var kanji by mutableStateOf<List<KanjiSummary>>(emptyList())
         private set
+    // Read-only snapshot of the existing pool, independent of the five visible cards.
+    var candidateCharacters by mutableStateOf<List<String>>(emptyList())
+        private set
     var loading by mutableStateOf(false)
         private set
     var failed by mutableStateOf(false)
@@ -52,7 +55,10 @@ internal object RecommendedState {
         }
     }
 
-    private fun publish() { kanji = session?.visible?.map { it.summary }.orEmpty() }
+    private fun publish() {
+        kanji = session?.visible?.map { it.summary }.orEmpty()
+        candidateCharacters = session?.pool?.map { it.character }.orEmpty()
+    }
     fun refresh() = change { refresh() }
     fun returnedFromDetails(character: String) = change { returnedFromDetails(character) }
     private fun change(action: RecommendedKanjiSession.() -> Unit) {

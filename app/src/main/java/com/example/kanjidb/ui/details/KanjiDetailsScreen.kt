@@ -44,6 +44,7 @@ import com.example.kanjidb.R
 import com.example.kanjidb.ui.DictionaryText
 import com.example.kanjidb.ui.FloatingActionPanel
 import com.example.kanjidb.ui.standaloneKanjiMeaning
+import com.example.kanjidb.ui.primaryMeaning
 import com.example.kanjidb.ui.LearningState
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryKanji
@@ -137,7 +138,7 @@ fun KanjiDetailsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     DictionaryText(
-                        kanji.meanings.firstOrNull()?.standaloneKanjiMeaning() ?: kanji.character,
+                        kanji.primaryMeaning ?: kanji.character,
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.headlineLarge
                     )

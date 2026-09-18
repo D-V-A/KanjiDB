@@ -1,6 +1,12 @@
 package com.example.kanjidb.ui
 
 import android.net.Uri
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.kanjidb.ui.training.TrainingState
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -58,6 +64,34 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     LaunchedEffect(userDao) { RecommendedState.initialize(DictionaryDatabase(context), userDao) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    var exitTrainingTo by rememberSaveable { mutableStateOf<String?>(null) }
+    // A restored exit dialog must not outlive the process-only session after process death.
+    LaunchedEffect(TrainingState.session == null) {
+        if (TrainingState.session == null) exitTrainingTo = null
+    }
+    fun navigateTopLevel(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    if (exitTrainingTo != null && TrainingState.session != null) {
+        AlertDialog(
+            onDismissRequest = { exitTrainingTo = null },
+            title = { Text("End training?") },
+            text = { Text("Progress for this training session will be lost.") },
+            dismissButton = { TextButton(onClick = { exitTrainingTo = null }) { Text("Continue training") } },
+            confirmButton = {
+                TextButton(enabled = !TrainingState.saving, onClick = {
+                    val target = exitTrainingTo
+                    exitTrainingTo = null
+                    TrainingState.cancel()
+                    if (target != null && target != TRAINING) navigateTopLevel(target)
+                }) { Text("End training") }
+            }
+        )
+    }
     val openDetails: (String) -> Unit = { kanjiId ->
         navController.navigate("details/${Uri.encode(kanjiId)}") {
             launchSingleTop = true
@@ -73,13 +107,11 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                         val label = stringResource(labelResource)
                         NavigationBarItem(
                             selected = currentRoute == route,
+                            enabled = !TrainingState.saving,
                             onClick = {
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (currentRoute != route) {
+                                    if (TrainingState.session != null) exitTrainingTo = route
+                                    else navigateTopLevel(route)
                                 }
                             },
                             icon = { Text(label.take(1)) },
@@ -127,7 +159,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao)
             }
             composable(TRAINING) {
-                TrainingScreen(onOpenDetails = { openDetails("\u5C71") })
+                TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING })
             }
             composable(
                 route = WORD_DETAILS,
