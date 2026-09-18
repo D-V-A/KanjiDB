@@ -15,6 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentDescription
@@ -47,7 +51,7 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(if (session?.complete == true) "Results" else if (setup) "Kanji Training" else "Training",
                 Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
-            if (session != null || setup) {
+            if (session?.complete != true && (session != null || setup)) {
                 TextButton(enabled = !TrainingState.saving, onClick = {
                     if (session != null) onRequestExit() else setup = false
                 }) { Text(if (session != null) "End training" else "Back") }
@@ -225,13 +229,9 @@ private fun TrainingQuestion(session: TrainingSession) {
                     Modifier.padding(start = 12.dp, top = 8.dp), style = MaterialTheme.typography.titleMedium)
             }
             TrainingAnswerArea(kanji, session.revealed, answerDisplay)
-            if (kanji.onReadings.isNotEmpty()) {
-                Text("On", style = MaterialTheme.typography.titleMedium)
-                Text(kanji.onReadings.take(3).joinToString("  ·  "), style = MaterialTheme.typography.titleLarge)
-            }
-            if (kanji.kunReadings.isNotEmpty()) {
-                Text("Kun", style = MaterialTheme.typography.titleMedium)
-                Text(kanji.kunReadings.take(3).joinToString("  ·  "), style = MaterialTheme.typography.titleLarge)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                TrainingReadingsColumn("On", kanji.onReadings, Modifier.weight(1f))
+                TrainingReadingsColumn("Kun", kanji.kunReadings, Modifier.weight(1f))
             }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -244,6 +244,26 @@ private fun TrainingQuestion(session: TrainingSession) {
                     Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Incorrect") }
                 Button(onClick = { TrainingState.update { it.answer(TrainingResult.CORRECT) } },
                     Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Correct") }
+            }
+        }
+    }
+}
+
+/** Each column independently chooses one unwrapped line or one reading per row. */
+@Composable
+private fun TrainingReadingsColumn(title: String, source: List<String>, modifier: Modifier) {
+    val readings = remember(source) { trainingReadings(source) }
+    val textMeasurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.titleLarge
+    BoxWithConstraints(modifier) {
+        if (readings.isNotEmpty()) {
+            val joined = readings.joinToString("\u3000")
+            val availableWidth = constraints.maxWidth
+            val fits = textMeasurer.measure(joined, style = style, softWrap = false).size.width <= availableWidth
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                if (fits) Text(joined, style = style, softWrap = false)
+                else readings.forEach { Text(it, style = style) }
             }
         }
     }
@@ -270,6 +290,8 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
     var choosePractice by rememberSaveable { mutableStateOf(false) }
     val options = session.practiceOptions()
     val saving = TrainingState.saving
+    // Same area for zero, one or two actions; scale with text, not physical screen height.
+    val actionAreaHeight = with(LocalDensity.current) { 52.sp.toDp().coerceAtLeast(56.dp) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (session.bulkTargets().isNotEmpty()) {
@@ -294,7 +316,7 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
                 val correct = session.lastResults[character] == TrainingResult.CORRECT
                 val participated = session.participated(character)
                 Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                    Row(Modifier.padding(8.dp).heightIn(min = actionAreaHeight), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.weight(1f).alpha(if (participated) 1f else 0.45f),
                             verticalAlignment = Alignment.CenterVertically,
@@ -310,22 +332,35 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
                         }
                         // De-emphasis is limited to result content; actions remain fully interactive.
                         val actions = session.allowedActions(character)
-                        if (actions.isNotEmpty()) Column(
-                            modifier = Modifier.fillMaxWidth(0.42f),
-                            horizontalAlignment = Alignment.End
+                        Column(
+                            modifier = Modifier.fillMaxWidth(0.42f).height(actionAreaHeight),
+                            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
                         ) {
-                            actions.forEach { target ->
-                                FilterChip(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    selected = session.pending[character] == target,
-                                    enabled = !saving,
-                                    onClick = { TrainingState.update { it.toggleAction(character, target) } },
-                                    label = { Text(when {
-                                        target == LearningState.KNOWN -> "Add to Known"
-                                        session.mode == TrainingMode.REVIEW -> "Move to Learning"
-                                        else -> "Add to Learning"
-                                    }) }
-                                )
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                actions.forEach { target ->
+                                    FilterChip(
+                                        modifier = Modifier.fillMaxWidth().height(
+                                            if (actions.size == 2) (actionAreaHeight - 2.dp) / 2 else actionAreaHeight
+                                        ),
+                                        selected = session.pending[character] == target,
+                                        enabled = !saving,
+                                        onClick = { TrainingState.update { it.toggleAction(character, target) } },
+                                        label = {
+                                            Text(
+                                                when {
+                                                    target == LearningState.KNOWN -> "Add to Known"
+                                                    session.mode == TrainingMode.REVIEW -> "Move to Learning"
+                                                    else -> "Add to Learning"
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                textAlign = TextAlign.Center,
+                                                style = MaterialTheme.typography.labelSmall.copy(lineHeight = 12.sp),
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
