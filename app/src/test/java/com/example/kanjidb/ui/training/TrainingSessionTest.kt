@@ -188,7 +188,7 @@ class TrainingSessionTest {
     }
     @Test fun modeAndResultControlAvailableActions() {
         val review = finish(start(TrainingMode.REVIEW), setOf("b"))
-        assertTrue(review.allowedActions("a").isEmpty())
+        assertEquals(listOf(LearningState.LEARNING), review.allowedActions("a"))
         assertEquals(listOf(LearningState.LEARNING), review.allowedActions("b"))
         val learning = finish(start(TrainingMode.LEARNING), setOf("b"))
         assertEquals(listOf(LearningState.KNOWN), learning.allowedActions("a"))
@@ -233,6 +233,114 @@ class TrainingSessionTest {
         assertEquals("Water", kanji.primaryMeaning)
         assertNull(card("b").primaryMeaning)
     }
+    @Test fun sourceSwitchPreservesAllowedSize() {
+        assertEquals(25, sessionSizeForSource(25, 40))
+        assertEquals(25, sessionSizeForSource(25, 25))
+    }
+    @Test fun sourceSwitchCapsToExactAvailableCount() {
+        assertEquals(17, sessionSizeForSource(25, 17))
+        assertEquals(3, sessionSizeForSource(25, 3))
+        assertEquals(0, sessionSizeForSource(25, 0))
+    }
+    @Test fun cappedValueBecomesCurrentAndFormerMaximumRoundsUp() {
+        var selected = sessionSizeForSource(25, 17)
+        assertEquals(17, selected)
+        selected = sessionSizeForSource(selected, 30)
+        assertEquals(20, selected)
+        assertEquals(20, sessionSizeForSource(selected, 40))
+        assertEquals(17, sessionSizeForSource(17, 17))
+        assertEquals(18, sessionSizeForSource(17, 18))
+    }
+    @Test fun sourceSwitchAlwaysProducesSelectableSize() {
+        for (selected in 0..50) for (available in 0..65) {
+            val result = sessionSizeForSource(selected, available)
+            assertTrue(result in sessionSizes(available))
+            assertTrue(result <= minOf(50, available))
+        }
+        assertEquals(5, sessionSizeForSource(3, 40))
+        assertEquals(5, sessionSizeForSource(0, 40))
+        assertEquals(50, sessionSizeForSource(47, 80))
+    }
+    @Test fun reviewActionsToggleForBothResults() {
+        val s = finish(start(TrainingMode.REVIEW), setOf("b"))
+        for (character in listOf("a", "b")) {
+            val selected = s.toggleAction(character, LearningState.LEARNING)
+            assertEquals(LearningState.LEARNING, selected.pending[character])
+            assertFalse(selected.toggleAction(character, LearningState.LEARNING).pending.containsKey(character))
+        }
+    }
+    @Test fun reviewChangedResultClearsPendingButAllowsReselection() {
+        val first = finish(start(TrainingMode.REVIEW), setOf("b"))
+            .toggleAction("b", LearningState.LEARNING)
+        val corrected = finish(first.practice(PracticeKind.MISTAKES))
+        assertFalse(corrected.pending.containsKey("b"))
+        assertEquals(LearningState.LEARNING, corrected.toggleAction("b", LearningState.LEARNING).pending["b"])
+        val incorrect = finish(corrected.toggleAction("b", LearningState.LEARNING)
+            .practice(PracticeKind.ALL), setOf("b"))
+        assertFalse(incorrect.pending.containsKey("b"))
+        assertEquals(LearningState.LEARNING, incorrect.toggleAction("b", LearningState.LEARNING).pending["b"])
+    }
+    @Test fun bulkReviewTargetsCurrentMistakesAndPreservesOtherPending() {
+        val s = finish(start(TrainingMode.REVIEW), setOf("b", "d"))
+            .toggleAction("a", LearningState.LEARNING)
+        assertEquals(listOf("b", "d"), s.bulkTargets())
+        assertEquals(mapOf("a" to LearningState.LEARNING, "b" to LearningState.LEARNING,
+            "d" to LearningState.LEARNING), s.withBulkActions().finishAssignments())
+        assertEquals(mapOf("a" to LearningState.LEARNING), s.pending)
+    }
+    @Test fun bulkReviewDoesNotDemoteCorrectedMistakes() {
+        val first = finish(start(TrainingMode.REVIEW), setOf("b", "d"))
+        val current = finish(first.practice(PracticeKind.MISTAKES), setOf("d"))
+        assertEquals(listOf("d"), current.bulkTargets())
+        assertEquals(mapOf("d" to LearningState.LEARNING), current.withBulkActions().finishAssignments())
+    }
+    @Test fun bulkLearningPromotesOnlyCurrentCorrectAcrossWholePool() {
+        val first = finish(start(TrainingMode.LEARNING), setOf("b", "d"))
+        val current = finish(first.practice(PracticeKind.MISTAKES), setOf("d"))
+        assertFalse(current.participated("a"))
+        assertEquals(listOf("a", "b", "c", "e"), current.bulkTargets())
+        assertEquals(listOf("a", "b", "c", "e").associateWith { LearningState.KNOWN },
+            current.withBulkActions().finishAssignments())
+        assertFalse(current.withBulkActions().pending.containsKey("d"))
+    }
+    @Test fun bulkNewOverridesTargetPendingAndPreservesOutsidePending() {
+        val s = mixed().toggleAction("a", LearningState.LEARNING)
+            .toggleAction("b", LearningState.LEARNING)
+        val assignments = s.withBulkActions().finishAssignments()
+        assertEquals(mapOf("a" to LearningState.KNOWN, "b" to LearningState.LEARNING,
+            "c" to LearningState.KNOWN, "e" to LearningState.KNOWN), assignments)
+        assertEquals(LearningState.LEARNING, s.pending["a"])
+    }
+    @Test fun bulkNewUsesLatestResultAfterPracticeAgain() {
+        val s = finish(mixed().practice(PracticeKind.ALL), setOf("a", "d"))
+        val assignments = s.withBulkActions().finishAssignments()
+        assertFalse(assignments.containsKey("a"))
+        assertEquals(LearningState.KNOWN, assignments["b"])
+        assertEquals(setOf("b", "c", "e"), assignments.keys)
+    }
+    @Test fun emptyBulkTargetsKeepExistingPendingAndDoNotCreateActions() {
+        val review = finish(start(TrainingMode.REVIEW)).toggleAction("a", LearningState.LEARNING)
+        assertTrue(review.bulkTargets().isEmpty())
+        assertEquals(review.pending, review.withBulkActions().finishAssignments())
+        for (mode in listOf(TrainingMode.LEARNING, TrainingMode.NEW)) {
+            val s = finish(start(mode), pool.toSet())
+            assertTrue(s.bulkTargets().isEmpty())
+            assertTrue(s.withBulkActions().finishAssignments().isEmpty())
+        }
+    }
+    @Test fun bulkOnlyChangesPendingAndKeepsAttemptAndResults() {
+        val s = finish(subset(), setOf("d"))
+        val bulk = s.withBulkActions()
+        assertEquals(s.pool, bulk.pool)
+        assertEquals(s.attempt, bulk.attempt)
+        assertEquals(s.questionOrder, bulk.questionOrder)
+        assertEquals(s.lastResults, bulk.lastResults)
+        assertEquals(s.questionIndex, bulk.questionIndex)
+        assertEquals(bulk, bulk.withBulkActions())
+    }
+    @Test(expected = IllegalStateException::class)
+    fun bulkCannotFinishIncompleteAttempt() { start().withBulkActions() }
+
     private fun card(character: String) = DictionaryKanji(
         character, null, null, null, false, emptyList(), emptyList(), emptyList(), emptyList()
     )

@@ -15,6 +15,12 @@ internal fun sessionSizes(available: Int): List<Int> {
     return ((5..maximum step 5).toList() + maximum).distinct()
 }
 
+/** Source changes keep the current size, cap it, or round a former exact maximum upward. */
+internal fun sessionSizeForSource(selected: Int, available: Int): Int {
+    val bounded = selected.coerceIn(0, 50)
+    return sessionSizes(available).firstOrNull { it >= bounded } ?: sessionSizes(available).last()
+}
+
 /** Nearest allowed value; ties resolve to the smaller size. Handles empty/overflowing input. */
 internal fun normalizedSessionSize(input: String, available: Int): Int {
     val number = input.toLongOrNull() ?: if (input.isNotEmpty() && input.all(Char::isDigit)) Long.MAX_VALUE else 0
@@ -58,7 +64,7 @@ internal data class TrainingSession private constructor(
 
     fun allowedActions(character: String): List<LearningState> = when (lastResults[character]) {
         TrainingResult.CORRECT -> when (mode) {
-            TrainingMode.REVIEW -> emptyList()
+            TrainingMode.REVIEW -> listOf(LearningState.LEARNING)
             TrainingMode.LEARNING -> listOf(LearningState.KNOWN)
             TrainingMode.NEW -> listOf(LearningState.LEARNING, LearningState.KNOWN)
         }
@@ -89,6 +95,20 @@ internal data class TrainingSession private constructor(
     fun practice(kind: PracticeKind, random: Random = Random.Default): TrainingSession {
         val subset = practiceOptions().first { it.kind == kind }.characters
         return copy(attempt = subset.toList(), questionOrder = subset.shuffled(random), questionIndex = 0, revealed = false)
+    }
+
+    /** Targets come from the entire pool's current Last Results, not attempt membership/history. */
+    fun bulkTargets(): List<String> {
+        if (!complete) return emptyList()
+        val result = if (mode == TrainingMode.REVIEW) TrainingResult.INCORRECT else TrainingResult.CORRECT
+        return pool.filter { lastResults[it] == result }
+    }
+
+    /** An explicit shortcut selecting ordinary pending actions before the same Finish operation. */
+    fun withBulkActions(): TrainingSession {
+        check(complete)
+        val target = if (mode == TrainingMode.REVIEW) LearningState.LEARNING else LearningState.KNOWN
+        return copy(pending = pending + bulkTargets().associateWith { target })
     }
 
     fun finishAssignments(): Map<String, LearningState> {

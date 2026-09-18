@@ -38,9 +38,14 @@ internal object TrainingState {
         saveFailed = false
     }
 
-    fun finish(dao: UserKanjiStateDao) {
-        val current = session ?: return
+    fun finish(dao: UserKanjiStateDao, bulk: Boolean = false) {
+        var current = session ?: return
         if (saving || !current.complete) return
+        if (bulk) {
+            current = current.withBulkActions()
+            // Keep the explicit bulk choices if saving fails, so normal Finish retries them.
+            session = current
+        }
         saving = true
         saveFailed = false
         // Finishing survives Activity recreation; navigation cannot discard a committing session.
