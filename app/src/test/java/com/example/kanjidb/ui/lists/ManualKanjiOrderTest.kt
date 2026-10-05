@@ -71,19 +71,21 @@ class ManualKanjiOrderTest {
         assertEquals(0L, rows.last().manualPosition)
     }
 
-    @Test fun successfulDropDeselectsOnlyDraggedCardAndKeepsSelectionMode() {
+    @Test fun successfulDropPreservesSelectedAndUnselectedCardsAndKeepsSelectionMode() {
         val state = KanjiCollectionState()
         state.begin("LEARNING", listOf("a"))
         state.toggle("b")
         state.toggle("c")
+        val selected = state.selected
         val entry = state.selectionEntryId
-        state.clearReveal()
-        state.finishReorder("b")
-        assertEquals(setOf("a", "c"), state.selected)
+        state.finishReorder()
+        assertEquals(selected, state.selected)
+        assertFalse("Dragging an unselected card must not add it", "d" in state.selected)
         assertNull(state.revealCharacter)
         assertEquals(entry, state.selectionEntryId)
-        state.finishReorder("a")
-        state.finishReorder("c")
+        assertTrue(state.selecting)
+        state.retain(emptySet())
+        state.finishReorder()
         assertTrue(state.selecting)
         assertTrue(state.selected.isEmpty())
     }

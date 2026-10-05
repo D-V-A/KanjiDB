@@ -28,9 +28,9 @@ fun membershipState(members: Collection<String>, selected: Collection<String>): 
 }
 
 /** Null target means preserve the original partial/all/none state, including concurrent changes. */
-data class CustomListTarget(val id: Long?, val name: String, val target: Boolean? = null)
+data class CustomListTarget(val id: Long?, val name: String, val target: Boolean? = null, val kanjiCount: Int = 0)
 class CustomListDraft(lists: List<CustomListWithKanji>, val selected: List<String>) {
-    var targets: List<CustomListTarget> = lists.map { CustomListTarget(it.list.id, it.list.name) }
+    var targets: List<CustomListTarget> = lists.map { CustomListTarget(it.list.id, it.list.name, kanjiCount = it.memberships.size) }
         private set
     private var initial = lists.associate { it.list.id to membershipState(it.characters, selected) }
     fun state(index: Int): ListMembershipState {
@@ -40,23 +40,29 @@ class CustomListDraft(lists: List<CustomListWithKanji>, val selected: List<Strin
     }
     fun tap(index: Int) {
         val checked = state(index).tapped() == ListMembershipState.CHECKED
-        targets = targets.mapIndexed { i, target -> if (i == index) target.copy(target = checked) else target }
+        targets = targets.mapIndexed { i, target ->
+            if (i == index) target.copy(target = checked,
+                kanjiCount = if (target.id == null) { if (checked) selected.distinct().size else 0 } else target.kanjiCount)
+            else target
+        }
     }
-    fun save(): List<String> = listOf(selected.size.toString()) + selected +
+    fun save(): List<String> = listOf("v2", selected.size.toString()) + selected +
         listOf(targets.size.toString()) + targets.flatMap {
             listOf(it.id?.toString().orEmpty(), it.name, it.target?.toString().orEmpty(),
-                (it.id?.let { id -> initial[id] } ?: ListMembershipState.UNCHECKED).name)
+                (it.id?.let { id -> initial[id] } ?: ListMembershipState.UNCHECKED).name, it.kanjiCount.toString())
         }
 
     companion object {
         fun restore(saved: List<String>): CustomListDraft {
-            val selectedCount = saved[0].toInt()
-            val selected = saved.subList(1, 1 + selectedCount)
-            val targetCount = saved[1 + selectedCount].toInt()
-            val rows = saved.drop(2 + selectedCount).chunked(4).take(targetCount)
+            val counted = saved.first() == "v2"
+            val values = if (counted) saved.drop(1) else saved
+            val selectedCount = values[0].toInt()
+            val selected = values.subList(1, 1 + selectedCount)
+            val targetCount = values[1 + selectedCount].toInt()
+            val rows = values.drop(2 + selectedCount).chunked(if (counted) 5 else 4).take(targetCount)
             return CustomListDraft(emptyList(), selected).apply {
                 targets = rows.map { CustomListTarget(it[0].toLongOrNull(), it[1],
-                    it[2].takeIf(String::isNotEmpty)?.toBooleanStrict()) }
+                    it[2].takeIf(String::isNotEmpty)?.toBooleanStrict(), if (counted) it[4].toInt() else 0) }
                 initial = rows.filter { it[0].isNotEmpty() }.associate {
                     it[0].toLong() to ListMembershipState.valueOf(it[3])
                 }
@@ -66,7 +72,7 @@ class CustomListDraft(lists: List<CustomListWithKanji>, val selected: List<Strin
 
     fun create(name: String): String? {
         val error = customListNameError(name, targets.mapIndexed { i, t -> CustomListEntity(i.toLong(), t.name, 0) })
-        if (error == null) targets = listOf(CustomListTarget(null, name, true)) + targets
+        if (error == null) targets = listOf(CustomListTarget(null, name, true, selected.distinct().size)) + targets
         return error
     }
 }

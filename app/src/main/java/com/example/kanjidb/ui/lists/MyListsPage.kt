@@ -1,7 +1,8 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,7 +36,7 @@ import kotlinx.coroutines.launch
 internal fun MyListsPage(
     dao: CustomListDao, userDao: UserKanjiStateDao, entries: List<KanjiGroupEntry>?,
     rows: List<UserKanjiStateEntity>?, failed: Boolean, onRetry: () -> Unit,
-    activePage: Boolean, onOpenDetails: (String) -> Unit
+    activePage: Boolean, currentPage: Int, onOpenDetails: (String) -> Unit
 ) {
     val lists by remember(dao) { dao.observeLists() }.collectAsStateWithLifecycle(initialValue = null)
     val collection = rememberSaveable(saver = KanjiCollectionState.Saver) { KanjiCollectionState() }
@@ -51,41 +52,34 @@ internal fun MyListsPage(
     var after by rememberSaveable { mutableStateOf(emptyList<Long>()) }
     var saving by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
-    var optionsByList by rememberSaveable { mutableStateOf(emptyMap<String, List<String>>()) }
-    var filters by rememberSaveable { mutableStateOf(emptyList<Long>()) }
-    var rulesId by rememberSaveable { mutableStateOf<Long?>(null) }
-    fun options(id: Long) = optionsByList[id.toString()]?.let { KanjiGroupOptions.Saver.restore(it) }
-        ?: KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL)
-    fun changeOptions(id: Long, value: KanjiGroupOptions) {
-        // Same compact serialization as shared options; no independent Rules semantics.
-        optionsByList = optionsByList + (id.toString() to listOf(value.groupBy.name, value.reverseGroups.toString(),
-            value.sortBy.name, value.descending.toString(), value.jlpt.name, value.grade.name,
-            value.joyo.name, value.status.name))
+    var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
+        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
     }
+    var rulesOpen by rememberSaveable { mutableStateOf(false) }
     data class Result(val lists: List<CustomListWithKanji>, val entries: List<KanjiGroupEntry>,
-        val rows: List<UserKanjiStateEntity>, val settings: Map<String, List<String>>, val sections: List<KanjiSection>)
+        val rows: List<UserKanjiStateEntity>, val settings: KanjiGroupOptions, val sections: List<KanjiSection>)
     var result by remember { mutableStateOf<Result?>(null) }
     val sections = result?.sections
     val ready = result?.let { it.lists == lists && it.entries === entries &&
-        it.rows == rows && it.settings == optionsByList } == true
-    LaunchedEffect(lists, entries, rows, optionsByList) {
+        it.rows == rows && it.settings == options } == true
+    LaunchedEffect(lists, entries, rows, options) {
         val current = lists ?: return@LaunchedEffect
         val dictionary = entries ?: return@LaunchedEffect
         val states = rows ?: return@LaunchedEffect
-        val settings = current.associate { it.list.id to options(it.list.id) }
-        val savedSettings = optionsByList
+        val savedSettings = options
         val organizedSections = withContext(Dispatchers.Default) {
             val metadata = dictionary.associateBy { it.character }
             val statuses = states.associate { it.character to it.state }
-            current.map { list ->
-                customListSection(list, metadata, statuses, settings.getValue(list.list.id))
-            }
+            customListSections(current, metadata, statuses, savedSettings)
         }
         result = Result(current, dictionary, states, savedSettings, organizedSections)
     }
-    LaunchedEffect(lists) {
-        if (lists != null && collection.section != null &&
-            lists.orEmpty().none { it.list.id.toString() == collection.section }) collection.cancel()
+    LaunchedEffect(lists, collection.section) {
+        if (lists != null && collection.section != null) {
+            val active = lists.orEmpty().firstOrNull { it.list.id.toString() == collection.section }
+            if (active == null) collection.cancel()
+            else collection.retain(active.characters.toSet())
+        }
     }
     fun write(operation: suspend () -> Unit) {
         if (saving) return
@@ -99,83 +93,79 @@ internal fun MyListsPage(
         }
     }
     val currentLists = lists.orEmpty()
-    if (reordering) {
-        CustomListReorder(currentLists, after, { after = it },
-            enabled = !saving, activePage = activePage,
-            onCancel = { if (!saving) reordering = false },
-            onApply = { write {
-                check(dao.reorderLists(before, after)) { "Lists changed. Cancel and try again." }
-                reordering = false
-            } }, error = saveError)
-    } else {
-        val activeOptions = collection.section?.toLongOrNull()?.let { options(it) }
-        // Keep a selected character available for follow-up actions after removing it from this list.
-        // These transient cards disappear at Finish; persisted membership/count stays authoritative.
-        val activeList = currentLists.firstOrNull { it.list.id.toString() == collection.section }
-        val displaySections = preserveRemovedListSelection(sections.orEmpty(), collection,
-            activeList?.characters.orEmpty().toSet(), entries.orEmpty())
-        val canReorder = activeOptions?.manualReorderAvailable == true &&
-            displaySections.firstOrNull { it.key == collection.section }?.cards?.map { it.character }?.toSet() ==
-            activeList?.characters?.toSet()
-        KanjiCollectionGrid(
-            sections = displaySections, state = collection, actions = listOf(
-                KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }),
-                KanjiSelectionAction(R.string.groups_add_known, { writer.assign(it, LearningState.KNOWN) })
-            ),
-            onOpenDetails = onOpenDetails, grid = grid, contentAvailable = sections != null,
-            modifier = Modifier.fillMaxSize(), activePage = activePage && rulesId == null,
-            isolateSection = true, busy = saving || writer.saving, ready = ready,
-            loading = !ready && !failed,
-            error = saveError ?: if (writer.failed) "Could not save kanji state." else if (failed) "Could not load kanji." else null,
-            onRetry = if (failed) onRetry else null, customListsDao = dao, namespaceCards = true,
-            leadingContent = if (!collection.selecting) ({
-                OutlinedCard(onClick = { creating = true }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Add new list", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium)
-                }
-            }) else null,
-            onHeaderLongClick = { section ->
-                if (collection.selecting) collection.selectAll(section.key, section.cards.map { it.character })
-                else menu = section.key.toLong()
-            },
-            sectionCount = { section -> currentLists.firstOrNull { it.list.id.toString() == section.key }?.memberships?.size ?: 0 },
-            sectionControls = { section ->
-                val id = section.key.toLong()
-                Column {
-                    if (id !in filters) TextButton(enabled = !saving, onClick = { filters = filters + id }) { Text("Show filters") }
-                    else {
-                        KanjiCollectionControls(options(id), { changeOptions(id, it) }, rulesId == id,
-                            { rulesId = if (it) id else null }, saving || writer.saving, customList = true)
-                        TextButton(onClick = { filters = filters - id }) { Text("Hide filters") }
+    CollectionFiltersHeader(currentPage = currentPage, activePage = activePage,
+        locked = collection.selecting || reordering, enabled = !saving && !writer.saving && !rulesOpen,
+        modifier = Modifier.fillMaxSize(),
+        controls = { KanjiCollectionControls(options, { options = it }, rulesOpen,
+            { rulesOpen = it }, saving || writer.saving, customList = true) }) {
+        if (reordering) {
+            CustomListReorder(currentLists, after, { after = it },
+                enabled = !saving, activePage = activePage,
+                onCancel = { if (!saving) reordering = false },
+                onApply = { write {
+                    check(dao.reorderLists(before, after)) { "Lists changed. Cancel and try again." }
+                    reordering = false
+                } }, error = saveError)
+        } else {
+            val activeList = currentLists.firstOrNull { it.list.id.toString() == collection.section }
+            // Room membership is authoritative even while sort/filter recomputation is pending.
+            val displaySections = retainCustomListMembership(sections.orEmpty(), currentLists)
+            val canReorder = options.manualReorderAvailable &&
+                displaySections.firstOrNull { it.key == collection.section }?.cards?.map { it.character }?.toSet() ==
+                activeList?.characters?.toSet()
+            KanjiCollectionGrid(
+                sections = displaySections, state = collection, actions = listOf(
+                    KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }),
+                    KanjiSelectionAction(R.string.groups_add_known, { writer.assign(it, LearningState.KNOWN) })
+                ),
+                onOpenDetails = onOpenDetails, grid = grid, contentAvailable = sections != null,
+                modifier = Modifier.fillMaxSize(), activePage = activePage && !rulesOpen,
+                isolateSection = true, busy = saving || writer.saving, ready = ready,
+                loading = !ready && !failed,
+                error = saveError ?: if (writer.failed) "Could not save kanji state." else if (failed) "Could not load kanji." else null,
+                onRetry = if (failed) onRetry else null, customListsDao = dao, namespaceCards = true,
+                leadingContent = if (!collection.selecting) ({
+                    OutlinedCard(onClick = { creating = true }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                        Text("Add new list", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium)
                     }
+                }) else null,
+                onHeaderLongClick = { section ->
+                    if (collection.selecting) collection.selectAll(section.key, section.cards.map { it.character })
+                    else menu = section.key.toLong()
+                },
+                sectionCount = { section -> currentLists.firstOrNull { it.list.id.toString() == section.key }?.memberships?.size ?: 0 },
+                sectionControls = { section ->
                     if (section.cards.isEmpty()) Text("No kanji matching filters or this list is empty.", Modifier.padding(8.dp))
-                }
-            },
-            onReorder = if (canReorder) ({ drop ->
-                if (saving) false else {
-                    saving = true
-                    saveError = null
-                    try {
-                        val success = dao.reorderKanji(drop.section.toLong(), drop.before, drop.after)
-                        if (success) collection.finishReorder(drop.character)
-                        else saveError = "List changed. Please try again."
-                        success
-                    } catch (e: CancellationException) { throw e }
-                    catch (e: Exception) { saveError = "Could not save order."; false }
-                    finally { saving = false }
-                }
-            }) else null,
-            tag = "my_lists"
-        )
+                },
+                onReorder = if (canReorder) ({ drop ->
+                    if (saving) false else {
+                        saving = true
+                        saveError = null
+                        try {
+                            val success = dao.reorderKanji(drop.section.toLong(), drop.before, drop.after)
+                            if (success) collection.finishReorder()
+                            else saveError = "List changed. Please try again."
+                            success
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { saveError = "Could not save order."; false }
+                        finally { saving = false }
+                    }
+                }) else null,
+                tag = "my_lists"
+            )
+        }
     }
     currentLists.firstOrNull { it.list.id == menu }?.let { list ->
-        AlertDialog(onDismissRequest = { menu = null }, title = { Text(list.list.name) },
+        AlertDialog(onDismissRequest = { menu = null },
+            title = { Text(list.list.name, Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
             text = {
-                Column {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     TextButton(onClick = { editId = list.list.id; menu = null }) { Text("Rename") }
                     TextButton(onClick = { deleteId = list.list.id; menu = null }) { Text("Delete") }
                     TextButton(onClick = {
                         before = currentLists.map { it.list.id }; after = before; reordering = true; menu = null
                     }) { Text("Change order") }
+                    TextButton(onClick = {}, enabled = false) { Text("Training") }
                 }
             }, confirmButton = { TextButton(onClick = { menu = null }) { Text("Cancel") } })
     }
@@ -257,11 +247,21 @@ private fun CustomListReorder(
                             .semantics { contentDescription = "Drag to reorder " + list.list.name }
                             .onGloballyPositioned { handleTop = it.positionInRoot() }
                             .pointerInput(id, enabled, activePage) {
-                                if (enabled && activePage) detectDragGesturesAfterLongPress(
-                                    onDragStart = { dragged = id; pointer = handleTop + it },
-                                    onDragEnd = { dragged = null }, onDragCancel = { dragged = null },
-                                    onDrag = { change, delta -> change.consume(); pointer += delta }
-                                )
+                                if (enabled && activePage) awaitEachGesture {
+                                    val down = awaitFirstDown()
+                                    down.consume()
+                                    dragged = id
+                                    pointer = handleTop + down.position
+                                    try {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                            if (!change.pressed || event.changes.count { it.pressed } > 1) break
+                                            pointer += change.position - change.previousPosition
+                                            change.consume()
+                                        }
+                                    } finally { dragged = null }
+                                }
                             }.wrapContentSize(), style = MaterialTheme.typography.headlineMedium)
                     }
                 }
@@ -269,8 +269,8 @@ private fun CustomListReorder(
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         FloatingActionPanel(Modifier.fillMaxWidth()) {
-            OutlinedButton(enabled = enabled && dragged == null, modifier = Modifier.weight(1f), onClick = onApply) { Text("Apply") }
             OutlinedButton(enabled = enabled && dragged == null, modifier = Modifier.weight(1f), onClick = onCancel) { Text("Cancel") }
+            OutlinedButton(enabled = enabled && dragged == null, modifier = Modifier.weight(1f), onClick = onApply) { Text("Apply") }
         }
     }
 }

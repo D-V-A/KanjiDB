@@ -197,20 +197,22 @@ fun KanjiDetailsScreen(
                 .onSizeChanged { panelHeight = it.height }
                 .padding(12.dp)
         ) {
-            FilterChip(
-                selected = learningState == LearningState.LEARNING,
-                enabled = !saving,
-                onClick = { toggleState(LearningState.LEARNING) },
-                label = { Text(stringResource(R.string.details_learning)) },
+            OutlinedButton(
+                enabled = !saving, onClick = { toggleState(LearningState.LEARNING) },
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (learningState == LearningState.LEARNING) MaterialTheme.colorScheme.secondaryContainer
+                        else androidx.compose.ui.graphics.Color.Transparent),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
-            )
-            FilterChip(
-                selected = learningState == LearningState.KNOWN,
-                enabled = !saving,
-                onClick = { toggleState(LearningState.KNOWN) },
-                label = { Text(stringResource(R.string.details_known)) },
+            ) { Text(stringResource(R.string.details_learning)) }
+            OutlinedButton(
+                enabled = !saving, onClick = { toggleState(LearningState.KNOWN) },
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (learningState == LearningState.KNOWN) MaterialTheme.colorScheme.secondaryContainer
+                        else androidx.compose.ui.graphics.Color.Transparent),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
-            )
+            ) { Text(stringResource(R.string.details_known)) }
             OutlinedButton(
                 onClick = { listsOpen = true },
                 enabled = !saving,

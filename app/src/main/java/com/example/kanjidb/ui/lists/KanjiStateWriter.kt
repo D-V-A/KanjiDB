@@ -24,7 +24,7 @@ internal class KanjiStateWriter(
         failed = false
         return try {
             val saved = dao.reorder(state, before, after)
-            if (saved) selection.finishReorder(character) else failed = true
+            if (saved) selection.finishReorder() else failed = true
             saved
         } catch (error: CancellationException) {
             throw error

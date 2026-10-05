@@ -92,16 +92,14 @@ internal fun MyKanjiScreen(
         HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
             modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
             when (index) {
-                0 -> CollapsingCollectionHeader(
+                0 -> CollectionFiltersHeader(
                     currentPage = pager.settledPage,
-                    scrollEnabled = pager.currentPage == 0 && !saving && !myRulesOpen && !manualSelection,
-                    controlsVisible = !manualSelection,
+                    activePage = pager.currentPage == 0,
+                    locked = state.collection.selecting, enabled = !saving && !myRulesOpen,
                     modifier = Modifier.fillMaxSize(),
-                    header = {
-                        Box(Modifier.padding(bottom = 8.dp)) {
-                            KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
-                                { myRulesOpen = it }, myWriter.saving, personal = true)
-                        }
+                    controls = {
+                        KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
+                            { myRulesOpen = it }, myWriter.saving, personal = true)
                     }
                 ) {
                     MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
@@ -109,16 +107,15 @@ internal fun MyKanjiScreen(
                         onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar, customListsDao = customListsDao)
                 }
                 1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
-                    activePage = pager.currentPage == 1, onOpenDetails = onOpenDetails)
-                2 -> CollapsingCollectionHeader(
+                    activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails)
+                2 -> CollectionFiltersHeader(
                     currentPage = pager.settledPage,
-                    scrollEnabled = pager.currentPage == 2 && !saving && !rulesOpen,
+                    activePage = pager.currentPage == 2,
+                    locked = groupsState.selecting, enabled = !saving && !rulesOpen,
                     modifier = Modifier.fillMaxSize(),
-                    header = {
-                        Box(Modifier.padding(bottom = 8.dp)) {
-                            KanjiCollectionControls(options, { options = it }, rulesOpen,
-                                { rulesOpen = it }, groupsWriter.saving)
-                        }
+                    controls = {
+                        KanjiCollectionControls(options, { options = it }, rulesOpen,
+                            { rulesOpen = it }, groupsWriter.saving)
                     }
                 ) {
                     KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,

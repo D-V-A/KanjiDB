@@ -22,18 +22,25 @@ internal class KanjiCollectionState {
         private set
     val selecting: Boolean get() = section != null
 
-    fun toggleExpanded(key: String) {
-        if (selecting) return
+    fun toggleExpanded(key: String, duringSelection: Boolean = false) {
+        if (selecting && !duringSelection) return
         expandedKeys = if (key in expandedKeys) expandedKeys - key else expandedKeys + key
     }
 
-    fun toggleSubgroup(key: String) {
-        if (selecting) return
+    fun toggleSubgroup(key: String, duringSelection: Boolean = false) {
+        if (selecting && !duringSelection) return
         collapsedSubgroups = if (key in collapsedSubgroups) collapsedSubgroups - key else collapsedSubgroups + key
     }
 
-    fun begin(key: String, characters: Collection<String>) {
-        if (selecting || characters.isEmpty()) return
+    fun begin(key: String, characters: Collection<String>, multiSection: Boolean = false) {
+        if (characters.isEmpty()) return
+        if (selecting) {
+            if (multiSection) {
+                selected = selected + characters
+                revealCharacter = characters.first()
+            }
+            return
+        }
         section = key
         selectionEntryId++
         selected = characters.toSet()
@@ -68,10 +75,7 @@ internal class KanjiCollectionState {
 
     fun clearReveal() { revealCharacter = null }
 
-    fun finishReorder(character: String) {
-        selected = selected - character
-        revealCharacter = null
-    }
+    fun finishReorder() { revealCharacter = null }
 
     fun cancel() {
         selected = emptySet()

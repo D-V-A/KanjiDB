@@ -15,7 +15,10 @@ Checked items are complete; existing placeholders do not count as completed mile
 
 ## TODO
 
-- [ ] Manually verify 0.6.0-alpha on a phone: upgrade existing Learning/Known from Room v2, My Lists expansion/navigation, name validation only on Apply, confirmed delete isolation, handle reorder Apply/Cancel/edge scroll, per-list Rules/manual kanji drag, overlapping memberships, staged dialog Cancel/Apply/rotation, bulk partial states and selection preservation after removal, and My Lists Training source with empty/nonempty lists and source/list size changes. No emulator/device/UI automation was run for this milestone.
+- [x] **0.6.1-alpha UI/behavior follow-up:** shared locked Show/Hide filters across collection tabs; tab-wide My Lists Sort/Rules; pill Details actions; centered list-count containers with striped Partial state; centered context actions and disabled Training; immediate handle drag and Cancel/Apply ordering; independent drag/selection; immediate active-list membership pruning; additive multi-group selection only in Kanji Groups.
+- [ ] Manually verify 0.6.1-alpha on a phone: unified filters alignment/scrolling and lock/unlock in selection/reorder, global My Lists sorting and Rules, pill highlights, Partial stripes/counts/spacing in light and dark themes, immediate handle dragging/edge scroll/Apply/Cancel, unchanged card selection after drop, immediate removed-membership disappearance with empty selection mode retained, multi-group long press/expansion/bulk actions, and single-section isolation in My Kanji/My Lists. Emulator/device/UI automation was not run.
+
+- [ ] Manually verify 0.6.0-alpha on a phone: upgrade existing Learning/Known from Room v2, My Lists expansion/navigation, name validation only on Apply, confirmed delete isolation, handle reorder Apply/Cancel/edge scroll, global My Lists Rules/manual kanji drag, overlapping memberships, staged dialog Cancel/Apply/rotation, bulk partial states and immediate selection pruning after active-list membership removal, and My Lists Training source with empty/nonempty lists and source/list size changes. No emulator/device/UI automation was run for this milestone.
 
 - [x] Training 0.5.1 follow-up: shared session size across sources with capped-value upward rounding, square blank/reveal area, right-side result actions, outlined practice choices, Review actions for both results and bulk-and-finish shortcuts.
 - [ ] Manually verify 0.5.1 Training follow-up on a phone: source switching 25 -> 17 -> 20, square reveal area, right-side actions on narrow screens, outlined practice choices and bulk-and-finish versus cancel. Retain coverage of all three sources, 0/<5/37/>50 sizes and numeric input, small-screen scrolling, repeated subset attempts, grayed-out row actions, pending reset on result change, Finish versus cancel, bottom navigation/Back, rotation and process restart.
@@ -32,7 +35,7 @@ Checked items are complete; existing placeholders do not count as completed mile
 - [x] Add shared Group by / Sort by / Rules inside My Kanji Learning/Known, including selectable JLPT/Grade groups and nested technical Ranked/Unranked sections.
 - [ ] Manually verify 0.3.4 collection UX on a phone: fixed tabs/page controls during tap/swipe, controls reset, nested header selection, card clearance, section restoration and Details -> Back in both collections.
 
-- [x] Persist one manual order per Learning/Known with Room v2 migration; allow selection-only 250 ms hold/drag in ungrouped, unfiltered Manually mode, including edge autoscroll and drop deselection.
+- [x] Persist one manual order per Learning/Known with Room v2 migration; allow selection-only 250 ms hold/drag in ungrouped, unfiltered Manually mode, including edge autoscroll and selection preservation on drop.
 - [ ] On a phone, verify upgrade from Room v1 with existing records, manual order after restart, append-on-Move/Add, drag delay versus tap/entry long press, multi-screen edge scrolling in both directions, cancel/failure behavior, controls omission/restoration, Snackbar entry timing and forbidden reorder configurations.
 
 - [x] Capitalise standalone English kanji meanings in the UI.

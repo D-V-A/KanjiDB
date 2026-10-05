@@ -16,19 +16,18 @@ internal fun customListSection(
     return KanjiSection(list.list.id.toString(), list.list.name, organized.cards())
 }
 
-/** Removal through Custom Lists keeps the same selection available until explicit Finish. */
-internal fun preserveRemovedListSelection(
-    sections: List<KanjiSection>, state: KanjiCollectionState, membership: Set<String>,
-    entries: List<KanjiGroupEntry>
+/** A single tab-owned set of options applies equally to every list. */
+internal fun customListSections(
+    lists: List<CustomListWithKanji>, metadata: Map<String, KanjiGroupEntry>,
+    states: Map<String, LearningState>, options: KanjiGroupOptions
+): List<KanjiSection> = lists.map { customListSection(it, metadata, states, options) }
+
+/** Immediately hide removed memberships while background organization catches up with Room. */
+internal fun retainCustomListMembership(
+    sections: List<KanjiSection>, lists: List<CustomListWithKanji>
 ): List<KanjiSection> {
-    if (!state.selecting) return sections
-    val metadata = entries.associateBy { it.character }
-    return sections.map { section ->
-        if (section.key != state.section) section
-        else {
-            val shown = section.cards.map { it.character }.toSet()
-            val removedSelected = state.selected.filter { it !in membership && it !in shown }
-            section.copy(cards = section.cards + removedSelected.map { KanjiCardItem(it, metadata[it]?.reading) })
-        }
+    val membership = lists.associate { it.list.id.toString() to it.characters.toSet() }
+    return sections.filter { it.key in membership }.map { section ->
+        section.copy(cards = section.cards.filter { it.character in membership.getValue(section.key) })
     }
 }

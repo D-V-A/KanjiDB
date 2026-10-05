@@ -32,21 +32,26 @@ class CustomListPresentationTest {
     @Test fun missingDictionaryCharacterStillDisplaysInList() {
         assertEquals(3, customListSection(list, emptyMap(), emptyMap(), options).cards.size)
     }
-    @Test fun removedSelectedKanjiRemainAvailableUntilFinish() {
+    @Test fun removedMembershipImmediatelyHidesCardsAndPrunesSelectionWithoutExitingMode() {
         val selection = KanjiCollectionState()
         selection.begin("1", listOf("日", "月"))
-        val remaining = section().copy(cards = section().cards.filter { it.character == "火" })
-        val preserved = preserveRemovedListSelection(listOf(remaining), selection, setOf("火"), entries)
-        selection.retain(preserved.single().cards.map { it.character }.toSet())
-        assertEquals(setOf("日", "月"), selection.selected)
+        val updated = list.copy(memberships = list.memberships.filter { it.character == "火" })
+        val shown = retainCustomListMembership(listOf(section()), listOf(updated))
+        assertEquals(listOf("火"), shown.single().cards.map { it.character })
+        selection.retain(updated.characters.toSet())
+        assertTrue(selection.selected.isEmpty())
         assertTrue(selection.selecting)
-        selection.cancel()
-        assertEquals(listOf(remaining), preserveRemovedListSelection(listOf(remaining), selection, setOf("火"), entries))
+        assertEquals("1", selection.section)
+        assertEquals(shown, retainCustomListMembership(shown, listOf(updated)))
     }
     @Test fun rulesStillPruneSelectedCharactersThatRemainMembers() {
         val selection = KanjiCollectionState(); selection.begin("1", listOf("日"))
         val filtered = section().copy(cards = emptyList())
-        assertTrue(preserveRemovedListSelection(listOf(filtered), selection, list.characters.toSet(), entries).single().cards.isEmpty())
+        val shown = retainCustomListMembership(listOf(filtered), listOf(list))
+        selection.retain(shown.single().cards.map { it.character }.toSet())
+        assertTrue(shown.single().cards.isEmpty())
+        assertTrue(selection.selected.isEmpty())
+        assertTrue(selection.selecting)
     }
     @Test fun expansionSurvivesSelectionAndFinish() {
         val selection = KanjiCollectionState()
@@ -55,6 +60,50 @@ class CustomListPresentationTest {
         selection.cancel()
         assertEquals(setOf("1", "2"), selection.expandedKeys)
     }
+    @Test fun globalSortAndRulesApplyToAllListsWithoutChangingOrdersOrTrainingPools() {
+        val other = list.copy(list = CustomListEntity(2, "Other", 1),
+            memberships = list.memberships.map { it.copy(listId = 2) })
+        val lists = listOf(list, other)
+        val metadata = entries.associateBy { it.character }
+        val manual = customListSections(lists, metadata, emptyMap(), options)
+        assertEquals(listOf(list.characters, other.characters), manual.map { it.cards.map { card -> card.character } })
+        val sorted = customListSections(lists, metadata, emptyMap(), options.copy(sortBy = KanjiSortBy.FREQUENCY))
+        assertTrue(sorted.all { it.cards.map { card -> card.character } == listOf("月", "日", "火") })
+        val filtered = customListSections(lists, metadata, emptyMap(), options.copy(joyo = PresenceRule.ONLY))
+        assertTrue(filtered.all { it.cards.map { card -> card.character } == listOf("日", "月") })
+        assertEquals(list.characters, customListTrainingPool(lists, 1))
+        assertEquals(other.characters, customListTrainingPool(lists, 2))
+    }
+
+    @Test fun draftCountsSurviveStagingAndRestoreWithoutPersistence() {
+        val draft = CustomListDraft(listOf(list), listOf("日", "水"))
+        assertEquals(3, draft.targets.single().kanjiCount)
+        draft.create("Staged")
+        assertEquals(2, draft.targets.first().kanjiCount)
+        val restored = CustomListDraft.restore(draft.save())
+        assertEquals(draft.targets, restored.targets)
+        assertEquals(ListMembershipState.CHECKED, restored.state(0))
+        assertEquals(ListMembershipState.PARTIAL, restored.state(1))
+    }
+
+    @Test fun stagedCountsFollowStagedTargetWhileExistingCountsStayActual() {
+        val draft = CustomListDraft(listOf(list), listOf("日", "水"))
+        draft.create("Staged")
+        draft.tap(0)
+        assertEquals(0, draft.targets.first().kanjiCount)
+        draft.tap(0)
+        assertEquals(2, draft.targets.first().kanjiCount)
+        draft.tap(1)
+        assertEquals(3, draft.targets[1].kanjiCount)
+    }
+
+    @Test fun legacyDraftRestoresWithoutCountField() {
+        val saved = listOf("1", "日", "1", "1", "Practice", "", "CHECKED")
+        val restored = CustomListDraft.restore(saved)
+        assertEquals(ListMembershipState.CHECKED, restored.state(0))
+        assertEquals(0, restored.targets.single().kanjiCount)
+    }
+
     @Test fun stagedDraftRestorationPreservesPartialAndCheckedState() {
         val draft = CustomListDraft(listOf(list), listOf("日", "水"))
         assertEquals(ListMembershipState.PARTIAL, draft.state(0))

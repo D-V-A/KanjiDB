@@ -1,6 +1,11 @@
 package com.example.kanjidb.ui.lists
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.selection.triStateToggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.lazy.LazyColumn
@@ -73,7 +78,7 @@ internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onD
     }
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text("Custom Lists") },
+        title = { Text("Custom Lists", Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val current = draft
@@ -81,7 +86,7 @@ internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onD
                 if (current != null) {
                     // revision makes the small mutable draft observable without duplicating its logic.
                     val targets = remember(current, revision) { current.targets }
-                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (current.targets.isEmpty()) item { Text("You don't have any lists yet.") }
                             itemsIndexed(targets) { index, target ->
                                 val state = when (current.state(index)) {
@@ -89,15 +94,13 @@ internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onD
                                     ListMembershipState.PARTIAL -> ToggleableState.Indeterminate
                                     ListMembershipState.CHECKED -> ToggleableState.On
                                 }
-                                Row(Modifier.fillMaxWidth().triStateToggleable(state, enabled = !saving,
-                                    role = Role.Checkbox, onClick = { current.tap(index); revision++ }),
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    TriStateCheckbox(state = state, enabled = !saving, onClick = null)
-                                    Text(target.name, Modifier.weight(1f))
-                                }
+                                CustomListMembershipButton(
+                                    label = target.name + " (" + target.kanjiCount + ")",
+                                    state = state, enabled = !saving,
+                                    onClick = { current.tap(index); revision++ })
                             }
                     }
-                    TextButton(enabled = !saving, onClick = { creating = true }) { Text("+ Create new list") }
+                    TextButton(enabled = !saving, modifier = Modifier.align(Alignment.CenterHorizontally), onClick = { creating = true }) { Text("+ Create new list") }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (current == null && error != null) TextButton(onClick = { retry++ }) { Text("Retry") }
@@ -123,4 +126,37 @@ internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onD
     )
     if (creating && draft != null) CustomListNameDialog("Create new list", onDismiss = { creating = false },
         onApply = { name -> requireNotNull(draft).create(name).also { if (it == null) revision++ } })
+}
+
+/** Tri-state belongs to the entire container; stripes are decorative and never cover the text. */
+@Composable
+private fun CustomListMembershipButton(label: String, state: ToggleableState, enabled: Boolean, onClick: () -> Unit) {
+    val selected = MaterialTheme.colorScheme.secondaryContainer
+    val unselected = MaterialTheme.colorScheme.surfaceContainer
+    val foreground = if (state == ToggleableState.Off) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSecondaryContainer
+    val shape = MaterialTheme.shapes.medium
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(shape)
+            .triStateToggleable(state, enabled = enabled, role = Role.Checkbox, onClick = onClick),
+        shape = shape,
+        color = if (state == ToggleableState.On) selected else unselected,
+        contentColor = foreground,
+        border = BorderStroke(1.dp, if (state == ToggleableState.Off) MaterialTheme.colorScheme.outline
+            else MaterialTheme.colorScheme.primary)
+    ) {
+        Box(Modifier.then(if (state == ToggleableState.Indeterminate) Modifier.drawWithCache {
+            val width = 10.dp.toPx()
+            onDrawBehind {
+                // x+y is constant along each 45-degree line; wide alternating bands fill the clipped shape.
+                var offset = -size.height
+                while (offset < size.width) {
+                    drawLine(selected, Offset(offset, size.height), Offset(offset + size.height, 0f), strokeWidth = width)
+                    offset += width * 2f * kotlin.math.sqrt(2f)
+                }
+            }
+        } else Modifier).padding(horizontal = 12.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(label, Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        }
+    }
 }

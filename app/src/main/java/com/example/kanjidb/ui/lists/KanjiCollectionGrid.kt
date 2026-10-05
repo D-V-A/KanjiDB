@@ -72,6 +72,7 @@ internal fun KanjiCollectionGrid(
     modifier: Modifier = Modifier,
     activePage: Boolean = true,
     isolateSection: Boolean = false,
+    multiSectionSelection: Boolean = false,
     ready: Boolean = true,
     loading: Boolean = false,
     error: String? = null,
@@ -128,7 +129,7 @@ internal fun KanjiCollectionGrid(
     }.mapTo(mutableSetOf()) { it.key }
     val footer = loading || error != null || (ready && shown.isEmpty() && emptyMessage != null)
     fun cardKey(section: KanjiSection, card: KanjiCardItem): String =
-        if (namespaceCards && !selecting) "${section.key}:${card.character}" else card.character
+        if (namespaceCards && (!selecting || multiSectionSelection)) "${section.key}:${card.character}" else card.character
     val itemKeys = buildList {
         if (leadingContent != null) add("leading")
         shown.forEach { section ->
@@ -136,13 +137,18 @@ internal fun KanjiCollectionGrid(
             if (section.key in expanded) {
                 if (sectionControls != null) add("controls:${section.key}")
                 if (section.subgroups.isEmpty()) addAll(section.cards.map { cardKey(section, it) })
-                else addAll(subgroupItemKeys(section.subgroups, state.collapsedSubgroups))
+                else {
+                    val cardKeys = section.cards.associate { it.character to cardKey(section, it) }
+                    addAll(subgroupItemKeys(section.subgroups, state.collapsedSubgroups).map { cardKeys[it] ?: it })
+                }
             }
         }
         if (footer) add("status")
     }
     val currentKeys by rememberUpdatedState(itemKeys)
     val anchor = state.revealCharacter
+    val revealKey by rememberUpdatedState(shown.firstOrNull { section -> section.cards.any { it.character == anchor } }
+        ?.let { section -> section.cards.firstOrNull { it.character == anchor }?.let { cardKey(section, it) } })
     // Shared for both pages: measure the panel and reveal only the latest selected card as needed.
     LaunchedEffect(anchor, selecting, activePage, ready, reorder.character) {
         if (!selecting) {
@@ -157,10 +163,11 @@ internal fun KanjiCollectionGrid(
         }.first { it }
         // A header gesture can cancel a pending reveal while layout/panel measurement is awaited.
         if (state.revealCharacter != anchor) return@LaunchedEffect
-        val index = currentKeys.indexOf(anchor)
+        val itemKey = revealKey ?: return@LaunchedEffect
+        val index = currentKeys.indexOf(itemKey)
         if (index < 0) return@LaunchedEffect
-        if (grid.layoutInfo.visibleItemsInfo.none { it.key == anchor }) grid.scrollToItem(index)
-        val card = snapshotFlow { grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key == anchor } }
+        if (grid.layoutInfo.visibleItemsInfo.none { it.key == itemKey }) grid.scrollToItem(index)
+        val card = snapshotFlow { grid.layoutInfo.visibleItemsInfo.firstOrNull { it.key == itemKey } }
             .first { it != null } ?: return@LaunchedEffect
         val layout = grid.layoutInfo
         val header = layout.visibleItemsInfo.firstOrNull {
@@ -266,7 +273,7 @@ internal fun KanjiCollectionGrid(
                     KanjiSectionHeader(
                         title = section.title, count = sectionCount?.invoke(section) ?: section.cards.size,
                         expanded = section.key in expanded, enabled = interactionEnabled,
-                        onClick = { state.toggleExpanded(section.key) },
+                        onClick = { state.toggleExpanded(section.key, duringSelection = multiSectionSelection) },
                         onLongClick = { if (onHeaderLongClick != null) onHeaderLongClick(section)
                             else state.selectAll(section.key, section.cards.map { it.character }) }
                     )
@@ -286,7 +293,7 @@ internal fun KanjiCollectionGrid(
                                 onClick = {
                                     if (selecting) state.toggle(card.character) else onOpenDetails(card.character)
                                 },
-                                onLongClick = { state.begin(section.key, listOf(card.character)) }
+                                onLongClick = { state.begin(section.key, listOf(card.character), multiSection = multiSectionSelection) }
                             )
                         }
                     }
@@ -295,9 +302,9 @@ internal fun KanjiCollectionGrid(
                             val subgroupExpanded = subgroup.key !in state.collapsedSubgroups
                             item(key = "subheader:${subgroup.key}", span = { GridItemSpan(maxLineSpan) }) {
                                 KanjiSubgroupHeader(subgroup.title, subgroup.cards.size, subgroupExpanded,
-                                    enabled = interactionEnabled && (subgroup.selectable || !selecting),
+                                    enabled = interactionEnabled && (subgroup.selectable || !selecting || multiSectionSelection),
                                     depth = depth,
-                                    onClick = { state.toggleSubgroup(subgroup.key) },
+                                    onClick = { state.toggleSubgroup(subgroup.key, duringSelection = multiSectionSelection) },
                                     onLongClick = if (subgroup.selectable) ({
                                         // Keep Learning/Known as the selection owner for isolate/Move/Remove.
                                         state.selectAll(section.key, subgroup.cards.map { it.character })
@@ -326,7 +333,7 @@ internal fun KanjiCollectionGrid(
         if (dragged != null) {
             KanjiCard(
                 character = dragged.character, reading = dragged.reading ?: stringResource(R.string.my_kanji_no_reading),
-                selected = dragged.character in selected, selecting = true, enabled = false,
+                selected = dragged.character in selected, selecting = true, enabled = false, dragging = true,
                 onClick = {}, onLongClick = {},
                 modifier = Modifier.offset { IntOffset(reorder.position.x.roundToInt(), reorder.position.y.roundToInt()) }
                     .size(with(density) { reorder.size.width.toDp() }, with(density) { reorder.size.height.toDp() })
@@ -426,7 +433,8 @@ internal fun KanjiCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dragging: Boolean = false
 ) {
     Card(
         modifier = modifier.fillMaxWidth().aspectRatio(1f)
@@ -440,10 +448,17 @@ internal fun KanjiCard(
             )
             .semantics { this.selected = selected },
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
-                else MaterialTheme.colorScheme.surfaceContainer
+            containerColor = when {
+                dragging -> MaterialTheme.colorScheme.tertiaryContainer
+                selected -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surfaceContainer
+            }
         ),
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        border = when {
+            dragging -> BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
+            selected -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            else -> null
+        }
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(8.dp),

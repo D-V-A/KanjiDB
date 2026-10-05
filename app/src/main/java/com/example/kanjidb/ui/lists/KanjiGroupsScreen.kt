@@ -57,7 +57,7 @@ internal fun KanjiGroupsPage(
             KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }, 1.4f),
             KanjiSelectionAction(R.string.groups_add_known, { writer.assign(it, LearningState.KNOWN) }, 1.3f)
         ),
-        modifier = Modifier.fillMaxSize(), activePage = activePage && !rulesOpen,
+        modifier = Modifier.fillMaxSize(), activePage = activePage && !rulesOpen, multiSectionSelection = true, namespaceCards = true,
         ready = ready, loading = !ready && !failed, busy = writer.saving,
         error = when {
             failed -> stringResource(R.string.groups_load_error)
@@ -93,17 +93,14 @@ internal fun KanjiCollectionControls(
                     Text(stringResource(if (options.reverseGroups) R.string.groups_harder_first else R.string.groups_easier_first))
                 }
             }
-            Column(Modifier.weight(1f)) {
-                ChoiceMenu(
-                    label = stringResource(R.string.groups_sort_by), value = options.sortBy,
-                    choices = KanjiSortBy.entries.filter { personal || customList || it != KanjiSortBy.MANUAL }, enabled = !saving,
-                    title = { stringResource(when (it) {
-                        KanjiSortBy.MANUAL -> R.string.my_kanji_sort_manually
-                        KanjiSortBy.FREQUENCY -> R.string.groups_frequency
-                        KanjiSortBy.STROKES -> R.string.groups_strokes
-                    }) },
-                    onSelect = { onOptionsChange(options.copy(sortBy = it)) }
-                )
+            if (customList) {
+                Box(Modifier.weight(1f)) { SortMenu(options, onOptionsChange, saving, personal = true) }
+                TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
+                    enabled = !saving && options.sortBy != KanjiSortBy.MANUAL, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(options.sortDirectionLabel))
+                }
+            } else Column(Modifier.weight(1f)) {
+                SortMenu(options, onOptionsChange, saving, personal)
                 TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
                     enabled = !saving && options.sortBy != KanjiSortBy.MANUAL) {
                     Text(stringResource(options.sortDirectionLabel))
@@ -150,6 +147,19 @@ internal fun KanjiCollectionControls(
             confirmButton = { TextButton(onClick = { onRulesOpenChange(false) }) { Text(stringResource(R.string.groups_done)) } }
         )
     }
+}
+
+@Composable
+private fun SortMenu(
+    options: KanjiGroupOptions, onOptionsChange: (KanjiGroupOptions) -> Unit, saving: Boolean, personal: Boolean
+) {
+    ChoiceMenu(label = stringResource(R.string.groups_sort_by), value = options.sortBy,
+        choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.MANUAL }, enabled = !saving,
+        title = { stringResource(when (it) {
+            KanjiSortBy.MANUAL -> R.string.my_kanji_sort_manually
+            KanjiSortBy.FREQUENCY -> R.string.groups_frequency
+            KanjiSortBy.STROKES -> R.string.groups_strokes
+        }) }, onSelect = { onOptionsChange(options.copy(sortBy = it)) })
 }
 
 @Composable

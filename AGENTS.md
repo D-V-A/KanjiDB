@@ -18,3 +18,4 @@
 - Verification-only builds that make no project changes must not increment `versionCode`.
 - The final `./gradlew.bat :app:assembleDebug` must use the incremented `versionCode`.
 - After finishing task tell developer current application version from `versionName` and `versionCode`.
+- In confirm/cancel pairs, place Cancel on the left and the confirmation on the right in new dialogs, floating panels and other paired actions. This puts the primary action closer to and more convenient for a right-handed user.

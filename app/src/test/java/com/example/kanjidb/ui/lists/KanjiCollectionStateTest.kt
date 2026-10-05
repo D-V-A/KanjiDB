@@ -88,6 +88,51 @@ class KanjiCollectionStateTest {
         assertEquals(setOf("LEARNING"), restored.expandedKeys)
     }
 
+    @Test fun groupsLongPressExtendsSelectionAcrossSectionsWithoutResetOrDuplicates() {
+        val state = KanjiCollectionState()
+        state.begin("N5", listOf("日"), multiSection = true)
+        val entry = state.selectionEntryId
+        state.begin("N4", listOf("日", "月"), multiSection = true)
+        state.selectAll("N3", listOf("月", "火"))
+        assertEquals(setOf("日", "月", "火"), state.selected)
+        assertEquals(entry, state.selectionEntryId)
+        assertEquals("N5", state.section)
+        val restored = KanjiCollectionState.restore(state.save())
+        assertEquals(state.selected, restored.selected)
+    }
+
+    @Test fun groupsCanExpandOtherGroupsDuringSelectionWithoutLosingSelection() {
+        val state = KanjiCollectionState()
+        state.begin("N5", listOf("日"), multiSection = true)
+        state.toggleExpanded("N4", duringSelection = true)
+        state.toggleSubgroup("N4:UNRANKED", duringSelection = true)
+        assertTrue("N4" in state.expandedKeys)
+        assertTrue("N4:UNRANKED" in state.collapsedSubgroups)
+        assertEquals(setOf("日"), state.selected)
+        state.begin("N4", listOf("月"), multiSection = true)
+        state.toggle("日")
+        assertEquals(setOf("月"), state.selected)
+    }
+
+    @Test fun isolatedCollectionsCannotExtendByLongPressOrExpandAnotherSection() {
+        val state = KanjiCollectionState()
+        state.begin("LEARNING", listOf("日"))
+        state.begin("KNOWN", listOf("月"))
+        state.toggleExpanded("KNOWN")
+        assertEquals(setOf("日"), state.selected)
+        assertEquals("LEARNING", state.section)
+        assertTrue(state.expandedKeys.isEmpty())
+    }
+
+    @Test fun partialMembershipRemovalKeepsRemainingSelection() {
+        val state = KanjiCollectionState()
+        state.begin("list:1", listOf("日", "月"))
+        state.retain(setOf("月", "火"))
+        assertEquals(setOf("月"), state.selected)
+        assertTrue(state.selecting)
+        assertEquals("list:1", state.section)
+    }
+
     @Test fun noSelectionForEmptyHeaderAndBeginDoesNotReplaceActiveSelection() {
         val state = KanjiCollectionState()
         state.selectAll("empty", emptyList())

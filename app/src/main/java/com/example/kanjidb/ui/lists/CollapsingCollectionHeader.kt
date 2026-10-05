@@ -1,6 +1,18 @@
 package com.example.kanjidb.ui.lists
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -28,12 +40,13 @@ internal fun CollapsingCollectionHeader(
     scrollEnabled: Boolean,
     modifier: Modifier = Modifier,
     controlsVisible: Boolean = true,
+    filtersExpanded: Boolean = true,
     header: @Composable () -> Unit,
     content: @Composable () -> Unit
 ) {
     // Key only the header state: leaving a tab discards its collapse state, while
     // Details -> Back restores it for the same tab. Pager/grid composition is unchanged.
-    val state = key(currentPage, controlsVisible) { rememberTopAppBarState() }
+    val state = key(currentPage, controlsVisible, filtersExpanded) { rememberTopAppBarState() }
     val enabled by rememberUpdatedState(scrollEnabled)
     val behavior = TopAppBarDefaults.enterAlwaysScrollBehavior(state, canScroll = { enabled })
     val connection = remember(behavior) {
@@ -62,6 +75,39 @@ internal fun CollapsingCollectionHeader(
             contentPlaceable.placeRelative(0, visibleHeight)
         }
     }
+}
+
+/** One Show/Hide pattern for every collection. Mode entry discards expansion, not filter options. */
+internal class CollectionFiltersState {
+    var expanded by mutableStateOf(false)
+        private set
+    fun toggle(locked: Boolean) { if (!locked) expanded = !expanded }
+    fun enterMode() { expanded = false }
+    companion object {
+        val Saver = listSaver<CollectionFiltersState, Boolean>(
+            save = { listOf(it.expanded) }, restore = { CollectionFiltersState().apply { expanded = it[0] } })
+    }
+}
+
+@Composable
+internal fun CollectionFiltersHeader(
+    currentPage: Int, activePage: Boolean, locked: Boolean, enabled: Boolean,
+    modifier: Modifier = Modifier, controls: @Composable () -> Unit, content: @Composable () -> Unit
+) {
+    val filters = rememberSaveable(saver = CollectionFiltersState.Saver) { CollectionFiltersState() }
+    LaunchedEffect(locked) { if (locked) filters.enterMode() }
+    val expanded = filters.expanded && !locked
+    CollapsingCollectionHeader(currentPage = currentPage,
+        scrollEnabled = activePage && enabled && expanded, filtersExpanded = expanded,
+        modifier = modifier, header = {
+            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (expanded) controls()
+                TextButton(onClick = { filters.toggle(locked) }, enabled = enabled && !locked,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (expanded) "Hide filters" else "Show filters")
+                }
+            }
+        }, content = content)
 }
 
 /** Programmatic card clearance must not move the header; horizontal pager flings must not snap it. */
