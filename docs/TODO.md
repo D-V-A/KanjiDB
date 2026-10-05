@@ -90,6 +90,13 @@ that feature is started unless explicitly fixed below.
 -   [ ] **TTS / Japanese speech:** add pronunciation playback after the
     core training/handwriting work. Choose the implementation/backend
     when starting the feature rather than committing to one now.
+-   [ ] **Post-release milestone — User data export/import:** add export 
+    and import of user-owned data so study progress can be moved between 
+	devices or transferred between users (for example, teacher → student). 
+	Scope should cover personal data such as Learning/Known states and 
+	Custom Lists, while keeping the bundled dictionary database separate. 
+	Define file format, merge/replace behavior, compatibility/versioning 
+	and validation when implementing the feature.
 
 ## Recommendations, discovery and home screen
 
@@ -140,6 +147,7 @@ that feature is started unless explicitly fixed below.
 -   [ ] Do not persist dictionary-internal SQLite IDs in user-owned
     data; continue using stable character text/codepoints where
     appropriate.
+-   [ ] Add **Group by: My Lists** to My Kanji. Define the exact behavior for kanji that belong to multiple Custom Lists when implementing the feature.
 
 ## UI / product backlog
 
