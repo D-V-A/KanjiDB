@@ -7,9 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [UserKanjiStateEntity::class], version = 2, exportSchema = true)
+@Database(entities = [UserKanjiStateEntity::class, CustomListEntity::class, CustomListKanjiEntity::class], version = 3, exportSchema = true)
 abstract class UserDatabase : RoomDatabase() {
     abstract fun kanjiStates(): UserKanjiStateDao
+    abstract fun customLists(): CustomListDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -25,12 +26,20 @@ abstract class UserDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS custom_list (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, manualIndex INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS custom_list_kanji (listId INTEGER NOT NULL, character TEXT NOT NULL, manualIndex INTEGER NOT NULL, PRIMARY KEY(listId, character), FOREIGN KEY(listId) REFERENCES custom_list(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_custom_list_kanji_listId ON custom_list_kanji (listId)")
+            }
+        }
+
         @Volatile private var instance: UserDatabase? = null
 
         fun getInstance(context: Context): UserDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, UserDatabase::class.java, "user.db"
-            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
         }
     }
 }

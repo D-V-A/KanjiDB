@@ -83,6 +83,12 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
     val rows by remember(dao) { dao.observeAll() }.collectAsStateWithLifecycle(initialValue = null)
+    val listDao = remember(context) { com.example.kanjidb.data.user.UserDatabase.getInstance(context).customLists() }
+    val lists by remember(listDao) { listDao.observeLists() }.collectAsStateWithLifecycle(initialValue = null)
+    val availableLists = com.example.kanjidb.data.user.nonemptyCustomLists(lists.orEmpty())
+    var selectedList by rememberSaveable { mutableStateOf<Long?>(null) }
+    val effectiveList = availableLists.firstOrNull { it.list.id == selectedList } ?: availableLists.firstOrNull()
+    LaunchedEffect(effectiveList?.list?.id) { selectedList = effectiveList?.list?.id }
     var dictionaryCharacters by remember(dictionary) { mutableStateOf<Set<String>?>(null) }
     var mode by rememberSaveable { mutableStateOf(TrainingMode.REVIEW) }
     var retry by remember { mutableIntStateOf(0) }
@@ -102,11 +108,13 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
     }
     val source = when (mode) {
         TrainingMode.NEW -> RecommendedState.candidateCharacters
+        TrainingMode.MY_LISTS -> com.example.kanjidb.data.user.customListTrainingPool(lists.orEmpty(), selectedList)
+            .filter { it in dictionaryCharacters.orEmpty() }
         else -> rows.orEmpty().filter {
             it.state == if (mode == TrainingMode.REVIEW) LearningState.KNOWN else LearningState.LEARNING
         }.map { it.character }.filter { it in dictionaryCharacters.orEmpty() }
     }
-    val loading = if (mode == TrainingMode.NEW) RecommendedState.loading else rows == null || dictionaryCharacters == null
+    val loading = if (mode == TrainingMode.NEW) RecommendedState.loading else rows == null || dictionaryCharacters == null || (mode == TrainingMode.MY_LISTS && lists == null)
     val sourceFailed = if (mode == TrainingMode.NEW) RecommendedState.failed else failed
     val available = source.size
     var selectedSize by rememberSaveable { mutableIntStateOf(10) }
@@ -125,9 +133,9 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Training type", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TrainingMode.entries.forEach { option ->
-                FilterChip(selected = mode == option, enabled = !starting, onClick = {
+                FilterChip(selected = mode == option, enabled = !starting && (option != TrainingMode.MY_LISTS || availableLists.isNotEmpty()), onClick = {
                     focus.clearFocus()
                     selectedSize = count
                     input = count.toString()
@@ -140,7 +148,23 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
             TrainingMode.REVIEW -> "Practice your Known kanji."
             TrainingMode.LEARNING -> "Practice kanji you are Learning."
             TrainingMode.NEW -> "Practice new kanji from Recommended."
+            TrainingMode.MY_LISTS -> "Practice kanji from a Custom List."
         })
+        if (mode == TrainingMode.MY_LISTS) {
+            var dropdown by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(enabled = !starting && availableLists.isNotEmpty(), onClick = { dropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(effectiveList?.list?.name ?: "No nonempty lists")
+                }
+                DropdownMenu(expanded = dropdown, onDismissRequest = { dropdown = false }) {
+                    availableLists.forEach { list ->
+                        DropdownMenuItem(text = { Text(list.list.name) }, onClick = {
+                            focus.clearFocus(); selectedSize = count; selectedList = list.list.id; dropdown = false
+                        })
+                    }
+                }
+            }
+        }
         when {
             sourceFailed -> {
                 Text("Could not load kanji.")

@@ -119,6 +119,9 @@ fun KanjiDetailsScreen(
             }
         }
     }
+    val customListsDao = remember(context) { com.example.kanjidb.data.user.UserDatabase.getInstance(context).customLists() }
+    var listsOpen by rememberSaveable(kanjiId) { mutableStateOf(false) }
+    if (listsOpen) com.example.kanjidb.ui.lists.CustomListsDialog(customListsDao, listOf(kanji.character)) { listsOpen = false }
     var showStrokes by rememberSaveable(kanjiId) { mutableStateOf(false) }
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
@@ -209,12 +212,12 @@ fun KanjiDetailsScreen(
                 modifier = Modifier.weight(1f)
             )
             OutlinedButton(
-                onClick = {},
-                enabled = false,
+                onClick = { listsOpen = true },
+                enabled = !saving,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text(stringResource(R.string.details_add_to_list))
+                Text(stringResource(R.string.custom_lists))
             }
         }
     }

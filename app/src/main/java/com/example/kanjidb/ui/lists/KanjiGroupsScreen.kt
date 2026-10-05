@@ -30,7 +30,7 @@ internal fun KanjiGroupsPage(
     failed: Boolean, onRetry: () -> Unit,
     state: KanjiCollectionState, writer: KanjiStateWriter, grid: LazyGridState,
     activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions,
-    rulesOpen: Boolean
+    rulesOpen: Boolean, customListsDao: com.example.kanjidb.data.user.CustomListDao? = null
 ) {
     var result by remember { mutableStateOf<GroupResult?>(null) }
     LaunchedEffect(entries, rows, options) {
@@ -51,7 +51,7 @@ internal fun KanjiGroupsPage(
             frequencySubgroups(key, group))
     }
     KanjiCollectionGrid(
-        sections = sections, state = state, onOpenDetails = onOpenDetails,
+        sections = sections, state = state, onOpenDetails = onOpenDetails, customListsDao = customListsDao,
         grid = grid, contentAvailable = result != null,
         actions = listOf(
             KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }, 1.4f),
@@ -73,11 +73,11 @@ internal fun KanjiGroupsPage(
 internal fun KanjiCollectionControls(
     options: KanjiGroupOptions, onOptionsChange: (KanjiGroupOptions) -> Unit,
     rulesOpen: Boolean, onRulesOpenChange: (Boolean) -> Unit, saving: Boolean,
-    personal: Boolean = false
+    personal: Boolean = false, customList: Boolean = false
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
+            if (!customList) Column(Modifier.weight(1f)) {
                 ChoiceMenu(
                     label = stringResource(R.string.groups_group_by), value = options.groupBy,
                     choices = KanjiGroupBy.entries.filter { personal || it != KanjiGroupBy.NONE }, enabled = !saving,
@@ -96,7 +96,7 @@ internal fun KanjiCollectionControls(
             Column(Modifier.weight(1f)) {
                 ChoiceMenu(
                     label = stringResource(R.string.groups_sort_by), value = options.sortBy,
-                    choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.MANUAL }, enabled = !saving,
+                    choices = KanjiSortBy.entries.filter { personal || customList || it != KanjiSortBy.MANUAL }, enabled = !saving,
                     title = { stringResource(when (it) {
                         KanjiSortBy.MANUAL -> R.string.my_kanji_sort_manually
                         KanjiSortBy.FREQUENCY -> R.string.groups_frequency

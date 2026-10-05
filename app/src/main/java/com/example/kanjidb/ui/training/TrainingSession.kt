@@ -4,7 +4,7 @@ import com.example.kanjidb.ui.LearningState
 import kotlin.math.abs
 import kotlin.random.Random
 
-internal enum class TrainingMode(val title: String) { REVIEW("Review"), LEARNING("Learning"), NEW("New") }
+internal enum class TrainingMode(val title: String) { REVIEW("Review"), LEARNING("Learning"), NEW("New"), MY_LISTS("My Lists") }
 internal enum class TrainingResult { CORRECT, INCORRECT }
 internal enum class PracticeKind(val title: String) { ALL("All"), CURRENT("Current iteration"), MISTAKES("Mistakes") }
 internal data class PracticeOption(val kind: PracticeKind, val characters: List<String>)
@@ -66,7 +66,7 @@ internal data class TrainingSession private constructor(
         TrainingResult.CORRECT -> when (mode) {
             TrainingMode.REVIEW -> listOf(LearningState.LEARNING)
             TrainingMode.LEARNING -> listOf(LearningState.KNOWN)
-            TrainingMode.NEW -> listOf(LearningState.LEARNING, LearningState.KNOWN)
+            TrainingMode.NEW, TrainingMode.MY_LISTS -> listOf(LearningState.LEARNING, LearningState.KNOWN)
         }
         TrainingResult.INCORRECT -> when (mode) {
             TrainingMode.LEARNING -> emptyList()

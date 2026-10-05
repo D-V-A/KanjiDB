@@ -80,8 +80,16 @@ internal fun KanjiCollectionGrid(
     emptyMessage: String? = null,
     tag: String = "kanji_groups",
     onReorder: (suspend (KanjiReorderDrop) -> Boolean)? = null,
-    snackbar: SnackbarHostState? = null
+    snackbar: SnackbarHostState? = null,
+    customListsDao: com.example.kanjidb.data.user.CustomListDao? = null,
+    namespaceCards: Boolean = false,
+    leadingContent: (@Composable () -> Unit)? = null,
+    onHeaderLongClick: ((KanjiSection) -> Unit)? = null,
+    sectionCount: ((KanjiSection) -> Int)? = null,
+    sectionControls: (@Composable (KanjiSection) -> Unit)? = null
 ) {
+    var listSelection by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>?>(null) }
+    if (listSelection != null && customListsDao != null) CustomListsDialog(customListsDao, listSelection.orEmpty()) { listSelection = null }
     val selecting = state.selecting
     val sourceSections = remember(sections, isolateSection, state.section) {
         if (isolateSection && selecting) sections.filter { it.key == state.section } else sections
@@ -119,11 +127,15 @@ internal fun KanjiCollectionGrid(
             (section.key == state.section || section.cards.any { it.character in selected }))
     }.mapTo(mutableSetOf()) { it.key }
     val footer = loading || error != null || (ready && shown.isEmpty() && emptyMessage != null)
+    fun cardKey(section: KanjiSection, card: KanjiCardItem): String =
+        if (namespaceCards && !selecting) "${section.key}:${card.character}" else card.character
     val itemKeys = buildList {
+        if (leadingContent != null) add("leading")
         shown.forEach { section ->
             add("header:${section.key}")
             if (section.key in expanded) {
-                if (section.subgroups.isEmpty()) addAll(section.cards.map { it.character })
+                if (sectionControls != null) add("controls:${section.key}")
+                if (section.subgroups.isEmpty()) addAll(section.cards.map { cardKey(section, it) })
                 else addAll(subgroupItemKeys(section.subgroups, state.collapsedSubgroups))
             }
         }
@@ -248,18 +260,21 @@ internal fun KanjiCollectionGrid(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (leadingContent != null) item(key = "leading", span = { GridItemSpan(maxLineSpan) }) { leadingContent() }
             shown.forEach { section ->
                 stickyHeader(key = "header:${section.key}") {
                     KanjiSectionHeader(
-                        title = section.title, count = section.cards.size,
+                        title = section.title, count = sectionCount?.invoke(section) ?: section.cards.size,
                         expanded = section.key in expanded, enabled = interactionEnabled,
                         onClick = { state.toggleExpanded(section.key) },
-                        onLongClick = { state.selectAll(section.key, section.cards.map { it.character }) }
+                        onLongClick = { if (onHeaderLongClick != null) onHeaderLongClick(section)
+                            else state.selectAll(section.key, section.cards.map { it.character }) }
                     )
                 }
                 if (section.key in expanded) {
+                    if (sectionControls != null) item(key = "controls:${section.key}", span = { GridItemSpan(maxLineSpan) }) { sectionControls(section) }
                     fun LazyGridScope.kanjiCards(cards: List<KanjiCardItem>) {
-                        items(cards, key = { it.character }, contentType = { "kanji" }) { card ->
+                        items(cards, key = { cardKey(section, it) }, contentType = { "kanji" }) { card ->
                             KanjiCard(
                                 modifier = Modifier.animateItem().graphicsLayer {
                                     alpha = if (reorder.character == card.character) 0f else 1f
@@ -321,6 +336,7 @@ internal fun KanjiCollectionGrid(
         if (selecting) {
             KanjiSelectionPanel(
                 actions = actions, selected = selected.toList(), enabled = interactionEnabled,
+                onCustomLists = if (customListsDao != null) ({ listSelection = selected.toList() }) else null,
                 onCancel = { reorder.cancel(); state.cancel() }, cancelEnabled = !busy && reorder.character == null && !reorder.saving,
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     .onSizeChanged { panelHeight = it.height }.padding(12.dp)
@@ -369,24 +385,34 @@ private fun KanjiSubgroupHeader(
 @Composable
 private fun KanjiSelectionPanel(
     actions: List<KanjiSelectionAction>, selected: List<String>, enabled: Boolean,
-    onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier
+    onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
 ) {
     FloatingActionPanel(modifier, contentPadding = PaddingValues(8.dp), spacing = 4.dp) {
-        // Training is represented by the same action model, but has no handler yet.
-        (actions + KanjiSelectionAction(R.string.training_title)).forEach { action ->
-            OutlinedButton(
-                onClick = { action.onSelected?.invoke(selected) },
-                enabled = enabled && selected.isNotEmpty() && action.onSelected != null,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                modifier = Modifier.weight(action.weight)
-            ) { Text(stringResource(action.label), style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center) }
-        }
-        OutlinedButton(onClick = onCancel, enabled = cancelEnabled,
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-            modifier = Modifier.weight(0.8f)) {
-            Text(stringResource(R.string.my_kanji_cancel), style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                actions.forEach { action ->
+                    OutlinedButton(onClick = { action.onSelected?.invoke(selected) },
+                        enabled = enabled && selected.isNotEmpty() && action.onSelected != null,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f)) {
+                        Text(stringResource(action.label), style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(4.dp)) { Text(stringResource(R.string.training_title), style = MaterialTheme.typography.labelSmall) }
+                OutlinedButton(onClick = { onCustomLists?.invoke() },
+                    enabled = enabled && selected.isNotEmpty() && onCustomLists != null,
+                    modifier = Modifier.weight(1f), contentPadding = PaddingValues(4.dp)) {
+                    Text(stringResource(R.string.custom_lists), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                }
+                OutlinedButton(onClick = onCancel, enabled = cancelEnabled,
+                    modifier = Modifier.weight(1f), contentPadding = PaddingValues(4.dp)) {
+                    Text(stringResource(R.string.selection_finish), style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
     }
 }

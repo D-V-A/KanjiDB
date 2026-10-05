@@ -19,6 +19,7 @@ import com.example.kanjidb.data.dictionary.KanjiGroupEntry
 import com.example.kanjidb.data.user.UserKanjiStateEntity
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.user.UserKanjiStateDao
+import com.example.kanjidb.data.user.UserDatabase
 import com.example.kanjidb.ui.LearningState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ internal fun MyKanjiScreen(
 ) {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
+    val customListsDao = remember(context) { UserDatabase.getInstance(context).customLists() }
     val rows by remember(userDao) { userDao.observeAll() }.collectAsStateWithLifecycle(initialValue = null)
     LaunchedEffect(rows) {
         rows?.let { state.updateCollections(it) }
@@ -104,12 +106,10 @@ internal fun MyKanjiScreen(
                 ) {
                     MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
                         activePage = pager.currentPage == 0 && !myRulesOpen,
-                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar)
+                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar, customListsDao = customListsDao)
                 }
-                1 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.my_lists_placeholder),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
+                    activePage = pager.currentPage == 1, onOpenDetails = onOpenDetails)
                 2 -> CollapsingCollectionHeader(
                     currentPage = pager.settledPage,
                     scrollEnabled = pager.currentPage == 2 && !saving && !rulesOpen,
@@ -123,7 +123,7 @@ internal fun MyKanjiScreen(
                 ) {
                     KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,
                         activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
-                        options = options, rulesOpen = rulesOpen)
+                        options = options, rulesOpen = rulesOpen, customListsDao = customListsDao)
                 }
             }
         }
@@ -139,7 +139,8 @@ private data class PersonalGroupResult(
 private fun MyKanjiPage(
     state: MyKanjiState, entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
     failed: Boolean, onRetry: () -> Unit, writer: KanjiStateWriter, grid: LazyGridState,
-    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions, snackbar: SnackbarHostState
+    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions, snackbar: SnackbarHostState,
+    customListsDao: com.example.kanjidb.data.user.CustomListDao
 ) {
     var result by remember { mutableStateOf<PersonalGroupResult?>(null) }
     LaunchedEffect(entries, rows, options) {
@@ -153,7 +154,7 @@ private fun MyKanjiPage(
     val sections = personalKanjiSections(result?.sections.orEmpty(), result?.options?.groupBy ?: options.groupBy)
     val learning = state.selectionSection == LearningState.LEARNING
     KanjiCollectionGrid(
-        sections = sections, state = state.collection, onOpenDetails = onOpenDetails,
+        sections = sections, state = state.collection, onOpenDetails = onOpenDetails, customListsDao = customListsDao,
         // Do not measure restored grid state until Room + metadata + organization are ready.
         grid = grid, contentAvailable = result != null,
         actions = listOf(
@@ -161,7 +162,7 @@ private fun MyKanjiPage(
                 { writer.assign(it, LearningState.NONE) }, 1.4f),
             KanjiSelectionAction(if (learning) R.string.my_kanji_move_known else R.string.my_kanji_move_learning,
                 { writer.assign(it, if (learning) LearningState.KNOWN else LearningState.LEARNING) }, 1.3f)
-        ),
+        ).let { if (learning) it else it.asReversed() },
         modifier = Modifier.fillMaxSize(), activePage = activePage, isolateSection = true,
         ready = ready, loading = !ready && !failed, busy = writer.saving,
         error = when {

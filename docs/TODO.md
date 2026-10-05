@@ -6,13 +6,16 @@ Checked items are complete; existing placeholders do not count as completed mile
 ## Milestones
 
 - [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
-- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. My Lists remains a placeholder and collection-panel Training actions remain disabled.
+- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. Custom Lists is implemented separately below; collection-panel Training actions remain disabled.
 - [x] **Recommended Kanji:** JLPT progression, process-lifetime candidate pool, shared discovery quality gate, weighted sampling, Refresh anti-repeat and incremental Room updates.
 - [x] **Kanji Training v1:** Review/Learning/New, paper recall and self-assessment, repeat attempts, full-pool Results and explicit pending Learning/Known changes applied only at Finish or the explicit bulk-and-finish shortcut.
-- [ ] **User Lists:** create/manage custom lists and enable assignment from details.
+- [x] **Custom Lists / My Lists (0.6.0-alpha):** Room v3 many-to-many memberships with non-destructive migration, CRUD/list reorder, shared filtered kanji grids/manual order, staged single/bulk tri-state dialogs and My Lists Training source.
+- [ ] **Train Selected:** direct selection-based Training launch as a separate milestone; collection-panel Training remains disabled.
 - [ ] **Stroke Order / KanjiVG:** integrate stroke-order data after checking attribution/license.
 
 ## TODO
+
+- [ ] Manually verify 0.6.0-alpha on a phone: upgrade existing Learning/Known from Room v2, My Lists expansion/navigation, name validation only on Apply, confirmed delete isolation, handle reorder Apply/Cancel/edge scroll, per-list Rules/manual kanji drag, overlapping memberships, staged dialog Cancel/Apply/rotation, bulk partial states and selection preservation after removal, and My Lists Training source with empty/nonempty lists and source/list size changes. No emulator/device/UI automation was run for this milestone.
 
 - [x] Training 0.5.1 follow-up: shared session size across sources with capped-value upward rounding, square blank/reveal area, right-side result actions, outlined practice choices, Review actions for both results and bulk-and-finish shortcuts.
 - [ ] Manually verify 0.5.1 Training follow-up on a phone: source switching 25 -> 17 -> 20, square reveal area, right-side actions on narrow screens, outlined practice choices and bulk-and-finish versus cancel. Retain coverage of all three sources, 0/<5/37/>50 sizes and numeric input, small-screen scrolling, repeated subset attempts, grayed-out row actions, pending reset on result change, Finish versus cancel, bottom navigation/Back, rotation and process restart.
