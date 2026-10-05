@@ -159,13 +159,14 @@ internal fun MyListsPage(
         AlertDialog(onDismissRequest = { menu = null },
             title = { Text(list.list.name, Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
             text = {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    TextButton(onClick = { editId = list.list.id; menu = null }) { Text("Rename") }
-                    TextButton(onClick = { deleteId = list.list.id; menu = null }) { Text("Delete") }
-                    TextButton(onClick = {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { editId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Rename") }
+                    OutlinedButton(onClick = { deleteId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Delete") }
+                    OutlinedButton(onClick = {
                         before = currentLists.map { it.list.id }; after = before; reordering = true; menu = null
-                    }) { Text("Change order") }
-                    TextButton(onClick = {}, enabled = false) { Text("Training") }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Change order") }
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Training") }
                 }
             }, confirmButton = { TextButton(onClick = { menu = null }) { Text("Cancel") } })
     }

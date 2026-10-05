@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
@@ -77,12 +76,12 @@ internal fun CollapsingCollectionHeader(
     }
 }
 
-/** One Show/Hide pattern for every collection. Mode entry discards expansion, not filter options. */
+/** Saved normal-mode preference; selection/reorder only suppress its presentation. */
 internal class CollectionFiltersState {
     var expanded by mutableStateOf(false)
         private set
     fun toggle(locked: Boolean) { if (!locked) expanded = !expanded }
-    fun enterMode() { expanded = false }
+    fun visibleExpanded(locked: Boolean): Boolean = expanded && !locked
     companion object {
         val Saver = listSaver<CollectionFiltersState, Boolean>(
             save = { listOf(it.expanded) }, restore = { CollectionFiltersState().apply { expanded = it[0] } })
@@ -95,10 +94,10 @@ internal fun CollectionFiltersHeader(
     modifier: Modifier = Modifier, controls: @Composable () -> Unit, content: @Composable () -> Unit
 ) {
     val filters = rememberSaveable(saver = CollectionFiltersState.Saver) { CollectionFiltersState() }
-    LaunchedEffect(locked) { if (locked) filters.enterMode() }
-    val expanded = filters.expanded && !locked
+    val expanded = filters.visibleExpanded(locked)
     CollapsingCollectionHeader(currentPage = currentPage,
-        scrollEnabled = activePage && enabled && expanded, filtersExpanded = expanded,
+        scrollEnabled = activePage && enabled && !locked, controlsVisible = !locked,
+        filtersExpanded = expanded,
         modifier = modifier, header = {
             Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (expanded) controls()

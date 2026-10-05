@@ -108,7 +108,8 @@ internal fun KanjiCollectionControls(
             }
         }
         val context = LocalContext.current
-        val manualHint = personal && options.manualReorderAvailable
+        val manualHint = if (customList) options.manualSortUnfiltered
+            else personal && options.manualReorderAvailable
         val summary = if (manualHint) stringResource(R.string.my_kanji_order_hint)
             else options.rulesSummary { context.getString(it) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

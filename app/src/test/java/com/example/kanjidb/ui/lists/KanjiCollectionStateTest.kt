@@ -144,4 +144,42 @@ class KanjiCollectionStateTest {
         state.toggle("b")
         assertEquals("b", state.revealCharacter)
     }
+
+    @Test fun selectedGroupsCanCollapseWithoutChangingSharedSelection() {
+        val state = KanjiCollectionState()
+        state.selectAll("N5", listOf("a", "b"), expand = true)
+        state.selectAll("N4", listOf("b", "c"), expand = true)
+        assertEquals(setOf("a", "b", "c"), state.selected)
+        state.toggleExpanded("N5", duringSelection = true)
+        state.toggleExpanded("N4", duringSelection = true)
+        assertFalse(state.isExpanded("N5", multiSection = true))
+        assertFalse(state.isExpanded("N4", multiSection = true))
+        assertTrue(state.selecting)
+        assertEquals(setOf("a", "b", "c"), state.selected)
+        val restored = KanjiCollectionState.restore(state.save())
+        assertFalse(restored.isExpanded("N5", multiSection = true))
+        assertEquals(state.selected, restored.selected)
+        restored.toggleExpanded("N5", duringSelection = true)
+        assertTrue(restored.isExpanded("N5", multiSection = true))
+        assertEquals(state.selected, restored.selected)
+    }
+
+    @Test fun groupHeaderSelectAllReopensCollapsedGroupAndAllowsCollapsingAgain() {
+        val state = KanjiCollectionState()
+        state.selectAll("N5", listOf("a"), expand = true)
+        state.toggleExpanded("N5", duringSelection = true)
+        state.selectAll("N5", listOf("a", "b"), expand = true)
+        assertTrue(state.isExpanded("N5", multiSection = true))
+        assertNull(state.revealCharacter)
+        state.toggleExpanded("N5", duringSelection = true)
+        assertFalse(state.isExpanded("N5", multiSection = true))
+        assertEquals(setOf("a", "b"), state.selected)
+    }
+
+    @Test fun isolatedSelectionStillDisplaysItsActiveSection() {
+        val state = KanjiCollectionState()
+        state.begin("LEARNING", listOf("a"))
+        assertTrue(state.isExpanded("LEARNING", multiSection = false))
+        assertFalse(state.isExpanded("KNOWN", multiSection = false))
+    }
 }

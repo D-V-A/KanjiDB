@@ -124,8 +124,7 @@ internal fun KanjiCollectionGrid(
     var gridTop by remember { mutableStateOf(0f) }
     val padding = if (selecting) with(LocalDensity.current) { panelHeight.toDp() } + 16.dp else 16.dp
     val expanded = shown.filter { section ->
-        section.key in state.expandedKeys || (selecting &&
-            (section.key == state.section || section.cards.any { it.character in selected }))
+        state.isExpanded(section.key, multiSection = multiSectionSelection)
     }.mapTo(mutableSetOf()) { it.key }
     val footer = loading || error != null || (ready && shown.isEmpty() && emptyMessage != null)
     fun cardKey(section: KanjiSection, card: KanjiCardItem): String =
@@ -275,7 +274,7 @@ internal fun KanjiCollectionGrid(
                         expanded = section.key in expanded, enabled = interactionEnabled,
                         onClick = { state.toggleExpanded(section.key, duringSelection = multiSectionSelection) },
                         onLongClick = { if (onHeaderLongClick != null) onHeaderLongClick(section)
-                            else state.selectAll(section.key, section.cards.map { it.character }) }
+                            else state.selectAll(section.key, section.cards.map { it.character }, expand = multiSectionSelection) }
                     )
                 }
                 if (section.key in expanded) {

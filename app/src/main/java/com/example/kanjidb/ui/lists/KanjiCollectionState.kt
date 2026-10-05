@@ -48,7 +48,7 @@ internal class KanjiCollectionState {
     }
 
     /** Header selection preserves the viewport, including when extending a card selection. */
-    fun selectAll(key: String, characters: Collection<String>) {
+    fun selectAll(key: String, characters: Collection<String>, expand: Boolean = false) {
         // Do not enter through begin(): headers never create a card-reveal request.
         revealCharacter = null
         if (!selecting) {
@@ -57,7 +57,12 @@ internal class KanjiCollectionState {
             selectionEntryId++
         }
         selected = selected + characters
+        if (expand) expandedKeys = expandedKeys + key
     }
+
+    /** Multi-group selection never forces presentation open. Isolated collections retain their active section. */
+    fun isExpanded(key: String, multiSection: Boolean): Boolean =
+        key in expandedKeys || (selecting && !multiSection && key == section)
 
     fun toggle(character: String) {
         if (!selecting) return

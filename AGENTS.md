@@ -19,3 +19,4 @@
 - The final `./gradlew.bat :app:assembleDebug` must use the incremented `versionCode`.
 - After finishing task tell developer current application version from `versionName` and `versionCode`.
 - In confirm/cancel pairs, place Cancel on the left and the confirmation on the right in new dialogs, floating panels and other paired actions. This puts the primary action closer to and more convenient for a right-handed user.
+- Actions usually use pill-style controls; selection/selectable options use rounded rectangles. Within one compact panel, consistent styling of same-level elements takes precedence. Custom List action dialogs use pills; membership dialogs and Training selections use rounded rectangles. Kanji Details intentionally uses matching pills for Learning/Known/Custom Lists.

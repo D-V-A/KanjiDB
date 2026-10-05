@@ -105,4 +105,17 @@ class ManualKanjiOrderTest {
         state.begin("LEARNING", listOf("d"))
         assertEquals(2, state.selectionEntryId)
     }
+
+    @Test fun customListManualHintDependsOnSortAndRulesOnly() {
+        for (group in KanjiGroupBy.entries) {
+            val settings = options.copy(groupBy = group, descending = true)
+            assertTrue(settings.manualSortUnfiltered)
+            assertFalse(settings.copy(sortBy = KanjiSortBy.FREQUENCY).manualSortUnfiltered)
+            assertFalse(settings.copy(sortBy = KanjiSortBy.STROKES).manualSortUnfiltered)
+            assertFalse(settings.copy(jlpt = PresenceRule.ONLY).manualSortUnfiltered)
+            assertFalse(settings.copy(grade = PresenceRule.NOT).manualSortUnfiltered)
+            assertFalse(settings.copy(joyo = PresenceRule.ONLY).manualSortUnfiltered)
+            assertFalse(settings.copy(status = KanjiStatusRule.KNOWN).manualSortUnfiltered)
+        }
+    }
 }

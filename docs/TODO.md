@@ -1,53 +1,166 @@
 # Plans and TODO
 
-Current implementation and limitations: [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
-Checked items are complete; existing placeholders do not count as completed milestones.
+Current implementation and limitations:
+[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 
-## Milestones
+Checked items are complete. Existing placeholders do not count as
+completed milestones. This file is the forward-looking project plan;
+exact implementation details for future features should be decided when
+that feature is started unless explicitly fixed below.
 
-- [x] **My Kanji:** persist personal Known/Learning states in a separate Room database and connect the collection with Kanji Details, including multi-selection Move/Remove.
-- [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping, Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and transactional bulk Known/Learning overwrite. Shares selection/grid/panel infrastructure with My Kanji; accessed through the swipe pager. Custom Lists is implemented separately below; collection-panel Training actions remain disabled.
-- [x] **Recommended Kanji:** JLPT progression, process-lifetime candidate pool, shared discovery quality gate, weighted sampling, Refresh anti-repeat and incremental Room updates.
-- [x] **Kanji Training v1:** Review/Learning/New, paper recall and self-assessment, repeat attempts, full-pool Results and explicit pending Learning/Known changes applied only at Finish or the explicit bulk-and-finish shortcut.
-- [x] **Custom Lists / My Lists (0.6.0-alpha):** Room v3 many-to-many memberships with non-destructive migration, CRUD/list reorder, shared filtered kanji grids/manual order, staged single/bulk tri-state dialogs and My Lists Training source.
-- [ ] **Train Selected:** direct selection-based Training launch as a separate milestone; collection-panel Training remains disabled.
-- [ ] **Stroke Order / KanjiVG:** integrate stroke-order data after checking attribution/license.
+## Completed milestones
 
-## TODO
+-   [x] **My Kanji:** persist personal Known/Learning states in a
+    separate Room database and connect the collection with Kanji
+    Details, including multi-selection Move/Remove.
+-   [x] **Kanji Groups / Jōyō Kanji Browser:** JLPT/Grade grouping,
+    Frequency/Strokes sorting, JLPT/Grade/Jōyō/Status rules and
+    transactional bulk Known/Learning overwrite. Shares
+    selection/grid/panel infrastructure with My Kanji.
+-   [x] **Recommended Kanji:** JLPT progression, process-lifetime
+    candidate pool, shared discovery quality gate, weighted sampling,
+    Refresh anti-repeat and incremental Room updates.
+-   [x] **Kanji Training v1:** Review/Learning/New, paper recall and
+    self-assessment, repeat attempts, full-pool Results and pending
+    Learning/Known changes applied at Finish or explicit bulk-and-finish
+    actions.
+-   [x] **Custom Lists / My Lists (0.6.x):** Room many-to-many
+    memberships with non-destructive migration, CRUD/list reorder,
+    shared filtered kanji grids/manual order, staged single/bulk
+    tri-state dialogs and My Lists Training source.
+-   [x] **Collection UI foundation:** fixed collection tabs, shared
+    collapsible filters, Group by / Sort by / Rules, persisted manual
+    order, selection and drag/reorder infrastructure.
 
-- [x] **0.6.1-alpha UI/behavior follow-up:** shared locked Show/Hide filters across collection tabs; tab-wide My Lists Sort/Rules; pill Details actions; centered list-count containers with striped Partial state; centered context actions and disabled Training; immediate handle drag and Cancel/Apply ordering; independent drag/selection; immediate active-list membership pruning; additive multi-group selection only in Kanji Groups.
-- [ ] Manually verify 0.6.1-alpha on a phone: unified filters alignment/scrolling and lock/unlock in selection/reorder, global My Lists sorting and Rules, pill highlights, Partial stripes/counts/spacing in light and dark themes, immediate handle dragging/edge scroll/Apply/Cancel, unchanged card selection after drop, immediate removed-membership disappearance with empty selection mode retained, multi-group long press/expansion/bulk actions, and single-section isolation in My Kanji/My Lists. Emulator/device/UI automation was not run.
+## Current milestone
 
-- [ ] Manually verify 0.6.0-alpha on a phone: upgrade existing Learning/Known from Room v2, My Lists expansion/navigation, name validation only on Apply, confirmed delete isolation, handle reorder Apply/Cancel/edge scroll, global My Lists Rules/manual kanji drag, overlapping memberships, staged dialog Cancel/Apply/rotation, bulk partial states and immediate selection pruning after active-list membership removal, and My Lists Training source with empty/nonempty lists and source/list size changes. No emulator/device/UI automation was run for this milestone.
+-   [ ] **Finish and manually verify Custom Lists / collection UI
+    polish.**
+    -   Unified collapsible filters behavior across My Kanji / My Lists
+        / Kanji Groups.
+    -   My Lists uses one tab-wide filters header; filters are not
+        duplicated per list.
+    -   Selection/reorder temporarily force filters collapsed without
+        overwriting the user's normal expanded/collapsed state.
+    -   Collapsed Show filters participates in normal scrolling.
+    -   My Lists reorder hint matches the existing My Kanji hint.
+    -   Kanji Groups allows additive selection across multiple groups;
+        collapsing/expanding a group does not alter selection.
+    -   My Kanji and My Lists keep their existing
+        single-section/single-list selection isolation.
+    -   Custom List action dialog uses pill-style action buttons;
+        selection controls remain rounded-rectangle where appropriate.
+    -   Dragging has a temporary visual state independent of selection
+        and does not change selection.
+    -   Removing selected kanji from the active Custom List updates the
+        visible list immediately; empty selection does not automatically
+        exit selection mode.
+    -   Keep Cancel on the left and confirmation/Apply on the right.
+-   [ ] **Release/upgrade verification for the 0.6 milestone:** install
+    the public 0.5.3-alpha build with existing Learning/Known data, then
+    install the signed 0.6.x build over it and verify that Room
+    migration preserves existing data and Custom Lists work correctly.
+-   [ ] Verify Custom Lists CRUD/name validation, overlapping
+    memberships, list reorder Apply/Cancel, staged membership dialog
+    Apply/Cancel, Partial state, empty/nonempty lists and My Lists
+    Training source on a phone.
+-   [ ] Verify the current collection filters/selection/reorder behavior
+    in both light and dark themes where visual state matters.
 
-- [x] Training 0.5.1 follow-up: shared session size across sources with capped-value upward rounding, square blank/reveal area, right-side result actions, outlined practice choices, Review actions for both results and bulk-and-finish shortcuts.
-- [ ] Manually verify 0.5.1 Training follow-up on a phone: source switching 25 -> 17 -> 20, square reveal area, right-side actions on narrow screens, outlined practice choices and bulk-and-finish versus cancel. Retain coverage of all three sources, 0/<5/37/>50 sizes and numeric input, small-screen scrolling, repeated subset attempts, grayed-out row actions, pending reset on result change, Finish versus cancel, bottom navigation/Back, rotation and process restart.
-- [x] Training 0.5.2 polish: adaptive On/Kun columns with display-only reading diversity, equal action-area height with centered labels, and no standalone End training button on Results.
-- [x] Training 0.5.3 polish: always-vertical readings in On/Kun columns, hide bottom navigation during an active session, and cap centered individual action button height.
-- [ ] Verify 0.5.3 on a phone: stable reading columns, original punctuation, compact one/two-action cards at different font sizes, navigation hidden throughout attempts/Results and restored after Finish/cancel, and unchanged Back confirmation from Results.
-- [ ] Word Training.
-- [ ] Future Training improvements: stroke order, components/radical Hint and TTS; consider weighting/SRS/statistics only if later needed.
+## Next milestones
 
-- [ ] Global Settings and recommendation strategy selector; implement Grade/Frequency/Rare strategies later.
-- [ ] Manually verify 0.4.0 Recommended on a phone: tab tap/swipe, Refresh anti-repeat, Details -> Back with/without state change, updates from My Kanji/Groups/bulk actions, Activity recreation and process restart.
+-   [ ] **Train Selected:** launch Kanji Training directly from the
+    current selection using an explicit/custom Training Pool.
+    -   Bypass Review/Learning/New/My Lists source selection for this
+        entry path.
+    -   Training core should accept an arbitrary explicit kanji pool
+        independent of Room learning state.
+    -   Do not break existing selection boundaries merely to support
+        mixed-state training: My Kanji remains section-limited; My Lists
+        remains list-limited; Kanji Groups may contain a mixed
+        multi-group selection.
+    -   Collection-panel Training actions remain disabled until this
+        milestone is implemented.
+-   [ ] **Stroke Order / KanjiVG:** integrate stroke-path/order data
+    after attribution/license verification.
+-   [ ] **Handwriting Training:** build handwriting practice after
+    stroke-order data is available. Exact recognition/validation UX
+    should be designed at implementation time; preserve the possibility
+    of results such as Wrong / Wrong Stroke Order / Correct.
+-   [ ] **TTS / Japanese speech:** add pronunciation playback after the
+    core training/handwriting work. Choose the implementation/backend
+    when starting the feature rather than committing to one now.
 
-- [x] Keep collection tabs fixed and collapse only page-owned controls with shared nested scroll; reset controls after tab changes.
-- [x] Add shared Group by / Sort by / Rules inside My Kanji Learning/Known, including selectable JLPT/Grade groups and nested technical Ranked/Unranked sections.
-- [ ] Manually verify 0.3.4 collection UX on a phone: fixed tabs/page controls during tap/swipe, controls reset, nested header selection, card clearance, section restoration and Details -> Back in both collections.
+## Recommendations, discovery and home screen
 
-- [x] Persist one manual order per Learning/Known with Room v2 migration; allow selection-only 250 ms hold/drag in ungrouped, unfiltered Manually mode, including edge autoscroll and selection preservation on drop.
-- [ ] On a phone, verify upgrade from Room v1 with existing records, manual order after restart, append-on-Move/Add, drag delay versus tap/entry long press, multi-screen edge scrolling in both directions, cancel/failure behavior, controls omission/restoration, Snackbar entry timing and forbidden reorder configurations.
+-   [ ] Implement **Recommended Words**.
+-   [ ] Add **Kanji of the Day** using a deterministic
+    local-calendar-date hash and a stable Unicode codepoint list rather
+    than dictionary IDs, while respecting discovery eligibility.
+-   [ ] Revisit the Search/home discovery UI when Recommended Words /
+    daily content is implemented. Current design direction: top-level
+    Kanji / Word choice with a second row of discovery modes such as Of
+    the Day / Recommended / Explore; finalize the exact Word-side daily
+    behavior when implementing it.
+-   [ ] Add **Global Settings** and a recommendation strategy selector;
+    implement Grade / Frequency / Rare-or-Discovery strategies later.
+-   [ ] Add a Settings option **"Include Custom Lists in Kanji
+    recommendations"**. Define the exact recommendation behavior and
+    semantics only when implementing the feature; do not assume whether
+    lists exclude, boost, prioritize or otherwise affect candidates
+    before then.
+-   [ ] Future recommendation quality work: revisit meaning/reading
+    usefulness ranking when needed. Control case: for 漢, prefer `China`
+    as the primary training meaning over `Sino-`.
 
-- [x] Capitalise standalone English kanji meanings in the UI.
-- [x] Make dictionary text selectable/copyable.
-- [ ] Implement Recommended words.
-- [ ] Improve word ranking beyond common=1.
-- [ ] Improve presentation of huge reading sets such as 生.
-- [ ] Test that the Jōyō badge is absent for joyo=0.
-- [ ] Correct the JLPT source mapping for 分 (expected N5): the current local tools/data/jlpt.tsv omits it, and the asset import matches that source. No runtime override is used.
-- [ ] Define and implement a dictionary.db version/update mechanism.
-- [ ] Verify EDRDG attribution and licenses.
-- [ ] Verify KanjiVG attribution/license before integration.
-- [ ] Implement Kanji of the Day using a deterministic local-date hash and a stable Unicode codepoint list, respecting discovery eligibility.
-- [ ] Download the chosen icon set and replace temporary/text placeholders.
-- [ ] Visual polish later.
+## Training backlog
+
+-   [ ] Word Training.
+-   [ ] Future Kanji Training improvements: stroke order,
+    components/radical Hint and TTS.
+-   [ ] Consider weighting/SRS/statistics only if later feedback shows
+    they are useful.
+-   [ ] Preserve the current separation of concerns: Kanji Training
+    focuses on meaning/readings and eventually glyph reproduction; Word
+    Training should handle words/readings/context.
+
+## Dictionary and data
+
+-   [ ] Improve word ranking beyond `common=1`.
+-   [ ] Improve presentation of huge reading sets such as 生.
+-   [ ] Test that the Jōyō badge is absent for `joyo=0`.
+-   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
+    current source still omits it; keep source/import/verifier behavior
+    coherent.
+-   [ ] Define and implement a `dictionary.db` asset version/update
+    mechanism so an APK update can replace the copied `noBackupFilesDir`
+    dictionary when required.
+-   [ ] Verify EDRDG attribution and licenses.
+-   [ ] Verify KanjiVG attribution/license before integration.
+-   [ ] Do not persist dictionary-internal SQLite IDs in user-owned
+    data; continue using stable character text/codepoints where
+    appropriate.
+
+## UI / product backlog
+
+-   [ ] Download the chosen icon set and replace temporary/text
+    placeholders.
+-   [ ] Continue visual polish after the current 0.6 collection/list
+    work stabilizes.
+-   [ ] Keep the emerging UI convention: actions normally use pill-style
+    controls; selection/options normally use rounded rectangles, while a
+    compact panel may intentionally use one consistent style for all
+    peer controls.
+-   [ ] Keep confirmation/Apply actions on the right and Cancel on the
+    left.
+-   [ ] Localization and dictionary translations are **post-0.9** work;
+    do not expand current feature work into localization unless
+    explicitly requested.
+
+## Release / feedback direction
+
+-   [ ] After Custom Lists and Train Selected are stable, prepare a
+    build suitable for broader external feedback (for example Reddit)
+    before committing to large secondary features.
+-   [ ] Use that feedback to decide how much additional functionality
+    belongs before 0.9 versus after it.

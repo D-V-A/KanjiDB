@@ -37,9 +37,9 @@ data class KanjiGroupOptions(
     val joyo: PresenceRule = PresenceRule.ANY,
     val status: KanjiStatusRule = KanjiStatusRule.ANY
 ) {
-    val manualReorderAvailable: Boolean get() = groupBy == KanjiGroupBy.NONE &&
-        sortBy == KanjiSortBy.MANUAL && jlpt == PresenceRule.ANY &&
-        grade == PresenceRule.ANY && joyo == PresenceRule.ANY && status == KanjiStatusRule.ANY
+    val manualSortUnfiltered: Boolean get() = sortBy == KanjiSortBy.MANUAL && activeRules == 0
+
+    val manualReorderAvailable: Boolean get() = groupBy == KanjiGroupBy.NONE && manualSortUnfiltered
 
     val activeRules: Int get() = listOf(jlpt, grade, joyo).count { it != PresenceRule.ANY } +
         if (status == KanjiStatusRule.ANY) 0 else 1
