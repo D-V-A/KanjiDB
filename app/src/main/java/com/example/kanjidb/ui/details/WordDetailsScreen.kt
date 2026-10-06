@@ -29,8 +29,10 @@ import com.example.kanjidb.data.dictionary.DictionaryWordDetails
 import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
@@ -81,7 +83,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    DictionaryText(meanings.firstOrNull() ?: stringResource(R.string.word_no_meanings),
+                    DictionaryText(meanings.firstOrNull()?.standaloneKanjiMeaning() ?: stringResource(R.string.word_no_meanings),
                         modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineLarge)
                 }
                 item {
@@ -121,13 +123,16 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                         textAlign = TextAlign.Center, style = MaterialTheme.typography.titleLarge)
                 }
                 items(details.constituentKanji.chunked(4)) { row ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { kanji ->
-                            KanjiCard(character = kanji.character, reading = kanji.primaryMeaning.standaloneKanjiMeaning(),
-                                selected = false, selecting = false, onClick = { onOpenKanji(kanji.character) },
-                                onLongClick = {}, allowLongClick = false, modifier = Modifier.weight(1f))
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val cardWidth = (maxWidth - 8.dp * 3) / 4
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                            row.forEach { kanji ->
+                                KanjiCard(character = kanji.character, reading = kanji.primaryMeaning.standaloneKanjiMeaning(),
+                                    selected = false, selecting = false, onClick = { onOpenKanji(kanji.character) },
+                                    onLongClick = {}, allowLongClick = false, modifier = Modifier.width(cardWidth))
+                            }
                         }
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
