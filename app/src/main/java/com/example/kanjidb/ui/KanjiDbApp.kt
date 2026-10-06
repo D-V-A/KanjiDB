@@ -93,8 +93,14 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
         )
     }
     val openDetails: (String) -> Unit = { kanjiId ->
-        navController.navigate("details/${Uri.encode(kanjiId)}") {
-            launchSingleTop = true
+        navController.navigate("details/${Uri.encode(kanjiId)}")
+    }
+
+    // Detail navigation always pushes. The first non-detail entry below the chain is its origin.
+    // Keeping that entry on the stack preserves its saved state and internal tabs/filters.
+    val returnToOrigin: () -> Unit = {
+        while (navController.currentBackStackEntry?.destination?.route in listOf(DETAILS, WORD_DETAILS)) {
+            if (!navController.popBackStack()) break
         }
     }
 
@@ -147,9 +153,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 }, onOpenDetails = openDetails, onOpenAbout = {
                     navController.navigate(ABOUT) { launchSingleTop = true }
                 }, onOpenWord = { entryId, written ->
-                    navController.navigate("word/$entryId/${Uri.encode(written)}") {
-                        launchSingleTop = true
-                    }
+                    navController.navigate("word/$entryId/${Uri.encode(written)}")
                 })
             }
             composable(ABOUT) {
@@ -173,7 +177,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 WordDetailsScreen(
                     entryId = arguments.getLong("entryId"),
                     written = requireNotNull(arguments.getString("written")),
-                    sourceKanji = requireNotNull(arguments.getString("sourceKanji"))
+                    sourceKanji = requireNotNull(arguments.getString("sourceKanji")),
+                    onOpenKanji = openDetails,
+                    onReturnToOrigin = returnToOrigin
                 )
             }
             composable(
@@ -184,10 +190,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 KanjiDetailsScreen(
                     kanjiId = kanjiId,
                     userDao = userDao,
+                    onReturnToOrigin = returnToOrigin,
                     onOpenWord = { entryId, written ->
-                        navController.navigate("word/$entryId/${Uri.encode(written)}?sourceKanji=${Uri.encode(kanjiId)}") {
-                            launchSingleTop = true
-                        }
+                        navController.navigate("word/$entryId/${Uri.encode(written)}?sourceKanji=${Uri.encode(kanjiId)}")
                     }
                 )
             }

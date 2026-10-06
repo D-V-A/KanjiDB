@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.R
 import com.example.kanjidb.ui.DictionaryText
-import com.example.kanjidb.ui.FloatingActionPanel
 import com.example.kanjidb.ui.standaloneKanjiMeaning
 import com.example.kanjidb.ui.primaryMeaning
 import com.example.kanjidb.ui.LearningState
@@ -60,6 +59,7 @@ fun KanjiDetailsScreen(
     kanjiId: String,
     userDao: UserKanjiStateDao,
     onOpenWord: (Long, String) -> Unit,
+    onReturnToOrigin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -81,16 +81,24 @@ fun KanjiDetailsScreen(
             loading = false
         }
     }
-    if (loading || failed) {
-        Text(
-            stringResource(if (loading) R.string.details_loading else R.string.details_load_error),
-            modifier.padding(16.dp)
-        )
-        return
-    }
     val kanji = loadedKanji
-    if (kanji == null) {
-        Text(stringResource(R.string.details_not_found), modifier.padding(16.dp))
+    if (loading || failed || kanji == null) {
+        Box(modifier.fillMaxSize()) {
+            Text(stringResource(when {
+                loading -> R.string.details_loading
+                failed -> R.string.details_load_error
+                else -> R.string.details_not_found
+            }), Modifier.padding(16.dp))
+            DetailActionPanel(onReturnToOrigin,
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
+                listOf(R.string.details_learning, R.string.details_known, R.string.custom_lists).forEach { label ->
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
+                        Text(stringResource(label))
+                    }
+                }
+            }
+        }
         return
     }
 
@@ -191,7 +199,8 @@ fun KanjiDetailsScreen(
             }
         }
 
-        FloatingActionPanel(
+        DetailActionPanel(
+            onReturnToOrigin = onReturnToOrigin,
             modifier = Modifier.align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .onSizeChanged { panelHeight = it.height }

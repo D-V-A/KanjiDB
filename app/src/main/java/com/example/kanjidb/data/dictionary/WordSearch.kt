@@ -27,7 +27,7 @@ internal const val SEARCH_WORDS_SQL = """
     FROM page p JOIN word_form f ON f.id = (
         SELECT preferred.id FROM word_form preferred
         WHERE preferred.entry_id = p.entry_id AND preferred.written = p.written
-        ORDER BY preferred.reading_priority DESC, preferred.reading_order, preferred.id LIMIT 1
+        ORDER BY preferred.reading_order, preferred.id LIMIT 1
     )
     ORDER BY p.rank, p.written, p.entry_id
 """
@@ -43,7 +43,10 @@ internal const val EXPLORE_WORDS_SQL = """
          ORDER BY m.sense_index, m.id LIMIT 1)
     FROM chosen c JOIN word_form f ON f.id = (
         SELECT preferred.id FROM word_form preferred
-        WHERE preferred.entry_id = c.entry_id AND preferred.common = 1
-        ORDER BY preferred.reading_priority DESC, preferred.reading_order, preferred.id LIMIT 1
+        WHERE preferred.entry_id = c.entry_id AND preferred.written = (
+            SELECT written FROM word_form WHERE entry_id = c.entry_id AND common = 1
+            ORDER BY reading_order, id LIMIT 1
+        )
+        ORDER BY preferred.reading_order, preferred.id LIMIT 1
     )
 """

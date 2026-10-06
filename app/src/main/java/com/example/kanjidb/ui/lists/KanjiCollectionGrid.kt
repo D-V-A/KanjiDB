@@ -433,7 +433,8 @@ internal fun KanjiCard(
     onLongClick: () -> Unit,
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
-    dragging: Boolean = false
+    dragging: Boolean = false,
+    allowLongClick: Boolean = true
 ) {
     Card(
         modifier = modifier.fillMaxWidth().aspectRatio(1f)
@@ -441,7 +442,7 @@ internal fun KanjiCard(
             .combinedClickable(
                 enabled = enabled,
                 onClick = onClick,
-                onLongClick = onLongClick,
+                onLongClick = if (allowLongClick) onLongClick else null,
                 onLongClickLabel = stringResource(R.string.my_kanji_select),
                 role = if (selecting) Role.Checkbox else Role.Button
             )

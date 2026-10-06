@@ -20,3 +20,12 @@
 - After finishing task tell developer current application version from `versionName` and `versionCode`.
 - In confirm/cancel pairs, place Cancel on the left and the confirmation on the right in new dialogs, floating panels and other paired actions. This puts the primary action closer to and more convenient for a right-handed user.
 - Actions usually use pill-style controls; selection/selectable options use rounded rectangles. Within one compact panel, consistent styling of same-level elements takes precedence. Custom List action dialogs use pills; membership dialogs and Training selections use rounded rectangles. Kanji Details intentionally uses matching pills for Learning/Known/Custom Lists.
+
+## Codex workflow
+
+- Inspecting and reading project files does not require confirmation.
+- Before substantial code or architecture changes, present a concise implementation plan and wait for explicit approval.
+- After approval, proceed within the agreed scope without requesting additional confirmation for routine file reads, edits, builds, or tests.
+- Small local fixes may be applied directly unless the user explicitly asks for a plan first.
+- Do not commit or push unless explicitly requested.
+- Do not modify files outside the KanjiDB project directory, install system-wide software, change OS/user settings, credentials, environment configuration, or global Git/Codex configuration unless explicitly requested.

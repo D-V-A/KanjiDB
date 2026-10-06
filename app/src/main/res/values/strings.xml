@@ -87,7 +87,8 @@
     <string name="search_no_results">No kanji found.</string>
     <string name="search_show_more_results">Show more results</string>
     <string name="word_readings">Readings</string>
-    <string name="word_preferred_reading">Preferred reading</string>
+    <string name="details_return_to_origin">Return to origin</string>
+    <string name="word_kanji">Kanji</string>
     <string name="word_not_found">Word not found.</string>
     <string name="word_no_meanings">No meanings found.</string>
     <string name="word_english">English</string>

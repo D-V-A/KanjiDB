@@ -67,6 +67,19 @@ that feature is started unless explicitly fixed below.
 -   [ ] Verify the current collection filters/selection/reorder behavior
     in both light and dark themes where visual state matters.
 
+## Word Details 0.7.0 manual verification
+
+- [ ] Today: primary reading follows JMdict order; remaining readings retain that order and the title gloss is absent from Meanings.
+- [ ] Tomorrow: primary reading follows reading_order rather than reading_priority.
+- [ ] A five-code-point form uses compact layout; a six-code-point form uses long layout. Also check supplementary characters if available.
+- [ ] A one-gloss word has no Meanings section; a multi-gloss word has the first as title and only additional glosses below.
+- [ ] Mixed kana/kanji shows only linked kanji; repeated kanji appears once in first-occurrence order.
+- [ ] Long English kanji meanings occupy one secondary line with ellipsis; cards retain four-column geometry.
+- [ ] A very long dictionary phrase wraps written form, glosses and readings within screen width and remains scrollable above the panel.
+- [ ] Search -> Kanji Details -> Word Details -> Kanji Details: Back reverses one step; Return to origin returns directly to Search. Repeat visits must add history.
+- [ ] Repeat Return to origin from My Kanji, My Lists, Kanji Groups and Recommended; preserve tab/filter/scroll state and existing Recommended return behavior. Check rotation within the chain.
+- [ ] Return to origin is available on first details and during loading/errors; Word's remaining panel actions stay disabled. Check light/dark themes and larger font sizes.
+
 ## Next milestones
 
 -   [ ] **Train Selected:** launch Kanji Training directly from the

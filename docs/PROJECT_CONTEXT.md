@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **0.6.2-alpha**, `versionCode = 18`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **0.7.0-alpha**, `versionCode = 19`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training supports My Lists; Word Training and stroke order remain placeholders.
 
@@ -32,7 +32,7 @@ Schema overview:
 
 - `kanji` with child `kanji_meaning` and `kanji_reading`.
 - `jlpt_kanji`: optional level 1-5 linked by `kanji_id`, read directly by Kanji Groups; never copied into user.db.
-- `word_form`: valid (JMdict entry_id, written, reading) combinations, common flag and preferred-reading metadata.
+- `word_form`: valid (JMdict entry_id, written, reading) combinations, common flag, reading_priority metadata and original JMdict reading_order.
 - `word_meaning`: glosses by form, sense and language.
 - `word_kanji`: links forms to known kanji with their positions.
 
@@ -49,11 +49,23 @@ SQL avoids window functions for SDK 26 compatibility. Internal SQLite IDs can ch
 [SearchScreen](../app/src/main/java/com/example/kanjidb/ui/search/SearchScreen.kt) switches between Kanji and Words. Nonblank queries debounce for 250 ms, start with 10 results and expand by 10 via Show more. Loading/error/empty states and retry are present.
 
 - **Search Kanji:** exact character, kana/romaji readings and English meaning substrings. Exact character ranks first, then exact reading/meaning, then partial matches; frequency breaks ties. Reading normalization handles kana variants, common romaji and dictionary reading punctuation.
-- **Search Words:** written-form, kana/romaji reading and English gloss matches. Exact written form ranks first, exact reading/meaning next, then partial matches. Results are unique by (entry_id, written); one preferred reading is selected. Search includes non-common forms and is not frequency-ranked by common.
+- **Search Words:** written-form, kana/romaji reading and English gloss matches. Exact written form ranks first, exact reading/meaning next, then partial matches. Results are unique by (entry_id, written); the earliest valid reading by JMdict reading_order is selected. Search includes non-common forms and is not frequency-ranked by common.
 - **Explore Kanji:** five random characters with an English meaning and on/kun reading, plus at least one of Jōyō status, frequency or a JMdict word link. This is the current evidence-based eligibility heuristic.
-- **Explore Words:** five random distinct entries having common=1; one common form/reading represents each entry.
+- **Explore Words:** five random distinct entries having common=1; one common written form represents each entry, with its earliest valid reading by reading_order (even when that reading itself is non-common).
 - Blank search shows Explore Kanji / Recommended Kanji / Explore Words pages. Recommended Kanji is implemented; all three tabs support tap and swipe.
 - [ExploreState](../app/src/main/java/com/example/kanjidb/ui/search/ExploreState.kt) retains both selections for the process lifetime, including navigation and Activity recreation. Refresh is explicit; process restart resets selections. This is not a daily or personalized recommendation system.
+
+## Word Details and detail navigation (0.7.0-alpha)
+
+Word Details uses the first English gloss as its full-width heading (fallback: first available language, then the no-meanings message). Additional unique glosses exclude that heading; a single-meaning word has no Meanings section. Existing per-form/per-reading imported restrictions remain intact: the Details meanings query collects applicable glosses across valid readings of the displayed written form, while word summary glosses remain attached to their selected reading.
+
+Readings belong strictly to the displayed (entry_id, written), ordered by reading_order then id; the first is primary. reading_priority is retained in the dictionary but never chooses primary readings. Search, Explore, Kanji Details word lists and Word Details follow this rule. Common ranking selects common written forms before choosing their earliest valid reading, without filtering that reading by common. Existing alternative-spelling display and common-word grouping remain supported; alternate spellings no longer contribute readings to the displayed spelling.
+
+The displayed written form's Unicode code point count selects compact (<=5) or long (>5) layout. Compact has equal-width written/readings areas and row-major two-column readings/additional meanings. Long uses a full-width wrapping written block and vertical reading/meaning lists. The first reading is bold. Both modes scroll vertically and reserve measured clearance for the shared floating panel. Constituent kanji use the existing collection card in four-column rows, one-line ellipsized first English meanings, unique characters ordered by earliest word_kanji.position, and links to Kanji Details. Unknown/unlinked characters and kana are not fabricated into cards.
+
+Each Word/Kanji Details transition pushes a new navigation entry, including repeat visits. System Back pops one entry. Both screens always show Return to origin, including loading/error states. It pops the contiguous detail chain to its first non-detail entry using the existing NavController stack; that entry retains its internal Search/collection tab and saved state, including the Recommended return marker. No independent origin/history store or depth limit is introduced. DetailActionPanel shares FloatingActionPanel and the local Tabler corner-down-left-double ImageVector; Kanji actions remain functional and Word's future ownership/list actions are disabled.
+
+Focused JVM tests cover real SQLite query behavior with competing reading priority/common flags, written-form restrictions, gloss deduplication, constituent order, supplementary Unicode layout thresholds and heading exclusion. Phone checks are still required for geometry, wrapping and detail back-stack interactions; see TODO.md.
 
 ## Recommended Kanji (0.4.0-alpha)
 

@@ -36,7 +36,8 @@ data class DictionaryWordDetails(
     val readings: List<String>,
     val meaningGroups: Map<String, List<String>>,
     val alternativeWrittenForms: List<String>,
-    val preferredReading: String
+    val primaryReading: String,
+    val constituentKanji: List<KanjiSummary>
 )
 
 /** Independent asset dictionary; never creates or writes SQLite tables. */
@@ -249,10 +250,10 @@ class DictionaryDatabase(context: Context) {
                         forms.any { it.entryId == entryId && it.written == written }
                     }
                 val writtenForms = group?.map { it.written }?.toSet() ?: setOf(written)
-                val readings = db.rawQuery(WORD_READINGS_SQL, arrayOf(entryId.toString())).use { cursor ->
+                val readings = db.rawQuery(WORD_READINGS_SQL, args).use { cursor ->
                     buildList {
                         while (cursor.moveToNext()) {
-                            if (cursor.getString(1) in writtenForms) add(cursor.getString(0))
+                            add(cursor.getString(0))
                         }
                     }.distinct()
                 }
@@ -267,19 +268,24 @@ class DictionaryDatabase(context: Context) {
                 DictionaryWordDetails(
                     entryId, written, readings, groups,
                     alternativeWrittenForms = writtenForms.filter { it != written },
-                    preferredReading = group?.first()?.reading ?: readings.first()
+                    primaryReading = readings.first(),
+                    constituentKanji = db.rawQuery(WORD_KANJI_SQL, args).use { cursor ->
+                        buildList {
+                            while (cursor.moveToNext()) add(KanjiSummary(cursor.getString(0),
+                                if (cursor.isNull(1)) "" else cursor.getString(1)))
+                        }
+                    }
                 )
             }
         }
 
-    // Common forms retain their preferred reading and precede all remaining forms.
+    // Common written forms precede remaining forms; both use the earliest valid reading.
     private fun getKanjiWords(db: SQLiteDatabase, kanjiId: String): List<DictionaryWord> =
         mergeKanjiWords(getWords(db, kanjiId, commonOnly = true),
             getWords(db, kanjiId, commonOnly = false))
 
     private fun getWords(db: SQLiteDatabase, kanjiId: String, commonOnly: Boolean): List<DictionaryWord> =
-        db.rawQuery(WORDS_SQL, arrayOf(kanjiId, if (commonOnly) "1" else "0",
-            if (commonOnly) "1" else "0")).use { cursor ->
+        db.rawQuery(WORDS_SQL, arrayOf(kanjiId, if (commonOnly) "1" else "0")).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
                     add(DictionaryWord(
@@ -320,13 +326,22 @@ class DictionaryDatabase(context: Context) {
     private fun Cursor.nullableInt(index: Int): Int? =
         if (isNull(index)) null else getInt(index)
 
-    private companion object {
-        val copyLock = Any()
+    internal companion object {
+        private val copyLock = Any()
 
         const val WORD_READINGS_SQL = """
             SELECT reading, written FROM word_form
-            WHERE entry_id = ?
-            ORDER BY reading_priority DESC, reading_order ASC, id ASC
+            WHERE entry_id = ? AND written = ?
+            ORDER BY reading_order ASC, id ASC
+        """
+
+        const val WORD_KANJI_SQL = """
+            SELECT k.character, (SELECT meaning FROM kanji_meaning
+                WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1)
+            FROM word_form wf JOIN word_kanji wk ON wk.word_form_id = wf.id
+            JOIN kanji k ON k.id = wk.kanji_id
+            WHERE wf.entry_id = ? AND wf.written = ?
+            GROUP BY k.id ORDER BY MIN(wk.position)
         """
 
         // The same gloss is often repeated across valid reading forms.
@@ -354,8 +369,7 @@ class DictionaryDatabase(context: Context) {
                 SELECT preferred.id FROM word_form preferred
                 WHERE preferred.entry_id = grouped.entry_id
                   AND preferred.written = grouped.written
-                  AND (? = '0' OR preferred.common = 1)
-                ORDER BY preferred.reading_priority DESC, preferred.reading_order ASC, preferred.id ASC
+                ORDER BY preferred.reading_order ASC, preferred.id ASC
                 LIMIT 1
             )
             ORDER BY wf.written, wf.entry_id
