@@ -35,43 +35,58 @@ import com.example.kanjidb.ui.primaryMeaning
 import com.example.kanjidb.ui.search.RecommendedState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+
+private enum class TrainingKind(val title: String) { KANJI("Kanji Training"), WORD("Word Training") }
+private data class PreparedWordTraining(
+    val plan: WordTrainingPlan, val summaries: Map<String, com.example.kanjidb.data.dictionary.KanjiSummary>
+)
 
 @Composable
 internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Unit, modifier: Modifier = Modifier) {
-    var setup by rememberSaveable { mutableStateOf(false) }
+    var setup by rememberSaveable { mutableStateOf<TrainingKind?>(null) }
     val session = TrainingState.session
-    BackHandler(enabled = session != null || setup) {
-        if (session != null) {
+    val wordSession = TrainingState.wordSession
+    val complete = session?.complete == true || wordSession?.complete == true
+    BackHandler(enabled = TrainingState.active || setup != null) {
+        if (TrainingState.active) {
             if (!TrainingState.saving) onRequestExit()
-        } else setup = false
+        } else setup = null
     }
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (session?.complete == true) "Results" else if (setup) "Kanji Training" else "Training",
+            Text(if (complete) "Results" else setup?.title ?: if (wordSession != null) "Word Training" else "Training",
                 Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
-            if (session?.complete != true && (session != null || setup)) {
+            if (!complete && (TrainingState.active || setup != null)) {
                 TextButton(enabled = !TrainingState.saving, onClick = {
-                    if (session != null) onRequestExit() else setup = false
-                }) { Text(if (session != null) "End training" else "Back") }
+                    if (TrainingState.active) onRequestExit() else setup = null
+                }) { Text(if (TrainingState.active) "End training" else "Back") }
             }
         }
         when {
+            wordSession != null && wordSession.complete -> WordTrainingResults(wordSession, userDao)
+            wordSession != null -> key(wordSession.currentWord?.key) { WordTrainingQuestion(wordSession) }
             session != null && session.complete -> TrainingResults(session, userDao)
             session != null -> key(session.currentCharacter) { TrainingQuestion(session) }
-            setup -> TrainingSetup(userDao, onStarted = { setup = false })
+            setup != null -> TrainingSetup(userDao, wordMode = setup == TrainingKind.WORD, onStarted = { setup = null })
             else -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Card(onClick = { setup = true }, modifier = Modifier.fillMaxWidth()) {
+                Card(onClick = { setup = TrainingKind.KANJI }, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Kanji Training", style = MaterialTheme.typography.titleLarge)
                         Text("Recall kanji from their meaning and readings.")
                     }
                 }
-                OutlinedCard(Modifier.fillMaxWidth()) {
+                Card(onClick = { setup = TrainingKind.WORD }, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Word Training", style = MaterialTheme.typography.titleLarge)
-                        Text("Coming later", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Practice kanji in words with translation and reading prompts.")
                     }
+                }
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    Text("More coming soon", Modifier.padding(20.dp),
+                        style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -79,7 +94,7 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
 }
 
 @Composable
-private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
+private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: () -> Unit) {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
     val rows by remember(dao) { dao.observeAll() }.collectAsStateWithLifecycle(initialValue = null)
@@ -95,6 +110,13 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
     var failed by remember { mutableStateOf(false) }
     var starting by remember { mutableStateOf(false) }
     var startFailed by remember { mutableStateOf(false) }
+    var noWords by remember { mutableStateOf(false) }
+    var coverage by rememberSaveable { mutableIntStateOf(1) }
+    var prompt by rememberSaveable { mutableStateOf(WordPrompt.BOTH) }
+    var length by rememberSaveable { mutableStateOf(WordLength.SHORT) }
+    val wordSettings = WordTrainingSettings(coverage, prompt, length)
+    var prepared by remember { mutableStateOf<PreparedWordTraining?>(null) }
+    val busy = starting || prepared != null
     val scope = rememberCoroutineScope()
     LaunchedEffect(dictionary, retry) {
         failed = false
@@ -114,8 +136,9 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
             it.state == if (mode == TrainingMode.REVIEW) LearningState.KNOWN else LearningState.LEARNING
         }.map { it.character }.filter { it in dictionaryCharacters.orEmpty() }
     }
-    val loading = if (mode == TrainingMode.NEW) RecommendedState.loading else rows == null || dictionaryCharacters == null || (mode == TrainingMode.MY_LISTS && lists == null)
-    val sourceFailed = if (mode == TrainingMode.NEW) RecommendedState.failed else failed
+    val loading = (if (mode == TrainingMode.NEW) RecommendedState.loading else rows == null || dictionaryCharacters == null || (mode == TrainingMode.MY_LISTS && lists == null)) ||
+        (wordMode && (rows == null || dictionaryCharacters == null))
+    val sourceFailed = (if (mode == TrainingMode.NEW) RecommendedState.failed else failed) || (wordMode && failed)
     val available = source.size
     var selectedSize by rememberSaveable { mutableIntStateOf(10) }
     var input by rememberSaveable { mutableStateOf("10") }
@@ -135,12 +158,13 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
         Text("Training type", style = MaterialTheme.typography.titleMedium)
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TrainingMode.entries.forEach { option ->
-                FilterChip(selected = mode == option, enabled = !starting && (option != TrainingMode.MY_LISTS || availableLists.isNotEmpty()), onClick = {
+                FilterChip(selected = mode == option, enabled = !busy && (option != TrainingMode.MY_LISTS || availableLists.isNotEmpty()), onClick = {
                     focus.clearFocus()
                     selectedSize = count
                     input = count.toString()
                     mode = option
                     startFailed = false
+                    noWords = false
                 }, label = { Text(option.title) })
             }
         }
@@ -153,13 +177,13 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
         if (mode == TrainingMode.MY_LISTS) {
             var dropdown by remember { mutableStateOf(false) }
             Box {
-                OutlinedButton(enabled = !starting && availableLists.isNotEmpty(), onClick = { dropdown = true }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(enabled = !busy && availableLists.isNotEmpty(), onClick = { dropdown = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(effectiveList?.list?.name ?: "No nonempty lists")
                 }
                 DropdownMenu(expanded = dropdown, onDismissRequest = { dropdown = false }) {
                     availableLists.forEach { list ->
                         DropdownMenuItem(text = { Text(list.list.name) }, onClick = {
-                            focus.clearFocus(); selectedSize = count; selectedList = list.list.id; dropdown = false
+                            focus.clearFocus(); selectedSize = count; selectedList = list.list.id; dropdown = false; noWords = false
                         })
                     }
                 }
@@ -169,7 +193,8 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
             sourceFailed -> {
                 Text("Could not load kanji.")
                 TextButton(onClick = {
-                    if (mode == TrainingMode.NEW) RecommendedState.initialize(dictionary, dao) else retry++
+                    if (mode == TrainingMode.NEW) RecommendedState.initialize(dictionary, dao)
+                    retry++
                 }) { Text("Retry") }
             }
             loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -181,8 +206,8 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
                         input = it.filter(Char::isDigit)
                         selectedSize = normalizedSessionSize(input, available)
                     },
-                    enabled = available >= 5 && !starting, singleLine = true,
-                    label = { Text("Session size") },
+                    enabled = available >= 5 && !busy, singleLine = true,
+                    label = { Text(if (wordMode) "Kanji pool size" else "Session size") },
                     supportingText = { Text("This session: $count kanji") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { input = count.toString(); focus.clearFocus() }),
@@ -196,34 +221,59 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
                     },
                     valueRange = 0f..(values.size - 1).coerceAtLeast(1).toFloat(),
                     steps = (values.size - 2).coerceAtLeast(0),
-                    enabled = values.size > 1 && !starting,
-                    modifier = Modifier.semantics { contentDescription = "Session size: $count kanji" }
+                    enabled = values.size > 1 && !busy,
+                    modifier = Modifier.semantics { contentDescription = if (wordMode) "Kanji pool size: $count kanji" else "Session size: $count kanji" }
                 )
                 if (available < 5) Text("All $available available kanji will be used.")
             }
         }
-        Text("How it works", style = MaterialTheme.typography.titleLarge)
-        Text("You’ll be shown the meaning and readings of a kanji. Try to reproduce the kanji — for example, write it on paper or draw it from memory.")
-        Text("Then tap Show answer, compare your answer with the kanji shown, and mark it as Correct or Incorrect.")
-        Text("At the end, you can review your results and practice the kanji again if you want.")
+        if (wordMode) {
+            WordTrainingOptions(wordSettings, enabled = !busy) { settings ->
+                coverage = settings.targetCoverage; prompt = settings.prompt; length = settings.length; noWords = false
+            }
+        } else {
+            Text("How it works", style = MaterialTheme.typography.titleLarge)
+            Text("You’ll be shown the meaning and readings of a kanji. Try to reproduce the kanji — for example, write it on paper or draw it from memory.")
+            Text("Then tap Show answer, compare your answer with the kanji shown, and mark it as Correct or Incorrect.")
+            Text("At the end, you can review your results and practice the kanji again if you want.")
+        }
+        if (noWords) Text("No suitable words for this kanji pool and filters. Try another source or a different word length.",
+            color = MaterialTheme.colorScheme.error)
         if (startFailed) Text("Could not start training. Please try again.", color = MaterialTheme.colorScheme.error)
         Button(
-            enabled = !loading && !sourceFailed && !starting && available > 0,
+            enabled = !loading && !sourceFailed && !busy && available > 0,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 focus.clearFocus()
                 input = count.toString()
                 val chosen = selectTrainingPool(source, count)
                 val chosenMode = mode
+                val chosenSettings = wordSettings
+                val known = rows.orEmpty().filter { it.state == LearningState.KNOWN }.map { it.character }.toSet()
                 starting = true
                 startFailed = false
+                noWords = false
                 scope.launch {
                     try {
-                        val cards = chosen.map { character ->
-                            requireNotNull(dictionary.getKanji(character, includeWords = false))
+                        if (wordMode) {
+                            val candidates = dictionary.getWordTrainingCandidates(chosen)
+                            val plan = withContext(Dispatchers.Default) {
+                                WordTrainingSelection.build(candidates, chosen, known, chosenSettings)
+                            }
+                            if (plan.words.isEmpty()) noWords = true else {
+                                val resultCharacters = (plan.pool + plan.words.flatMap { it.kanjiOccurrences }
+                                    .filter { it in known }).distinct()
+                                val summaries = dictionary.getKanjiSummaries(resultCharacters)
+                                if (plan.words.size > 30) prepared = PreparedWordTraining(plan, summaries)
+                                else { TrainingState.startWords(plan, summaries); onStarted() }
+                            }
+                        } else {
+                            val cards = chosen.map { character ->
+                                requireNotNull(dictionary.getKanji(character, includeWords = false))
+                            }
+                            TrainingState.start(chosenMode, cards)
+                            onStarted()
                         }
-                        TrainingState.start(chosenMode, cards)
-                        onStarted()
                     } catch (error: CancellationException) { throw error }
                     catch (error: Exception) {
                         android.util.Log.e("Training", "Cannot start training", error)
@@ -232,6 +282,16 @@ private fun TrainingSetup(dao: UserKanjiStateDao, onStarted: () -> Unit) {
                 }
             }
         ) { Text(if (starting) "Starting…" else "Start") }
+    }
+    prepared?.let { ready ->
+        AlertDialog(onDismissRequest = { prepared = null }, title = { Text("Large session (${ready.plan.words.size} words)") },
+            text = { Text("Your session contains a large number of words.\nIf you end the session early, the results will not be recorded.\nContinue?") },
+            dismissButton = { TextButton(onClick = { prepared = null }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = {
+                prepared = null
+                TrainingState.startWords(ready.plan, ready.summaries)
+                onStarted()
+            }) { Text("Confirm") } })
     }
 }
 
@@ -257,18 +317,9 @@ private fun TrainingQuestion(session: TrainingSession) {
                 TrainingReadingsColumn("Kun", kanji.kunReadings, Modifier.weight(1f))
             }
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!session.revealed) {
-                Button(onClick = { TrainingState.update { it.reveal() } }, Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                    Text("Show answer")
-                }
-            } else {
-                OutlinedButton(onClick = { TrainingState.update { it.answer(TrainingResult.INCORRECT) } },
-                    Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Incorrect") }
-                Button(onClick = { TrainingState.update { it.answer(TrainingResult.CORRECT) } },
-                    Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Correct") }
-            }
-        }
+        TrainingQuestionControls(session.revealed,
+            onReveal = { TrainingState.update { it.reveal() } },
+            onAnswer = { result -> TrainingState.update { it.answer(result) } })
     }
 }
 
@@ -286,14 +337,11 @@ private fun TrainingReadingsColumn(title: String, source: List<String>, modifier
 /** Dedicated central slot for future hint content; no hint UI or component data in v1. */
 @Composable
 private fun TrainingAnswerArea(kanji: DictionaryKanji, revealed: Boolean, display: AnswerDisplay) {
-    Surface(Modifier.fillMaxWidth().aspectRatio(1f), shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer) {
-        Box(Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
-            if (revealed) {
-                when (display) {
-                    AnswerDisplay.GLYPH -> Text(kanji.character, fontSize = 112.sp, lineHeight = 128.sp)
-                    AnswerDisplay.STROKES -> Unit // Reserved; switch and rendering are intentionally absent.
-                }
+    TrainingAnswerSurface {
+        if (revealed) {
+            when (display) {
+                AnswerDisplay.GLYPH -> Text(kanji.character, fontSize = 112.sp, lineHeight = 128.sp)
+                AnswerDisplay.STROKES -> Unit // Reserved; switch and rendering are intentionally absent.
             }
         }
     }
@@ -304,9 +352,6 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
     var choosePractice by rememberSaveable { mutableStateOf(false) }
     val options = session.practiceOptions()
     val saving = TrainingState.saving
-    // Same area for zero, one or two actions; scale with text, not physical screen height.
-    val actionAreaHeight = with(LocalDensity.current) { 52.sp.toDp().coerceAtLeast(56.dp) }
-    val singleActionMaxHeight = with(LocalDensity.current) { 32.sp.toDp().coerceAtLeast(32.dp) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (session.bulkTargets().isNotEmpty()) {
@@ -330,70 +375,18 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
                 val kanji = TrainingState.cards.getValue(character)
                 val correct = session.lastResults[character] == TrainingResult.CORRECT
                 val participated = session.participated(character)
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(8.dp).heightIn(min = actionAreaHeight), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(Modifier.weight(1f).alpha(if (participated) 1f else 0.45f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(if (correct) "✓" else "✗", style = MaterialTheme.typography.titleLarge,
-                                color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                modifier = Modifier.semantics { contentDescription = if (correct) "Correct" else "Incorrect" })
-                            Text(character, fontSize = 36.sp)
-                            Column(Modifier.weight(1f)) {
-                                Text(kanji.primaryMeaning ?: "No English meaning")
-                                if (!participated) Text("Previous iteration", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        // De-emphasis is limited to result content; actions remain fully interactive.
-                        val actions = session.allowedActions(character)
-                        Column(
-                            modifier = Modifier.fillMaxWidth(0.42f).height(actionAreaHeight),
-                            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
-                        ) {
-                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                                actions.forEach { target ->
-                                    FilterChip(
-                                        modifier = Modifier.fillMaxWidth().heightIn(
-                                            max = if (actions.size == 2) (actionAreaHeight - 2.dp) / 2 else singleActionMaxHeight
-                                        ),
-                                        selected = session.pending[character] == target,
-                                        enabled = !saving,
-                                        onClick = { TrainingState.update { it.toggleAction(character, target) } },
-                                        label = {
-                                            Text(
-                                                when {
-                                                    target == LearningState.KNOWN -> "Add to Known"
-                                                    session.mode == TrainingMode.REVIEW -> "Move to Learning"
-                                                    else -> "Add to Learning"
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.labelSmall.copy(lineHeight = 12.sp),
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                TrainingResultCard(character, kanji.primaryMeaning ?: "No English meaning",
+                    status = if (correct) TrainingResultStatus.SUCCESS else TrainingResultStatus.FAILURE,
+                    participated = participated, actions = session.allowedActions(character),
+                    pending = session.pending[character], saving = saving,
+                    reviewing = session.mode == TrainingMode.REVIEW,
+                    onAction = { target -> TrainingState.update { it.toggleAction(character, target) } })
             }
         }
-        if (TrainingState.saveFailed) {
-            Text("Could not save changes. Your session is kept; tap Finish to retry.",
-                color = MaterialTheme.colorScheme.error)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(enabled = !saving, modifier = Modifier.weight(1f), onClick = {
-                if (options.size == 1) TrainingState.update { it.practice(options.single().kind) }
-                else choosePractice = true
-            }) { Text("Practice again") }
-            Button(enabled = !saving, modifier = Modifier.weight(1f),
-                onClick = { TrainingState.finish(dao) }) { Text(if (saving) "Saving…" else "Finish") }
-        }
+        TrainingResultsFooter("Practice again", onPractice = {
+            if (options.size == 1) TrainingState.update { it.practice(options.single().kind) }
+            else choosePractice = true
+        }, onFinish = { TrainingState.finish(dao) })
     }
     if (choosePractice) {
         AlertDialog(

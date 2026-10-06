@@ -146,7 +146,9 @@ that feature is started unless explicitly fixed below.
 
 ## Training backlog
 
--   [ ] Word Training.
+-   [x] Word Training (v0.7.3-alpha): shared sources/setup, coverage-driven words, masks, partial results and explicit-word mistake repeats.
+-   [ ] Manually validate Word Training source parity, pool size (max 50/step 5), coverage 1..5, all prompt/length settings, masks, numeral eligibility, counter dedup, coverage balancing, unique words, >30 confirmation, scoring/statuses, partial-safe bulk actions, exact mistake repeats and cancellation without writes.
+-   [ ] Assess Word Training responsiveness on large pools and tune the conservative counter whitelist/usefulness floor only after real examples.
 -   [ ] Future Kanji Training improvements: stroke order,
     components/radical Hint and TTS.
 -   [ ] Consider weighting/SRS/statistics only if later feedback shows

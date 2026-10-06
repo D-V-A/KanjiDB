@@ -66,8 +66,8 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     val currentRoute = backStackEntry?.destination?.route
     var exitTrainingTo by rememberSaveable { mutableStateOf<String?>(null) }
     // A restored exit dialog must not outlive the process-only session after process death.
-    LaunchedEffect(TrainingState.session == null) {
-        if (TrainingState.session == null) exitTrainingTo = null
+    LaunchedEffect(!TrainingState.active) {
+        if (!TrainingState.active) exitTrainingTo = null
     }
     fun navigateTopLevel(route: String) {
         navController.navigate(route) {
@@ -76,7 +76,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             restoreState = true
         }
     }
-    if (exitTrainingTo != null && TrainingState.session != null) {
+    if (exitTrainingTo != null && TrainingState.active) {
         AlertDialog(
             onDismissRequest = { exitTrainingTo = null },
             title = { Text("End training?") },
@@ -107,7 +107,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            if (TrainingState.session == null && topLevelDestinations.any { it.first == currentRoute }) {
+            if (!TrainingState.active && topLevelDestinations.any { it.first == currentRoute }) {
                 NavigationBar {
                     topLevelDestinations.forEach { (route, labelResource) ->
                         val label = stringResource(labelResource)
@@ -116,7 +116,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                             enabled = !TrainingState.saving,
                             onClick = {
                                 if (currentRoute != route) {
-                                    if (TrainingState.session != null) exitTrainingTo = route
+                                    if (TrainingState.active) exitTrainingTo = route
                                     else navigateTopLevel(route)
                                 }
                             },

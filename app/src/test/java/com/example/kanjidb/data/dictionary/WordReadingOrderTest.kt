@@ -83,6 +83,30 @@ class WordReadingOrderTest {
                 cursor.moveToFirst()
                 assertEquals(5, cursor.getInt(3))
             }
+            db.execSQL("INSERT INTO word_form VALUES (6, 2, '日語', 'にちご', 0, 0, 0)")
+            db.execSQL("INSERT INTO kanji VALUES (3, '語', 5)")
+            db.execSQL("INSERT INTO word_kanji VALUES (6, 2, 0), (6, 3, 1)")
+            val onePoolSql = DictionaryDatabase.wordTrainingFormsSql(1)
+            db.rawQuery(onePoolSql, arrayOf("今")).use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("きょう", cursor.getString(3))
+            }
+            // A second pool target includes its word, but never duplicates a word covering both targets.
+            db.rawQuery(DictionaryDatabase.wordTrainingFormsSql(2), arrayOf("今", "日")).use { cursor ->
+                assertEquals(2, cursor.count)
+            }
+            // The primary translation is the same first applicable gloss as Word Details,
+            // including senses restricted to a later valid reading; priority still cannot choose the reading.
+            db.execSQL("INSERT INTO word_meaning VALUES (5, 2, 'en', 'present day', 0)")
+            val detailsMeanings = db.rawQuery(DictionaryDatabase.WORD_MEANINGS_SQL, arrayOf("1", "今日")).use { cursor ->
+                buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
+            }
+            db.rawQuery(DictionaryDatabase.wordTrainingMeaningsSql(onePoolSql), arrayOf("今")).use { cursor ->
+                val trainingMeanings = buildList { while (cursor.moveToNext()) add(cursor.getString(2) to cursor.getString(3)) }
+                assertEquals(detailsMeanings, trainingMeanings)
+                assertEquals("present day", orderedWordMeanings(trainingMeanings.groupBy({ it.first }, { it.second })).first())
+            }
         }
     }
 }

@@ -279,20 +279,76 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
+    /** Pool characters are the only eligibility seed. Known is applied later by the training selector. */
+    internal suspend fun getWordTrainingCandidates(pool: List<String>): List<WordTrainingCandidate> =
+        withContext(Dispatchers.IO) {
+            require(pool.distinct().size in 1..50)
+            SQLiteDatabase.openDatabase(dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                val args = pool.distinct().toTypedArray()
+                val selectedSql = wordTrainingFormsSql(args.size)
+                val hasJlpt = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='jlpt_kanji'", null)
+                    .use { it.moveToFirst() }
+                val candidates = loadWordCandidates(db, selectedSql, args, hasJlpt)
+                val allGlosses = mutableMapOf<Pair<Long, String>, MutableMap<String, MutableList<String>>>()
+                db.rawQuery(wordTrainingMeaningsSql(selectedSql), args).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        coroutineContext.ensureActive()
+                        val key = cursor.getLong(0) to cursor.getString(1)
+                        allGlosses.getOrPut(key) { linkedMapOf() }
+                            .getOrPut(cursor.getString(2)) { mutableListOf() }.add(cursor.getString(3))
+                    }
+                }
+                candidates.map { candidate ->
+                    WordTrainingCandidate(candidate,
+                        orderedWordMeanings(allGlosses[candidate.word.entryId to candidate.word.written].orEmpty()).firstOrNull())
+                }
+            }
+        }
+
+    /** Compact Results metadata, loaded in batches rather than reopening the dictionary per card. */
+    internal suspend fun getKanjiSummaries(characters: List<String>): Map<String, KanjiSummary> =
+        withContext(Dispatchers.IO) {
+            val result = linkedMapOf<String, KanjiSummary>()
+            if (characters.isEmpty()) return@withContext result
+            SQLiteDatabase.openDatabase(dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                characters.distinct().chunked(900).forEach { chunk ->
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    db.rawQuery("""
+                        SELECT k.character, (SELECT meaning FROM kanji_meaning
+                            WHERE kanji_id=k.id AND language='en' ORDER BY id LIMIT 1)
+                        FROM kanji k WHERE k.character IN ($placeholders)
+                    """.trimIndent(), chunk.toTypedArray()).use { cursor ->
+                        while (cursor.moveToNext()) {
+                            coroutineContext.ensureActive()
+                            result[cursor.getString(0)] = KanjiSummary(cursor.getString(0),
+                                if (cursor.isNull(1)) "" else cursor.getString(1))
+                        }
+                    }
+                }
+            }
+            result
+        }
+
     /** Three bulk reads; no per-word/per-kanji lookups, user data or premature limit. */
     private suspend fun getRelatedWords(
         db: SQLiteDatabase, kanjiId: String, character: String, hasJlpt: Boolean
     ): List<DictionaryWord> {
-        val args = arrayOf(kanjiId, "0")
+        return RelatedWordsRanker.rank(loadWordCandidates(db, WORDS_SQL, arrayOf(kanjiId, "0"), hasJlpt), character)
+    }
+
+    /** The selection SQL supplies valid primary forms; the same feature/gloss reads serve both callers. */
+    private suspend fun loadWordCandidates(
+        db: SQLiteDatabase, selectedSql: String, args: Array<String>, hasJlpt: Boolean
+    ): List<RelatedWordCandidate> {
         val meanings = mutableMapOf<Long, MutableList<String>>()
-        db.rawQuery(RELATED_WORD_MEANINGS_SQL, args).use { cursor ->
+        db.rawQuery(RELATED_WORD_MEANINGS_SQL.replace(WORDS_SQL, selectedSql), args).use { cursor ->
             while (cursor.moveToNext()) {
                 coroutineContext.ensureActive()
                 meanings.getOrPut(cursor.getLong(0)) { mutableListOf() }.add(cursor.getString(1))
             }
         }
         val kanji = mutableMapOf<Long, MutableList<RelatedWordKanji>>()
-        db.rawQuery(relatedWordKanjiSql(hasJlpt), args).use { cursor ->
+        db.rawQuery(relatedWordKanjiSql(hasJlpt).replace(WORDS_SQL, selectedSql), args).use { cursor ->
             while (cursor.moveToNext()) {
                 coroutineContext.ensureActive()
                 kanji.getOrPut(cursor.getLong(0)) { mutableListOf() }.add(
@@ -300,7 +356,7 @@ class DictionaryDatabase(context: Context) {
                 )
             }
         }
-        val candidates = db.rawQuery(RELATED_WORD_FEATURES_SQL, args).use { cursor ->
+        val candidates = db.rawQuery(RELATED_WORD_FEATURES_SQL.replace(WORDS_SQL, selectedSql), args).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
                     coroutineContext.ensureActive()
@@ -317,7 +373,7 @@ class DictionaryDatabase(context: Context) {
                 }
             }
         }
-        return RelatedWordsRanker.rank(candidates, character)
+        return candidates
     }
 
     // Unranked spelling groups remain available to Word Details independently of family suppression.
@@ -415,6 +471,23 @@ class DictionaryDatabase(context: Context) {
                 LIMIT 1
             )
             ORDER BY wf.written, wf.entry_id
+        """
+
+        internal fun wordTrainingFormsSql(poolSize: Int): String {
+            require(poolSize in 1..50)
+            val placeholders = List(poolSize) { "?" }.joinToString(",")
+            return WORDS_SQL.replace("wk.kanji_id = ? AND (? = '0' OR f.common = 1)",
+                "wk.kanji_id IN (SELECT id FROM kanji WHERE character IN ($placeholders))")
+        }
+
+        // Same written-form/language/sense gloss semantics as WORD_MEANINGS_SQL, batched for the pool.
+        internal fun wordTrainingMeaningsSql(selectedSql: String): String = """
+            WITH selected AS ($selectedSql)
+            SELECT s.entry_id, s.written, wm.language, TRIM(wm.meaning)
+            FROM selected s CROSS JOIN word_form v CROSS JOIN word_meaning wm
+            WHERE v.entry_id=s.entry_id AND v.written=s.written AND wm.word_form_id=v.id
+            GROUP BY s.id, wm.language, TRIM(wm.meaning)
+            ORDER BY s.id, wm.language, MIN(wm.sense_index), MIN(wm.id)
         """
 
         const val RELATED_WORD_FEATURES_SQL = """
