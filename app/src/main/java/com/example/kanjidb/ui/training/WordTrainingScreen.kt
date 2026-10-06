@@ -117,21 +117,22 @@ internal fun WordTrainingQuestion(session: WordTrainingSession) {
 
 @Composable
 internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.kanjidb.data.user.UserKanjiStateDao) {
+    var choosePractice by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(LearningState.LEARNING, LearningState.KNOWN).forEach { target ->
                 if (session.bulkTargets(target).isNotEmpty()) {
                     item(key = "bulk_$target") {
                         OutlinedButton(enabled = !TrainingState.saving, modifier = Modifier.fillMaxWidth(),
-                            onClick = { TrainingState.finishWords(dao, target) }) {
-                            Text(if (target == LearningState.LEARNING) "Add all mistakes to Learning and Finish"
-                                else "Add all successful to Known and Finish")
+                            onClick = { TrainingState.updateWords { it.withBulkActions(target) } }) {
+                            Text(if (target == LearningState.LEARNING) "Add all mistakes to Learning"
+                                else "Add all successful to Known")
                         }
                     }
                 }
             }
             item(key = "explanation") {
-                Text("Results are estimates for hidden kanji. Yellow means partial success and requires a manual decision. Individual changes are saved only on Finish.",
+                Text("Results show which kanji appeared in words you made mistakes on. They are intended as a guide, not a definitive assessment. Changes are saved only on Finish.",
                     style = MaterialTheme.typography.bodyMedium)
                 if (session.plan.belowTarget > 0) Text(
                     "${session.plan.belowTarget} pool kanji fell below the target coverage (${session.plan.uncovered.size} not tested).",
@@ -148,14 +149,20 @@ internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.
                 val meaning = TrainingState.wordCards[character]?.primaryMeaning?.takeIf { it.isNotBlank() }
                     ?.standaloneKanjiMeaning() ?: "No English meaning"
                 TrainingResultCard(character, meaning, status, session.participated(character),
-                    detail = if (tally.shownCount == 0) "Not tested" else "Shown: ${tally.shownCount} · Score: ${tally.score}",
+                    detail = "Shown: ${tally.shownCount}",
                     actions = session.allowedActions(character), pending = session.pending[character],
                     saving = TrainingState.saving, wordColors = true,
                     onAction = { target -> TrainingState.updateWords { it.toggleAction(character, target) } })
             }
         }
-        TrainingResultsFooter("Repeat mistakes", practiceEnabled = session.repeatWords.isNotEmpty(),
-            onPractice = { TrainingState.updateWords { it.repeatMistakes() } },
+        TrainingResultsFooter("Repeat",
+            onPractice = { choosePractice = true },
             onFinish = { TrainingState.finishWords(dao) })
+    }
+    if (choosePractice) {
+        TrainingRepeatMenu(session.practiceOptions().map { it.first to it.second.size }, onDismiss = { choosePractice = false }) { kind ->
+            choosePractice = false
+            TrainingState.updateWords { it.practice(kind) }
+        }
     }
 }

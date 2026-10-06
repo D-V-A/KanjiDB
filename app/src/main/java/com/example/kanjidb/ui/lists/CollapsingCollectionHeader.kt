@@ -77,8 +77,8 @@ internal fun CollapsingCollectionHeader(
 }
 
 /** Saved normal-mode preference; selection/reorder only suppress its presentation. */
-internal class CollectionFiltersState {
-    var expanded by mutableStateOf(false)
+internal class CollectionFiltersState(initialExpanded: Boolean = false) {
+    var expanded by mutableStateOf(initialExpanded)
         private set
     fun toggle(locked: Boolean) { if (!locked) expanded = !expanded }
     fun visibleExpanded(locked: Boolean): Boolean = expanded && !locked
@@ -91,9 +91,9 @@ internal class CollectionFiltersState {
 @Composable
 internal fun CollectionFiltersHeader(
     currentPage: Int, activePage: Boolean, locked: Boolean, enabled: Boolean,
-    modifier: Modifier = Modifier, controls: @Composable () -> Unit, content: @Composable () -> Unit
+    modifier: Modifier = Modifier, initiallyExpanded: Boolean = false, controls: @Composable () -> Unit, content: @Composable () -> Unit
 ) {
-    val filters = rememberSaveable(saver = CollectionFiltersState.Saver) { CollectionFiltersState() }
+    val filters = rememberSaveable(saver = CollectionFiltersState.Saver) { CollectionFiltersState(initiallyExpanded) }
     val expanded = filters.visibleExpanded(locked)
     CollapsingCollectionHeader(currentPage = currentPage,
         scrollEnabled = activePage && enabled && !locked, controlsVisible = !locked,

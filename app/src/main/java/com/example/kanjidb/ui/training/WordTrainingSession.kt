@@ -65,11 +65,24 @@ internal data class WordTrainingSession private constructor(
         return copy(questionOrder = repeatWords.shuffled(random), questionIndex = 0, revealed = false)
     }
 
-    fun allowedActions(character: String): List<LearningState> = when (tallies[character]?.status) {
-        WordKanjiStatus.FAILURE -> listOf(LearningState.LEARNING)
-        WordKanjiStatus.SUCCESS, WordKanjiStatus.PARTIAL -> listOf(LearningState.LEARNING, LearningState.KNOWN)
-        null -> emptyList()
+    fun practiceOptions(): List<Pair<PracticeKind, List<WordTrainingCandidate>>> = if (!complete) emptyList() else
+        distinctPracticeSets(listOf(
+            PracticeKind.ALL to plan.words,
+            PracticeKind.MISTAKES to repeatWords,
+            PracticeKind.CURRENT to questionOrder
+        )) { it.key }.sortedBy { (kind, _) -> when (kind) {
+            PracticeKind.ALL -> 0
+            PracticeKind.CURRENT -> 1
+            PracticeKind.MISTAKES -> 2
+        } }
+
+    fun practice(kind: PracticeKind, random: Random = Random.Default): WordTrainingSession {
+        val words = practiceOptions().firstOrNull { it.first == kind }?.second.orEmpty()
+        return if (words.isEmpty()) this else copy(questionOrder = words.shuffled(random), questionIndex = 0, revealed = false)
     }
+
+    fun allowedActions(character: String): List<LearningState> =
+        if (character in resultCharacters) listOf(LearningState.LEARNING, LearningState.KNOWN) else emptyList()
 
     fun toggleAction(character: String, target: LearningState): WordTrainingSession {
         if (!complete || target !in allowedActions(character)) return this

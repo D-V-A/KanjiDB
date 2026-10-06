@@ -7,6 +7,22 @@ import org.junit.Test
 import kotlin.random.Random
 
 class WordTrainingSessionTest {
+    @Test fun repeatDedupComparesMembershipAndKeepsPriorityRatherThanEqualCounts() {
+        val options = distinctPracticeSets(listOf(
+            PracticeKind.ALL to listOf(1, 2, 3),
+            PracticeKind.MISTAKES to listOf(1, 2),
+            PracticeKind.CURRENT to listOf(2, 1)
+        )) { it }
+        assertEquals(listOf(PracticeKind.ALL, PracticeKind.MISTAKES), options.map { it.first })
+        assertEquals(2, distinctPracticeSets(listOf(
+            PracticeKind.ALL to listOf(1, 2), PracticeKind.CURRENT to listOf(2, 3),
+            PracticeKind.MISTAKES to emptyList()
+        )) { it }.size)
+        assertEquals(1, distinctPracticeSets(listOf(
+            PracticeKind.ALL to listOf(1, 2), PracticeKind.MISTAKES to listOf(2, 1),
+            PracticeKind.CURRENT to listOf(1, 2)
+        )) { it }.size)
+    }
     private fun word(written: String, id: Long) = WordTrainingCandidate(
         RelatedWordCandidate(DictionaryWord(id, written, "reading", listOf("meaning")), true, 1000, true, 0,
             emptyList()), "meaning")
@@ -57,7 +73,7 @@ class WordTrainingSessionTest {
         assertEquals(WordKanjiStatus.SUCCESS, complete.tallies["語"]?.status)
         assertEquals(listOf("今", "日", "月", "語"), complete.resultCharacters)
         assertNull(WordKanjiTally().status)
-        assertTrue(complete.allowedActions("月").isEmpty())
+        assertEquals(listOf(LearningState.LEARNING, LearningState.KNOWN), complete.allowedActions("月"))
         assertFalse(complete.bulkTargets(LearningState.KNOWN).contains("月"))
     }
 
@@ -110,8 +126,8 @@ class WordTrainingSessionTest {
         val pending = completed.toggleAction("日", LearningState.LEARNING).toggleAction("日", LearningState.KNOWN)
         assertEquals(mapOf("日" to LearningState.KNOWN), pending.finishAssignments())
         assertTrue(pending.toggleAction("日", LearningState.KNOWN).pending.isEmpty())
-        assertTrue(completed.toggleAction("今", LearningState.KNOWN).pending.isEmpty())
-        assertTrue(completed.toggleAction("月", LearningState.KNOWN).pending.isEmpty())
+        assertEquals(LearningState.KNOWN, completed.toggleAction("今", LearningState.KNOWN).pending["今"])
+        assertEquals(LearningState.KNOWN, completed.toggleAction("月", LearningState.KNOWN).pending["月"])
         assertTrue(start().toggleAction("日", LearningState.LEARNING).pending.isEmpty())
     }
 
@@ -120,6 +136,27 @@ class WordTrainingSessionTest {
         val repeated = finish(completed.repeatMistakes(Random(2)), emptySet())
         assertFalse(repeated.pending.containsKey("日"))
         assertEquals(LearningState.KNOWN, repeated.pending["語"])
+    }
+
+    @Test fun repeatMenuUsesCurrentSubsetOriginalSessionAndExplicitWordMistakes() {
+        val original = finish(start())
+        val subset = finish(original.practice(PracticeKind.MISTAKES, Random(2)), emptySet())
+        assertEquals(listOf(first), subset.practice(PracticeKind.CURRENT).questionOrder)
+        assertEquals(original.plan.words.toSet(), subset.practice(PracticeKind.ALL).questionOrder.toSet())
+        assertEquals(subset, subset.practice(PracticeKind.MISTAKES))
+        assertEquals(original.plan.settings, subset.practice(PracticeKind.ALL).plan.settings)
+        assertEquals(original.plan.known, subset.plan.known)
+    }
+
+    @Test fun newKanjiBulkActionsOnlyStageMatchingLastResultsAndPreserveOtherManualChoices() {
+        var session = TrainingSession.start(TrainingMode.NEW, listOf("今", "日"), Random(1))
+        while (!session.complete) session = session.reveal().answer(
+            if (session.currentCharacter == "今") TrainingResult.INCORRECT else TrainingResult.CORRECT)
+        val staged = session.withNewBulkActions(LearningState.LEARNING).withNewBulkActions(LearningState.KNOWN)
+        assertTrue(staged.complete)
+        assertEquals(mapOf("今" to LearningState.LEARNING, "日" to LearningState.KNOWN), staged.pending)
+        assertTrue(session.pending.isEmpty())
+        assertEquals(staged.pending, staged.finishAssignments())
     }
 
     @Test(expected = IllegalStateException::class) fun incompleteFinishCannotApplyResults() { start().finishAssignments() }

@@ -49,6 +49,10 @@ class WordTrainingPersistenceTest {
         TrainingState.cancel()
         try {
             startCompleted()
+            TrainingState.updateWords { it.withBulkActions(LearningState.LEARNING).withBulkActions(LearningState.KNOWN) }
+            assertTrue(TrainingState.active)
+            assertFalse(TrainingState.saving)
+            assertTrue(runBlocking { db.kanjiStates().getAll() }.isEmpty())
             TrainingState.updateWords { it.toggleAction("日", LearningState.KNOWN) }
             assertTrue(runBlocking { db.kanjiStates().getAll() }.isEmpty())
             TrainingState.updateWords { it.repeatMistakes() }

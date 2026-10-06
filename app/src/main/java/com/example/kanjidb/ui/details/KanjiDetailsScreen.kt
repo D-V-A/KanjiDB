@@ -91,7 +91,7 @@ fun KanjiDetailsScreen(
             }), Modifier.padding(16.dp))
             DetailActionPanel(onReturnToOrigin,
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
-                listOf(R.string.details_learning, R.string.details_known, R.string.custom_lists).forEach { label ->
+                listOf(R.string.details_known, R.string.details_learning, R.string.custom_lists).forEach { label ->
                     OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
                         Text(stringResource(label))
@@ -207,14 +207,6 @@ fun KanjiDetailsScreen(
                 .padding(12.dp)
         ) {
             OutlinedButton(
-                enabled = !saving, onClick = { toggleState(LearningState.LEARNING) },
-                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (learningState == LearningState.LEARNING) MaterialTheme.colorScheme.secondaryContainer
-                        else androidx.compose.ui.graphics.Color.Transparent),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                modifier = Modifier.weight(1f)
-            ) { Text(stringResource(R.string.details_learning)) }
-            OutlinedButton(
                 enabled = !saving, onClick = { toggleState(LearningState.KNOWN) },
                 colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
                     containerColor = if (learningState == LearningState.KNOWN) MaterialTheme.colorScheme.secondaryContainer
@@ -222,6 +214,14 @@ fun KanjiDetailsScreen(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
             ) { Text(stringResource(R.string.details_known)) }
+            OutlinedButton(
+                enabled = !saving, onClick = { toggleState(LearningState.LEARNING) },
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (learningState == LearningState.LEARNING) MaterialTheme.colorScheme.secondaryContainer
+                        else androidx.compose.ui.graphics.Color.Transparent),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                modifier = Modifier.weight(1f)
+            ) { Text(stringResource(R.string.details_learning)) }
             OutlinedButton(
                 onClick = { listsOpen = true },
                 enabled = !saving,

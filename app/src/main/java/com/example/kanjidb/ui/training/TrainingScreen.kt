@@ -354,7 +354,16 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
     val saving = TrainingState.saving
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (session.bulkTargets().isNotEmpty()) {
+            if (session.mode == TrainingMode.NEW) {
+                listOf(LearningState.LEARNING, LearningState.KNOWN).forEach { target ->
+                    item(key = "new_bulk_$target") {
+                        OutlinedButton(enabled = !saving, modifier = Modifier.fillMaxWidth(),
+                            onClick = { TrainingState.update { it.withNewBulkActions(target) } }) {
+                            Text(if (target == LearningState.KNOWN) "Add all correct to Known" else "Add all mistakes to Learning")
+                        }
+                    }
+                }
+            } else if (session.bulkTargets().isNotEmpty()) {
                 item(key = "bulk_finish") {
                     OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
@@ -389,20 +398,9 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
         }, onFinish = { TrainingState.finish(dao) })
     }
     if (choosePractice) {
-        AlertDialog(
-            onDismissRequest = { choosePractice = false },
-            title = { Text("Practice again") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    options.forEach { option ->
-                        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                            choosePractice = false
-                            TrainingState.update { it.practice(option.kind) }
-                        }) { Text(option.kind.title + " (" + option.characters.size + ")") }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { choosePractice = false }) { Text("Cancel") } }
-        )
+        TrainingRepeatMenu(options.map { it.kind to it.characters.size }, onDismiss = { choosePractice = false }) { kind ->
+            choosePractice = false
+            TrainingState.update { it.practice(kind) }
+        }
     }
 }

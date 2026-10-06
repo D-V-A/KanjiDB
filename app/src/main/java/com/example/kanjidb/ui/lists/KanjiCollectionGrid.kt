@@ -396,7 +396,7 @@ private fun KanjiSelectionPanel(
     FloatingActionPanel(modifier, contentPadding = PaddingValues(8.dp), spacing = 4.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                actions.forEach { action ->
+                actions.asReversed().forEach { action ->
                     OutlinedButton(onClick = { action.onSelected?.invoke(selected) },
                         enabled = enabled && selected.isNotEmpty() && action.onSelected != null,
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),

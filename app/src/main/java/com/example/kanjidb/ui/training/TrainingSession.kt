@@ -9,6 +9,12 @@ internal enum class TrainingResult { CORRECT, INCORRECT }
 internal enum class PracticeKind(val title: String) { ALL("All"), CURRENT("Current iteration"), MISTAKES("Mistakes") }
 internal data class PracticeOption(val kind: PracticeKind, val characters: List<String>)
 
+/** Keep the first nonempty distinct membership set; input order determines representative priority. */
+internal fun <T, K> distinctPracticeSets(options: List<Pair<PracticeKind, List<T>>>, identity: (T) -> K): List<Pair<PracticeKind, List<T>>> {
+    val seen = mutableSetOf<Set<K>>()
+    return options.filter { (_, items) -> items.isNotEmpty() && seen.add(items.map(identity).toSet()) }
+}
+
 internal fun sessionSizes(available: Int): List<Int> {
     val maximum = available.coerceIn(0, 50)
     if (maximum < 5) return listOf(maximum)
@@ -82,14 +88,11 @@ internal data class TrainingSession private constructor(
 
     fun practiceOptions(): List<PracticeOption> {
         if (!complete) return emptyList()
-        val options = mutableListOf(PracticeOption(PracticeKind.ALL, pool))
-        if (attempt.toSet() != pool.toSet()) options += PracticeOption(PracticeKind.CURRENT, attempt)
-        val mistakes = attempt.filter { lastResults[it] == TrainingResult.INCORRECT }
-        // When every participant was incorrect, Mistakes duplicates All or Current iteration.
-        if (mistakes.isNotEmpty() && options.none { it.characters.toSet() == mistakes.toSet() }) {
-            options += PracticeOption(PracticeKind.MISTAKES, mistakes)
-        }
-        return options
+        return distinctPracticeSets(listOf(
+            PracticeKind.ALL to pool,
+            PracticeKind.CURRENT to attempt,
+            PracticeKind.MISTAKES to attempt.filter { lastResults[it] == TrainingResult.INCORRECT }
+        )) { it }.map { (kind, items) -> PracticeOption(kind, items) }
     }
 
     fun practice(kind: PracticeKind, random: Random = Random.Default): TrainingSession {
@@ -102,6 +105,13 @@ internal data class TrainingSession private constructor(
         if (!complete) return emptyList()
         val result = if (mode == TrainingMode.REVIEW) TrainingResult.INCORRECT else TrainingResult.CORRECT
         return pool.filter { lastResults[it] == result }
+    }
+
+    fun withNewBulkActions(target: LearningState): TrainingSession {
+        check(complete && mode == TrainingMode.NEW)
+        require(target == LearningState.LEARNING || target == LearningState.KNOWN)
+        val result = if (target == LearningState.KNOWN) TrainingResult.CORRECT else TrainingResult.INCORRECT
+        return copy(pending = pending + pool.filter { lastResults[it] == result }.associateWith { target })
     }
 
     /** An explicit shortcut selecting ordinary pending actions before the same Finish operation. */

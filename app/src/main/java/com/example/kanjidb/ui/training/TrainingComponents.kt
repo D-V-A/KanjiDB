@@ -119,3 +119,23 @@ internal fun TrainingResultsFooter(
         }
     }
 }
+
+/** Shared repeat selection for both training modes; empty subsets remain visibly disabled. */
+@Composable
+internal fun TrainingRepeatMenu(
+    options: List<Pair<PracticeKind, Int>>, onDismiss: () -> Unit, onSelect: (PracticeKind) -> Unit
+) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Repeat") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { (kind, count) ->
+                OutlinedButton(enabled = count > 0, modifier = Modifier.fillMaxWidth(), onClick = { onSelect(kind) }) {
+                    Text(when (kind) {
+                        PracticeKind.CURRENT -> "Current iteration"
+                        PracticeKind.ALL -> "Entire session"
+                        PracticeKind.MISTAKES -> "Mistakes only"
+                    } + " ($count)")
+                }
+            }
+        }
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}

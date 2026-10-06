@@ -109,6 +109,7 @@ internal fun MyKanjiScreen(
                 1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
                     activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails)
                 2 -> CollectionFiltersHeader(
+                    initiallyExpanded = true,
                     currentPage = pager.settledPage,
                     activePage = pager.currentPage == 2,
                     locked = groupsState.selecting, enabled = !saving && !rulesOpen,

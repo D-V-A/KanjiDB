@@ -140,7 +140,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
         DetailActionPanel(onReturnToOrigin,
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                 .onSizeChanged { panelHeight = it.height }.padding(12.dp)) {
-            listOf(R.string.details_learning, R.string.details_known, R.string.custom_lists).forEach { label ->
+            listOf(R.string.details_known, R.string.details_learning, R.string.custom_lists).forEach { label ->
                 OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
                     Text(stringResource(label))
