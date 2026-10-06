@@ -4,9 +4,9 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **0.7.0-alpha**, `versionCode = 20`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **0.7.2-alpha**, `versionCode = 21`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
-Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, common-first word lists with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training supports My Lists; Word Training and stroke order remain placeholders.
+Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training supports My Lists; Word Training and stroke order remain placeholders.
 
 ## Stack and code map
 
@@ -67,6 +67,29 @@ Each Word/Kanji Details transition pushes a new navigation entry, including repe
 
 Focused JVM tests cover real SQLite query behavior with competing reading priority/common flags, written-form restrictions, gloss deduplication, constituent order, supplementary Unicode layout thresholds and heading exclusion. Phone checks are still required for geometry, wrapping and detail back-stack interactions; see TODO.md.
 
+## Related Words static ranking (0.7.2-alpha)
+
+Kanji Details now ranks its complete related-word candidate list with the deterministic pure RelatedWordsRanker. The algorithm depends only on the read-only dictionary: no Room/user progress, Known/Learning/Custom Lists, random sampling or Recommended Words engine. Search, Explore and Word Details retain their own existing behavior. The UI still shows the first six and expands to all results, applying that limit after ranking and deduplication.
+
+DictionaryDatabase obtains primary forms through the existing WORDS_SQL (minimum valid reading_order, then id), and loads features, primary-reading English glosses and constituent metadata in three bulk queries. There are no per-word or per-kanji fetches. The meanings query uses CROSS JOIN to force form-first indexed gloss lookup instead of an expensive full English-gloss scan. Per-reading gloss restrictions stay attached to the selected primary form. Other valid readings of the same (entry_id, written) contribute MAX(common) and MAX(reading_priority) only as ranking features. Optional missing jlpt_kanji is handled as NULL metadata.
+
+The importer defines common as any writing or reading priority tag, and reading_priority as the sum of reading-tag weights (ichi1=1000, news1=900, spec1=800, gai1=700; second-tier weights 400/350/300/250; nf contributes max(0,500-10*rank)). This is a heuristic, not official frequency. The asset has no independent writing priority/order or archaic-form tags, so ranking does not invent them.
+
+Score coefficients are named in RelatedWordsRanker.kt:
+
+- Common written-form/reading combination exists: +40.
+- Maximum valid reading_priority for that written form: +30 * clamp(priority,0,4000)/4000. Primary reading never changes because of this score.
+- The actual primary reading/form combination is common: +4, a small preference for a directly supported context spelling/reading pair.
+- Other unique constituent kanji: average of frequency bonus 6 * clamp(1-(rank-1)/2500,0,1), minus 2 for rank >2000 (missing frequency: -4), plus 0.6*JLPT level (N5 +3, N1 +0.6, unknown +0). The current kanji is excluded. These are soft signals, never eligibility filters.
+- Length in Unicode code points: -4 per character beyond 4, and an additional -4 per character beyond 8. There is no maximum length filter.
+- Recognized exact numeral+counter construction: -12.
+
+After scoring, candidates are sorted by descending score/common/max priority, then ascending primary reading_order/entry_id/written/reading. Existing equivalence semantics (same entry and reading, >=75% normalized gloss-set overlap) retain the best sorted representative, without merging distinct readings or senses or introducing transitive similarity. Counter families then keep the first/best candidate across entries and spelling variants. Word Details still uses unranked spelling groups so family suppression cannot hide valid readings or alternative spellings there.
+
+The local v1 counter whitelist is 本, 人, 個, 枚, 匹, 台, 冊, 回, 階. Only a complete canonical kanji numeral 1..99 or a nonempty ASCII/full-width decimal numeral followed by exactly one whitelisted counter is recognized. The family key depends on the suffix (#本, #人, etc.), not the number or digit script. Calendar/time/age/currency counters and ambiguous large-kanji numeral prefixes are deliberately excluded: current data includes lexicalized 万人, 千六本, 一時, 一分 and 万歳. 一番, 一部 and longer expressions are unaffected. Even recognized counters can have lexical secondary senses; review such examples before expanding this heuristic.
+
+Focused JVM tests cover conservative family detection, the best family representative, existing equivalence semantics, unchanged primary reading/restrictions, optional JLPT metadata, score features/current-kanji exclusion, supplementary Unicode, stable ties and ranking before the six-item display limit. Read-only diagnostics on the current asset retained exactly one #本 and #人 representative, preserved 一番/一部, and kept long terms with low scores. Desktop diagnostic timing is not an Android performance guarantee.
+
 ## Recommended Kanji (0.4.0-alpha)
 
 Recommended uses the existing Search cards, Refresh, loading/error/retry and HorizontalPager. Search intentionally has no strategy settings or filters. Current strategy is JLPT; the simple strategy identifier reserves Grade/Frequency/Rare for future global Settings, with no algorithms or selector implemented for them.
@@ -113,13 +136,13 @@ Standalone English kanji meanings in Details and Search/Explore capitalize only 
 
 **Kanji Details** shows English meanings, on/kun readings, glyph, stroke count, grade, frequency and independent conditional Jōyō and JLPT (N5-N1) badges. JLPT is read from jlpt_kanji and omitted when no mapping exists; it is not repeated as a metadata row. Related words open Word Details. The stroke view is a placeholder; Custom Lists opens the staged membership dialog, independently of existing Learning/Known toggles. All three floating actions share the same pill-style outlined-button shape; selected Learning/Known retain their highlight and toggle behavior.
 
-**Common/non-common:** import marks a form common=1 if either its writing or reading has any JMdict priority tag. This is a broad heuristic, not a complete frequency ranking. reading_priority is a separate local heuristic from reading priority tags, with original reading order and ID as tie-breakers.
+**Common/non-common:** import marks a form common=1 if either its writing or reading has any JMdict priority tag. This is a broad heuristic, not a complete frequency ranking. reading_priority is a separate local usefulness heuristic from reading priority tags; primary readings use reading_order then ID instead.
 
-Kanji Details merges common forms first, then remaining forms, unique by (entry_id, written), retaining the common preferred reading. Both blocks use written-form/entry ordering. After deduplication, the UI shows the first six words and Show more/less expands/collapses the whole list. Six is a display limit, not the boundary between common and non-common. All cards currently receive the same recommended styling; personalized word recommendations do not exist.
+Kanji Details obtains all candidates unique by (entry_id, written), with their earliest valid reading. RelatedWordsRanker applies static usefulness ranking, existing written-form equivalence and counter-family suppression before the UI shows the first six words. Show more/less expands/collapses the whole ranked list. Six is a display limit, not the boundary between common and non-common. All cards currently receive the same recommended styling; personalized word recommendations do not exist.
 
-**Written-form deduplication:** in the kanji-related list, forms can share a representative only within the same entry_id and selected reading, when normalized English meaning sets overlap by at least 75% of the larger set. Comparison is against retained representatives, not transitive clustering; the first form wins. Different entries/readings stay separate. Despite the helper names groupCommonWords/deduplicateCommonWords, grouping runs on the merged common and non-common list. Search uses its own exact (entry_id, written) grouping, not this similarity rule.
+**Written-form deduplication:** in the kanji-related list, forms can share a representative only within the same entry_id and selected reading, when normalized English meaning sets overlap by at least 75% of the larger set. Comparison is against retained representatives, not transitive clustering; the first ranked form wins. Different entries/readings stay separate under this equivalence rule; the additional counter-family pass can suppress them only for recognized exact numeral+counter constructions. Search uses its own exact (entry_id, written) grouping, not these rules.
 
-**Word Details** identifies a word by entry_id and written, with optional sourceKanji. From Kanji Details, that context reconstructs the deduplication group, exposing alternative written forms and their readings while preserving the representative's preferred reading. From Search/Explore, only the selected written form is used. Meanings are deduplicated and grouped by language for the selected written form, not merged from every alternative.
+**Word Details** identifies a word by entry_id and written, with optional sourceKanji. From Kanji Details, that context reconstructs an unranked spelling group to expose alternative written forms independently of counter-family suppression. Readings and primary reading always belong to the selected written form and follow reading_order. From Search/Explore, only the selected written form is used. Meanings are deduplicated and grouped by language for the selected written form, not merged from every alternative.
 
 ## My Kanji and Kanji Groups
 

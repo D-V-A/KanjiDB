@@ -55,6 +55,34 @@ class WordReadingOrderTest {
                 val meanings = buildList { while (cursor.moveToNext()) add(cursor.getString(1)) }
                 assertEquals(listOf("today", "these days"), meanings)
             }
+            val relatedArgs = arrayOf("1", "0")
+            db.rawQuery(DictionaryDatabase.RELATED_WORD_FEATURES_SQL, relatedArgs).use { cursor ->
+                assertEquals(1, cursor.count)
+                cursor.moveToFirst()
+                assertEquals("\u304d\u3087\u3046", cursor.getString(3))
+                assertEquals(1, cursor.getInt(4)) // A later valid reading is common.
+                assertEquals(2380, cursor.getInt(5)) // Its priority informs ranking, not reading selection.
+                assertEquals(0, cursor.getInt(6))
+                assertEquals(0, cursor.getInt(7))
+            }
+            db.rawQuery(DictionaryDatabase.RELATED_WORD_MEANINGS_SQL, relatedArgs).use { cursor ->
+                val meanings = buildList { while (cursor.moveToNext()) add(cursor.getString(1)) }
+                assertEquals(listOf("today"), meanings) // Later-reading and other-spelling glosses stay excluded.
+            }
+            db.execSQL("ALTER TABLE kanji ADD COLUMN frequency INTEGER")
+            db.execSQL("UPDATE kanji SET frequency = 1 WHERE id = 1")
+            db.rawQuery(DictionaryDatabase.relatedWordKanjiSql(false), relatedArgs).use { cursor ->
+                assertEquals(2, cursor.count) // Repeated occurrences become one feature per kanji.
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(2))
+                assertEquals(true, cursor.isNull(3)) // Older dictionaries without JLPT still work.
+            }
+            db.execSQL("CREATE TABLE jlpt_kanji (kanji_id INTEGER PRIMARY KEY, level INTEGER)")
+            db.execSQL("INSERT INTO jlpt_kanji VALUES (1, 5)")
+            db.rawQuery(DictionaryDatabase.relatedWordKanjiSql(true), relatedArgs).use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(5, cursor.getInt(3))
+            }
         }
     }
 }

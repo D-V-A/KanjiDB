@@ -204,11 +204,11 @@ class DictionaryDatabase(context: Context) {
             ).use { cursor ->
                 if (!cursor.moveToFirst()) return@withContext null
                 val id = cursor.getLong(0).toString()
-                val wordSection = if (includeWords) getKanjiWords(db, id) else emptyList()
                 // Older installed dictionary copies may predate the optional JLPT table.
                 val hasJlpt = db.rawQuery(
                     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'jlpt_kanji'", null
                 ).use { it.moveToFirst() }
+                val wordSection = if (includeWords) getRelatedWords(db, id, character, hasJlpt) else emptyList()
                 val jlpt = if (hasJlpt) db.rawQuery(
                     "SELECT level FROM jlpt_kanji WHERE kanji_id = ?", arrayOf(id)
                 ).use { if (it.moveToFirst()) it.getInt(0) else null } else null
@@ -230,7 +230,7 @@ class DictionaryDatabase(context: Context) {
                         "SELECT reading FROM kanji_reading WHERE kanji_id = ? AND type = 'kun' ORDER BY id",
                         id
                     ),
-                    words = wordSection.deduplicateCommonWords(),
+                    words = wordSection,
                     jlpt = jlpt
                 )
             }
@@ -279,6 +279,48 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
+    /** Three bulk reads; no per-word/per-kanji lookups, user data or premature limit. */
+    private suspend fun getRelatedWords(
+        db: SQLiteDatabase, kanjiId: String, character: String, hasJlpt: Boolean
+    ): List<DictionaryWord> {
+        val args = arrayOf(kanjiId, "0")
+        val meanings = mutableMapOf<Long, MutableList<String>>()
+        db.rawQuery(RELATED_WORD_MEANINGS_SQL, args).use { cursor ->
+            while (cursor.moveToNext()) {
+                coroutineContext.ensureActive()
+                meanings.getOrPut(cursor.getLong(0)) { mutableListOf() }.add(cursor.getString(1))
+            }
+        }
+        val kanji = mutableMapOf<Long, MutableList<RelatedWordKanji>>()
+        db.rawQuery(relatedWordKanjiSql(hasJlpt), args).use { cursor ->
+            while (cursor.moveToNext()) {
+                coroutineContext.ensureActive()
+                kanji.getOrPut(cursor.getLong(0)) { mutableListOf() }.add(
+                    RelatedWordKanji(cursor.getString(1), cursor.nullableInt(2), cursor.nullableInt(3))
+                )
+            }
+        }
+        val candidates = db.rawQuery(RELATED_WORD_FEATURES_SQL, args).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    coroutineContext.ensureActive()
+                    val formId = cursor.getLong(0)
+                    add(RelatedWordCandidate(
+                        word = DictionaryWord(cursor.getLong(1), cursor.getString(2), cursor.getString(3),
+                            meanings[formId].orEmpty().distinct()),
+                        common = cursor.getInt(4) == 1,
+                        maxReadingPriority = cursor.getInt(5),
+                        primaryReadingCommon = cursor.getInt(6) == 1,
+                        primaryReadingOrder = cursor.getInt(7),
+                        kanji = kanji[formId].orEmpty()
+                    ))
+                }
+            }
+        }
+        return RelatedWordsRanker.rank(candidates, character)
+    }
+
+    // Unranked spelling groups remain available to Word Details independently of family suppression.
     // Common written forms precede remaining forms; both use the earliest valid reading.
     private fun getKanjiWords(db: SQLiteDatabase, kanjiId: String): List<DictionaryWord> =
         mergeKanjiWords(getWords(db, kanjiId, commonOnly = true),
@@ -373,6 +415,32 @@ class DictionaryDatabase(context: Context) {
                 LIMIT 1
             )
             ORDER BY wf.written, wf.entry_id
+        """
+
+        const val RELATED_WORD_FEATURES_SQL = """
+            WITH selected AS ($WORDS_SQL)
+            SELECT s.id, s.entry_id, s.written, s.reading,
+                MAX(v.common), MAX(v.reading_priority), primary_form.common, primary_form.reading_order
+            FROM selected s JOIN word_form primary_form ON primary_form.id = s.id
+            JOIN word_form v ON v.entry_id = s.entry_id AND v.written = s.written
+            GROUP BY s.id ORDER BY s.entry_id, s.written
+        """
+
+        // CROSS JOIN fixes the loop order: seek glosses by selected form, never scan all English glosses.
+        const val RELATED_WORD_MEANINGS_SQL = """
+            WITH selected AS ($WORDS_SQL)
+            SELECT s.id, wm.meaning FROM selected s CROSS JOIN word_meaning wm
+            WHERE wm.word_form_id = s.id AND wm.language = 'en'
+            ORDER BY s.id, wm.sense_index, wm.id
+        """
+
+        fun relatedWordKanjiSql(hasJlpt: Boolean): String = """
+            WITH selected AS ($WORDS_SQL)
+            SELECT s.id, k.character, k.frequency, ${if (hasJlpt) "j.level" else "NULL"}
+            FROM selected s JOIN word_kanji wk ON wk.word_form_id = s.id
+            JOIN kanji k ON k.id = wk.kanji_id
+            ${if (hasJlpt) "LEFT JOIN jlpt_kanji j ON j.kanji_id = k.id" else ""}
+            GROUP BY s.id, k.id ORDER BY s.id, MIN(wk.position)
         """
     }
 }

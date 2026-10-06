@@ -80,6 +80,17 @@ that feature is started unless explicitly fixed below.
 - [ ] Repeat Return to origin from My Kanji, My Lists, Kanji Groups and Recommended; preserve tab/filter/scroll state and existing Recommended return behavior. Check rotation within the chain.
 - [ ] Return to origin is available on first details and during loading/errors; Word's remaining panel actions stay disabled. Check light/dark themes and larger font sizes.
 
+## Related Words 0.7.2 manual verification
+
+- [ ] 本: useful common words lead the first six; expand Show more and confirm at most one exact numeric #本 family member.
+- [ ] 人: similarly inspect the #人 family; 一人 is currently the best representative, while longer lexical expressions remain available.
+- [ ] 生 or another kanji with many words: compare short/common examples with long rare terms and confirm Show more remains usable.
+- [ ] 一: confirm 一番 and 一部 remain, alongside other distinct lexicalized expressions. Review canonical numeral+whitelisted-counter words with secondary lexical senses.
+- [ ] Long phrases: confirm they remain reachable with lower scores and still open Word Details correctly.
+- [ ] Reopen the same kanji: identical Related Words order. Toggle Known/Learning or edit Custom Lists and confirm the order does not change.
+- [ ] Compare examples with the current kanji itself rare/missing frequency; only other constituents should influence difficulty. Check older installed dictionaries lacking JLPT metadata if available.
+- [ ] Measure loading/Show more on a phone for large candidate sets; desktop SQL timing does not establish device performance.
+
 ## Next milestones
 
 -   [ ] **Train Selected:** launch Kanji Training directly from the
@@ -146,7 +157,8 @@ that feature is started unless explicitly fixed below.
 
 ## Dictionary and data
 
--   [ ] Improve word ranking beyond `common=1`.
+-   [x] Static, user-agnostic Related Words ranking on Kanji Details (0.7.2-alpha).
+-   [ ] Further assess Related Words weights/whitelist using manual examples; ranking for Search/Explore remains separate future work.
 -   [ ] Improve presentation of huge reading sets such as 生.
 -   [ ] Test that the Jōyō badge is absent for `joyo=0`.
 -   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
