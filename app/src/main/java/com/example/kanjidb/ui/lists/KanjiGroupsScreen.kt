@@ -1,5 +1,7 @@
 package com.example.kanjidb.ui.lists
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
@@ -75,11 +77,12 @@ internal fun KanjiCollectionControls(
     rulesOpen: Boolean, onRulesOpenChange: (Boolean) -> Unit, saving: Boolean,
     personal: Boolean = false, customList: Boolean = false
 ) {
+    val sortOrderIcon = if (options.descending) AppIcons.SortDescending else AppIcons.SortAscending
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!customList) Column(Modifier.weight(1f)) {
                 ChoiceMenu(
-                    label = stringResource(R.string.groups_group_by), value = options.groupBy,
+                    icon = AppIcons.Sheets, label = stringResource(R.string.groups_group_by), value = options.groupBy,
                     choices = KanjiGroupBy.entries.filter { personal || it != KanjiGroupBy.NONE }, enabled = !saving,
                     title = { stringResource(when (it) {
                         KanjiGroupBy.NONE -> R.string.groups_rule_na
@@ -90,20 +93,22 @@ internal fun KanjiCollectionControls(
                 )
                 TextButton(onClick = { onOptionsChange(options.copy(reverseGroups = !options.reverseGroups)) },
                     enabled = !saving && options.groupBy != KanjiGroupBy.NONE) {
-                    Text(stringResource(if (options.reverseGroups) R.string.groups_harder_first else R.string.groups_easier_first))
+                    IconLabel(if (options.reverseGroups) AppIcons.SortDescending else AppIcons.SortAscending) {
+                        Text(stringResource(if (options.reverseGroups) R.string.groups_harder_first else R.string.groups_easier_first))
+                    }
                 }
             }
             if (customList) {
                 Box(Modifier.weight(1f)) { SortMenu(options, onOptionsChange, saving, personal = true) }
                 TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
                     enabled = !saving && options.sortBy != KanjiSortBy.MANUAL, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(options.sortDirectionLabel))
+                    IconLabel(sortOrderIcon) { Text(stringResource(options.sortDirectionLabel)) }
                 }
             } else Column(Modifier.weight(1f)) {
                 SortMenu(options, onOptionsChange, saving, personal)
                 TextButton(onClick = { onOptionsChange(options.copy(descending = !options.descending)) },
                     enabled = !saving && options.sortBy != KanjiSortBy.MANUAL) {
-                    Text(stringResource(options.sortDirectionLabel))
+                    IconLabel(sortOrderIcon) { Text(stringResource(options.sortDirectionLabel)) }
                 }
             }
         }
@@ -154,7 +159,7 @@ internal fun KanjiCollectionControls(
 private fun SortMenu(
     options: KanjiGroupOptions, onOptionsChange: (KanjiGroupOptions) -> Unit, saving: Boolean, personal: Boolean
 ) {
-    ChoiceMenu(label = stringResource(R.string.groups_sort_by), value = options.sortBy,
+    ChoiceMenu(icon = AppIcons.TransferVertical, label = stringResource(R.string.groups_sort_by), value = options.sortBy,
         choices = KanjiSortBy.entries.filter { personal || it != KanjiSortBy.MANUAL }, enabled = !saving,
         title = { stringResource(when (it) {
             KanjiSortBy.MANUAL -> R.string.my_kanji_sort_manually
@@ -177,12 +182,14 @@ private fun PresenceMenu(label: String, value: PresenceRule, onSelect: (Presence
 @Composable
 private fun <T> ChoiceMenu(
     label: String, value: T, choices: List<T>, enabled: Boolean = true,
-    title: @Composable (T) -> String, onSelect: (T) -> Unit
+    title: @Composable (T) -> String, onSelect: (T) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.groups_control_value, label, title(value)))
+            if (icon != null) IconLabel(icon) { Text(stringResource(R.string.groups_control_value, label, title(value))) }
+            else Text(stringResource(R.string.groups_control_value, label, title(value)))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             choices.forEach { option ->

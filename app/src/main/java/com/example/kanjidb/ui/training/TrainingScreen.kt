@@ -1,5 +1,7 @@
 package com.example.kanjidb.ui.training
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,7 +70,9 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
             if (!complete && (TrainingState.active || setup != null || fixedPool != null)) {
                 TextButton(enabled = !TrainingState.saving, onClick = {
                     if (TrainingState.active) onRequestExit() else { setup = null; TrainingState.clearFixedPool() }
-                }) { Text(if (TrainingState.active) "End training" else "Back") }
+                }) { IconLabel(if (TrainingState.active) AppIcons.CircleX else AppIcons.CircleChevronLeft) {
+                    Text(if (TrainingState.active) "End training" else "Back")
+                } }
             }
         }
         when {

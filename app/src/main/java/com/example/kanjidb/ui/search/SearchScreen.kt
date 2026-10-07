@@ -1,5 +1,7 @@
 package com.example.kanjidb.ui.search
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -98,7 +100,7 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
             Text(stringResource(R.string.search_title), modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.headlineMedium)
             IconButton(onClick = onOpenAbout) {
-                Icon(painterResource(R.drawable.ic_info),
+                Icon(AppIcons.InfoSquareRounded,
                     contentDescription = stringResource(R.string.about_open))
             }
         }
@@ -260,7 +262,9 @@ private fun SearchList(
             item {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     TextButton(enabled = !loading, onClick = onRefresh) {
-                        Text(stringResource(if (showingWords) R.string.search_new_words else R.string.search_new_kanji))
+                        IconLabel(AppIcons.Repeat) {
+                            Text(stringResource(if (showingWords) R.string.search_new_words else R.string.search_new_kanji))
+                        }
                     }
                 }
             }

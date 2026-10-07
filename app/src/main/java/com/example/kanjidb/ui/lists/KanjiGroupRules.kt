@@ -79,6 +79,7 @@ data class KanjiGroupOptions(
         joyo = PresenceRule.ANY, status = KanjiStatusRule.ANY)
 
     companion object {
+        val CollectionDefaults = KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL)
         val Saver = listSaver<KanjiGroupOptions, String>(
             save = { listOf(it.groupBy.name, it.reverseGroups.toString(), it.sortBy.name,
                 it.descending.toString(), it.jlpt.name, it.grade.name, it.joyo.name, it.status.name) },

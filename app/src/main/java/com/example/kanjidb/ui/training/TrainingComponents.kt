@@ -1,5 +1,7 @@
 package com.example.kanjidb.ui.training
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,9 +26,9 @@ internal fun TrainingQuestionControls(revealed: Boolean, onReveal: () -> Unit, o
             Button(onClick = onReveal, Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Show answer") }
         } else {
             OutlinedButton(onClick = { onAnswer(TrainingResult.INCORRECT) },
-                Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Incorrect") }
+                Modifier.weight(1f).heightIn(min = 56.dp)) { IconLabel(AppIcons.Cross) { Text("Incorrect") } }
             Button(onClick = { onAnswer(TrainingResult.CORRECT) },
-                Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Correct") }
+                Modifier.weight(1f).heightIn(min = 56.dp)) { IconLabel(AppIcons.Check) { Text("Correct") } }
         }
     }
 }
@@ -60,18 +62,20 @@ internal fun TrainingResultCard(
                     TrainingResultStatus.FAILURE -> "Incorrect"
                     TrainingResultStatus.NOT_TESTED -> "Not tested"
                 }
-                Text(when (status) {
-                    TrainingResultStatus.SUCCESS -> "✓"
-                    TrainingResultStatus.PARTIAL -> "●"
-                    TrainingResultStatus.FAILURE -> "✗"
-                    TrainingResultStatus.NOT_TESTED -> "–"
-                }, style = MaterialTheme.typography.titleLarge,
-                    color = when (status) {
-                        TrainingResultStatus.SUCCESS -> if (wordColors) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
-                        TrainingResultStatus.PARTIAL -> Color(0xFFFBC02D)
-                        TrainingResultStatus.FAILURE -> MaterialTheme.colorScheme.error
-                        TrainingResultStatus.NOT_TESTED -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }, modifier = Modifier.semantics { contentDescription = label })
+                val statusColor = when (status) {
+                    TrainingResultStatus.SUCCESS -> if (wordColors) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+                    TrainingResultStatus.PARTIAL -> Color(0xFFFBC02D)
+                    TrainingResultStatus.FAILURE -> MaterialTheme.colorScheme.error
+                    TrainingResultStatus.NOT_TESTED -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                if (status == TrainingResultStatus.NOT_TESTED) {
+                    Text("\u2013", style = MaterialTheme.typography.titleLarge, color = statusColor,
+                        modifier = Modifier.semantics { contentDescription = label })
+                } else Icon(when (status) {
+                    TrainingResultStatus.SUCCESS -> AppIcons.Check
+                    TrainingResultStatus.PARTIAL -> AppIcons.AlertCircle
+                    else -> AppIcons.Cross
+                }, contentDescription = label, tint = statusColor, modifier = Modifier.size(24.dp))
                 Text(character, fontSize = 36.sp)
                 Column(Modifier.weight(1f)) {
                     Text(meaning)
@@ -113,9 +117,9 @@ internal fun TrainingResultsFooter(
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedButton(enabled = !TrainingState.saving && practiceEnabled,
-            modifier = Modifier.weight(1f), onClick = onPractice) { Text(practiceLabel) }
+            modifier = Modifier.weight(1f), onClick = onPractice) { IconLabel(AppIcons.Rotate) { Text(practiceLabel) } }
         Button(enabled = !TrainingState.saving, modifier = Modifier.weight(1f), onClick = onFinish) {
-            Text(if (TrainingState.saving) "Saving…" else "Finish")
+            IconLabel(AppIcons.CircleCheck) { Text(if (TrainingState.saving) "Saving…" else "Finish") }
         }
     }
 }
@@ -129,11 +133,15 @@ internal fun TrainingRepeatMenu(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { (kind, count) ->
                 OutlinedButton(enabled = count > 0, modifier = Modifier.fillMaxWidth(), onClick = { onSelect(kind) }) {
-                    Text(when (kind) {
+                    IconLabel(when (kind) {
+                        PracticeKind.ALL -> AppIcons.Refresh
+                        PracticeKind.CURRENT -> AppIcons.RefreshDot
+                        PracticeKind.MISTAKES -> AppIcons.RefreshAlert
+                    }) { Text(when (kind) {
                         PracticeKind.CURRENT -> "Current iteration"
                         PracticeKind.ALL -> "Entire session"
                         PracticeKind.MISTAKES -> "Mistakes only"
-                    } + " ($count)")
+                    } + " ($count)") }
                 }
             }
         }

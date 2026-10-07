@@ -1,6 +1,9 @@
 package com.example.kanjidb.ui.lists
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,6 +94,7 @@ internal class CollectionFiltersState(initialExpanded: Boolean = false) {
 @Composable
 internal fun CollectionFiltersHeader(
     currentPage: Int, activePage: Boolean, locked: Boolean, enabled: Boolean,
+    resetLabel: String, showReset: Boolean, onReset: () -> Unit,
     modifier: Modifier = Modifier, initiallyExpanded: Boolean = false, controls: @Composable () -> Unit, content: @Composable () -> Unit
 ) {
     val filters = rememberSaveable(saver = CollectionFiltersState.Saver) { CollectionFiltersState(initiallyExpanded) }
@@ -101,9 +105,19 @@ internal fun CollectionFiltersHeader(
         modifier = modifier, header = {
             Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (expanded) controls()
-                TextButton(onClick = { filters.toggle(locked) }, enabled = enabled && !locked,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(if (expanded) "Hide filters" else "Show filters")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (showReset) {
+                        TextButton(onClick = onReset, enabled = enabled && !locked,
+                            modifier = Modifier.weight(1f)) {
+                            IconLabel(AppIcons.FilterOff) { Text(resetLabel, maxLines = 1, softWrap = false) }
+                        }
+                    }
+                    TextButton(onClick = { filters.toggle(locked) }, enabled = enabled && !locked,
+                        modifier = Modifier.weight(1f)) {
+                        IconLabel(if (expanded) AppIcons.FilterUp else AppIcons.FilterDown, trailing = true) {
+                            Text(if (expanded) "Hide filters" else "Show filters", maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
             }
         }, content = content)

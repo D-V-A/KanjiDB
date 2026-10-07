@@ -1,5 +1,7 @@
 package com.example.kanjidb.ui.lists
 
+import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -53,7 +55,7 @@ internal fun MyKanjiScreen(
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     var myOptions by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
-        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
+        mutableStateOf(KanjiGroupOptions.CollectionDefaults)
     }
     var myRulesOpen by rememberSaveable { mutableStateOf(false) }
     // Both pages share the same bulk metadata/readings load; user data stays in Room.
@@ -78,7 +80,11 @@ internal fun MyKanjiScreen(
                 .forEachIndexed { index, title ->
                     Tab(selected = pager.currentPage == index, enabled = !saving,
                         onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        text = { Text(stringResource(title)) })
+                        text = { IconLabel(when (index) {
+                            0 -> AppIcons.Notebook
+                            1 -> AppIcons.ListLetters
+                            else -> AppIcons.ListSearch
+                        }) { Text(stringResource(title)) } })
                 }
         }
         // Reset controls after a completed tab change, avoiding a jump on the outgoing page mid-swipe.
@@ -89,6 +95,8 @@ internal fun MyKanjiScreen(
                     currentPage = pager.settledPage,
                     activePage = pager.currentPage == 0,
                     locked = state.collection.selecting, enabled = !saving && !myRulesOpen,
+                    resetLabel = "Reset filters", showReset = myOptions != KanjiGroupOptions.CollectionDefaults,
+                    onReset = { myOptions = KanjiGroupOptions.CollectionDefaults },
                     modifier = Modifier.fillMaxSize(),
                     controls = {
                         KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
@@ -106,6 +114,8 @@ internal fun MyKanjiScreen(
                     currentPage = pager.settledPage,
                     activePage = pager.currentPage == 2,
                     locked = groupsState.selecting, enabled = !saving && !rulesOpen,
+                    resetLabel = "Reset rules", showReset = options.activeRules > 0,
+                    onReset = { options = options.resetRules() },
                     modifier = Modifier.fillMaxSize(),
                     controls = {
                         KanjiCollectionControls(options, { options = it }, rulesOpen,

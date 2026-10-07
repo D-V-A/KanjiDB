@@ -91,6 +91,17 @@ that feature is started unless explicitly fixed below.
 - [ ] Compare examples with the current kanji itself rare/missing frequency; only other constituents should influence difficulty. Check older installed dictionaries lacking JLPT metadata if available.
 - [ ] Measure loading/Show more on a phone for large candidate sets; desktop SQL timing does not establish device performance.
 
+## Custom icons V0.8.3 manual verification
+
+- [ ] Bottom navigation displays Search / Vocabulary / PencilCheck icons, preserving labels and selected state.
+- [ ] Kanji Details Glyph/Strokes are icon-only with accessible labels; all three collection tabs show leading icons without text clipping.
+- [ ] Show/Hide filters has trailing icons; Group by / Sort by and direction controls have leading icons. Verify Frequent first ascending / Rare first descending, group direction and disabled N/A.
+- [ ] Training setup Back, End training and Correct/Incorrect retain text/action; check both Kanji and Word flows.
+- [ ] Results success/partial/failure keeps previous colors; practice/Finish and all repeat options have consistent icons. Selection-panel Finish is unchanged.
+- [ ] Search Info remains icon-only and opens About; Explore/Recommended refresh actions retain their text.
+- [ ] Return to origin works in both detail screens and uses the shared definition; test accessible labels.
+- [ ] Check disabled tint, narrow screens / larger fonts, light/dark themes and Credits with Tabler MIT notice.
+
 ## Selection counters and reorder hints (versionCode 28)
 
 - [ ] My Kanji, manual sort / no grouping / no Rules: entering selection shows the drag hint and live selected count.
@@ -204,8 +215,9 @@ that feature is started unless explicitly fixed below.
 
 ## UI / product backlog
 
--   [ ] Download the chosen icon set and replace temporary/text
-    placeholders.
+-   [x] First Tabler icon pass: shared Compose vectors for agreed controls,
+    bottom-navigation placeholders replaced and MIT attribution bundled.
+-   [ ] Future icon coverage: review remaining placeholders separately.
 -   [ ] Continue visual polish after the current 0.6 collection/list
     work stabilizes.
 -   [ ] Keep the emerging UI convention: actions normally use pill-style
@@ -225,3 +237,25 @@ that feature is started unless explicitly fixed below.
     before committing to large secondary features.
 -   [ ] Use that feedback to decide how much additional functionality
     belongs before 0.9 versus after it.
+
+## UI cleanup versionCode 30 manual verification
+
+- [ ] My Kanji: Reset filters hidden at defaults; changing grouping/sort/Rules shows it left of Show/Hide; reset restores N/A, Manually and no Rules.
+- [ ] My Lists: reset visibility follows sort/Rules settings and reset restores Manually/no Rules.
+- [ ] Kanji Groups: Reset rules appears only for active Rules and matches Rules dialog reset, preserving grouping/sorting.
+- [ ] Frequency label and icons match numeric ascending Frequent first / descending Rare first, with missing ranks last.
+- [ ] Continue training uses CirclePlay, End training uses CircleX in header and confirmation.
+- [ ] Glyph/Strokes remain selected/functional and icon-only with accessible labels; check narrow widths and larger fonts, including reset row.
+
+## Glyph/Strokes switch versionCode 31 manual verification
+
+- [ ] Default/restored Glyph: Switch OFF/left, Eye active, Brush muted; Strokes ON/right reverses tints.
+- [ ] Tap Eye, Switch or Brush: each toggles once in either direction through the one shared tap zone.
+- [ ] Content changes as before; no clipping/wrapping or unnecessary height growth on narrow screens.
+- [ ] Accessibility exposes one Switch with Glyph/Strokes labels and current mode, without duplicate Switch announcements.
+
+## Glyph/Strokes touch area versionCode 32 manual verification
+
+- [ ] Eye/Brush are equally sized at 40 dp; active/inactive tints remain readable. Standard Switch retains its original dimensions by agreement.
+- [ ] Tap anywhere across the kanji-width control row, including empty sides: state toggles exactly once.
+- [ ] Check centered symmetric spacing, no clipping/wrapping on narrow screens, 48 dp touch height, unchanged content and accessibility.

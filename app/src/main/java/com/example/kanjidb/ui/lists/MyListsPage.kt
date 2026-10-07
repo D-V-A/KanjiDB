@@ -60,7 +60,7 @@ internal fun MyListsPage(
     var saving by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
-        mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
+        mutableStateOf(KanjiGroupOptions.CollectionDefaults)
     }
     var selectEntireList by rememberSaveable { mutableStateOf(false) }
     val displayOptions = if (selectEntireList && collection.selecting) options.resetRules() else options
@@ -102,6 +102,8 @@ internal fun MyListsPage(
     val currentLists = lists.orEmpty()
     CollectionFiltersHeader(currentPage = currentPage, activePage = activePage,
         locked = collection.selecting || reordering, enabled = !saving && !writer.saving && !rulesOpen,
+        resetLabel = "Reset filters", showReset = options != KanjiGroupOptions.CollectionDefaults,
+        onReset = { options = KanjiGroupOptions.CollectionDefaults },
         modifier = Modifier.fillMaxSize(),
         controls = { KanjiCollectionControls(options, { options = it }, rulesOpen,
             { rulesOpen = it }, saving || writer.saving, customList = true) }) {

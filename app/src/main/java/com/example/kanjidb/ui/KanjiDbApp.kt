@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
@@ -84,14 +85,14 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             onDismissRequest = { exitTrainingTo = null },
             title = { Text("End training?") },
             text = { Text("Progress for this training session will be lost.") },
-            dismissButton = { TextButton(onClick = { exitTrainingTo = null }) { Text("Continue training") } },
+            dismissButton = { TextButton(onClick = { exitTrainingTo = null }) { IconLabel(AppIcons.CirclePlay) { Text("Continue training") } } },
             confirmButton = {
                 TextButton(enabled = !TrainingState.saving, onClick = {
                     val target = exitTrainingTo
                     exitTrainingTo = null
                     TrainingState.cancel()
                     if (target != null && target != TRAINING) navigateTopLevel(target)
-                }) { Text("End training") }
+                }) { IconLabel(AppIcons.CircleX) { Text("End training") } }
             }
         )
     }
@@ -123,7 +124,11 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                                     else navigateTopLevel(route)
                                 }
                             },
-                            icon = { Text(label.take(1)) },
+                            icon = { Icon(when (route) {
+                                SEARCH -> AppIcons.Search
+                                MY_KANJI -> AppIcons.Vocabulary
+                                else -> AppIcons.PencilCheck
+                            }, contentDescription = null) },
                             label = { Text(label) }
                         )
                     }

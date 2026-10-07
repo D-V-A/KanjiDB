@@ -1,13 +1,18 @@
 package com.example.kanjidb.ui.details
 
+import com.example.kanjidb.ui.AppIcons
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -38,6 +44,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.R
@@ -246,25 +256,41 @@ private fun KanjiOverview(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                FilterChip(
-                    selected = !showStrokes,
-                    onClick = { onShowStrokes(false) },
-                    label = {
-                        Text(stringResource(R.string.details_glyph),
-                            style = MaterialTheme.typography.labelSmall)
+            val glyphLabel = stringResource(R.string.details_glyph)
+            val strokesLabel = stringResource(R.string.details_strokes)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val iconSpacing = ((maxWidth - 132.dp) / 2).coerceIn(0.dp, 8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .toggleable(value = showStrokes, role = Role.Switch, onValueChange = onShowStrokes)
+                    .semantics(mergeDescendants = true) {
+                        stateDescription = if (showStrokes) strokesLabel else glyphLabel
                     },
-                    modifier = Modifier.weight(1f)
+                horizontalArrangement = Arrangement.spacedBy(iconSpacing, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = AppIcons.Eye,
+                    contentDescription = glyphLabel,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (!showStrokes) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
-                FilterChip(
-                    selected = showStrokes,
-                    onClick = { onShowStrokes(true) },
-                    label = {
-                        Text(stringResource(R.string.details_strokes),
-                            style = MaterialTheme.typography.labelSmall)
-                    },
-                    modifier = Modifier.weight(1f)
+                Switch(
+                    checked = showStrokes,
+                    onCheckedChange = null,
+                    modifier = Modifier.clearAndSetSemantics { }
                 )
+                Icon(
+                    imageVector = AppIcons.Brush,
+                    contentDescription = strokesLabel,
+                    modifier = Modifier.size(40.dp),
+                    tint = if (showStrokes) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
             }
             Surface(
                 shape = MaterialTheme.shapes.medium,
