@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **V0.8.3-alpha**, `versionCode = 32`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **v0.8.4-alpha**, `versionCode = 34`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; stroke order remains a placeholder.
 
@@ -14,7 +14,7 @@ ui/AppIcons.kt owns the 29 cached Compose ImageVectors for the first Tabler icon
 
 Icons cover the three bottom navigation items, Glyph/Strokes, collection tabs, filter/group/sort/direction controls, Training setup Back, Continue training and End training, Correct/Incorrect, Results statuses/practice/Finish/repeat options, Search Info and refresh, and Return to origin. Labels, sorting/training/navigation actions and status colors remain unchanged. SortAscending is the approved correction of the supplied out-of-bounds SVG into increasing 6/12/16 bars. Frequency direction icons follow numeric rank: ascending is Frequent first; descending is Rare first. Selection-panel Finish and unrelated Back/actions retain their existing appearance.
 
-About's existing Credits section includes Tabler Icons / MIT License and the complete upstream copyright/license notice from app/src/main/assets/licenses/tabler-icons.txt. This asset ships with the APK; no new attribution screen is introduced. Upstream: https://github.com/tabler/tabler-icons (MIT, copyright 2020-2026 Pawel Kuna).
+About's existing Credits section shows only Tabler Icons / MIT License. The complete upstream copyright/license notice remains in app/src/main/assets/licenses/tabler-icons.txt and ships with the APK, but is not displayed in Credits. Upstream: https://github.com/tabler/tabler-icons (MIT, copyright 2020-2026 Pawel Kuna).
 
 ## Stack and code map
 
@@ -255,3 +255,7 @@ KanjiOverview replaces the two chips with one compact toggleable row: Eye / stan
 ## Glyph/Strokes touch area (versionCode 32)
 
 The single toggleable row fills the same parent width as the kanji surface, with minimum 48 dp touch height. Eye and Brush are 40 dp, centered around the unchanged standard Switch with symmetric spacing up to 8 dp (reduced on narrow widths to retain equal icon sizes). Standard Switch geometry is retained by agreement: reducing only its visual height is unsupported without distortion in the current Material 3 implementation. State, accessibility and theme-based active/inactive tint remain unchanged.
+
+## Glyph/Strokes custom selector (v0.8.4-alpha)
+
+GlyphStrokesSelector replaces the standard Switch UI with a 104x40 dp theme-colored pill (bounded by kanji-column width), 34 dp opaque circular thumb and 3 dp inset. Eye stays left (35 dp), Brush right (29 dp). Default showStrokes=false opens Eye with the thumb right covering Brush; Strokes moves it left covering Eye. A 180 ms tween animates the thumb from existing state. Track uses surfaceContainerHighest, thumb outlineVariant, active icons onSurface and inactive onSurfaceVariant at 40% alpha; colors do not flip by mode. One full-column-width, minimum-48-dp clickable area has one accessible Button with current-mode stateDescription and an action naming the next mode. No Switch/on-off semantics or separate icon targets remain.

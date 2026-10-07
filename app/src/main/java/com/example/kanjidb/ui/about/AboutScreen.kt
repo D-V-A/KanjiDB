@@ -46,9 +46,5 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Text(stringResource(R.string.about_kanjidic))
         Text(stringResource(R.string.about_jmdict))
         Text(stringResource(R.string.about_tabler_icons))
-        val tablerLicense = remember(context) {
-            context.assets.open("licenses/tabler-icons.txt").bufferedReader().use { it.readText() }
-        }
-        Text(tablerLicense, style = MaterialTheme.typography.bodySmall)
     }
 }

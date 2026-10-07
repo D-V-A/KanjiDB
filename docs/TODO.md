@@ -259,3 +259,11 @@ that feature is started unless explicitly fixed below.
 - [ ] Eye/Brush are equally sized at 40 dp; active/inactive tints remain readable. Standard Switch retains its original dimensions by agreement.
 - [ ] Tap anywhere across the kanji-width control row, including empty sides: state toggles exactly once.
 - [ ] Check centered symmetric spacing, no clipping/wrapping on narrow screens, 48 dp touch height, unchanged content and accessibility.
+
+## Custom Glyph/Strokes selector v0.8.4 manual verification
+
+- [ ] Default Glyph: Eye open on left, thumb on right covering Brush; Strokes reverses thumb and visible icon with unchanged content behavior.
+- [ ] Check Eye 35 dp / Brush 29 dp visual balance, opaque inactive cover, smooth 180 ms movement and unchanged track color.
+- [ ] Any tap across the full kanji-width area toggles once, including empty margins.
+- [ ] Verify narrow layouts, no clipping/protrusion, minimum 48 dp touch height and light/dark theme colors.
+- [ ] Accessibility exposes one display-mode action with current Glyph/Strokes and next-mode action, without on/off announcements.
