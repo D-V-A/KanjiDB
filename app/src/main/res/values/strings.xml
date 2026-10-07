@@ -72,8 +72,8 @@
     <string name="search_clear">Clear</string>
     <string name="search_kanji_hint">Search kanji</string>
     <string name="search_words_hint">Search words</string>
-    <string name="search_mode_kanji">Kanji search. Switch to words</string>
-    <string name="search_mode_words">Word search. Switch to kanji</string>
+    <string name="search_mode_kanji">Switch to word search</string>
+    <string name="search_mode_words">Switch to kanji search</string>
     <string name="search_recommended_kanji">Recommended kanji</string>
     <string name="search_explore_words">Explore words</string>
     <string name="search_new_kanji">Refresh kanji</string>

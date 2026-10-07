@@ -138,6 +138,10 @@ internal object AppIcons {
         "M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4",
         "M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4") }
 
+    val RefreshMain by lazy { strokeIcon("refresh-main",
+        "M20 11 a8.1 8.1 0 0 0 -15.5 -2 m0.209 -3.995 l-0.209 3.995 l3.564 -1.816",
+        "M4 13 a8.1 8.1 0 0 0 15.5 2 m-0.209 3.995 l0.209 -3.995 l-3.564 1.816") }
+
     val RefreshDot by lazy { strokeIcon("RefreshDot",
         "M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4",
         "M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4",
