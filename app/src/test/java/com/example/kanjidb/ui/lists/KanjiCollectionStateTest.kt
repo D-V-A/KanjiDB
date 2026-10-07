@@ -4,6 +4,66 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KanjiCollectionStateTest {
+    @Test fun listsOverviewAndSwitchingPreserveUniqueSelectionAndTrainingPool() {
+        val state = KanjiCollectionState()
+        state.toggleExpanded("A")
+        state.begin("A", listOf("\u65e5", "\u6708"), multiSection = true)
+        state.collapseSections(listOf("A"))
+        assertTrue(state.selecting)
+        assertEquals(setOf("\u65e5", "\u6708"), state.selected)
+        assertFalse(state.isExpanded("A", multiSection = true))
+        assertNull(state.revealCharacter)
+        assertNull(state.revealSection)
+        state.toggleExpanded("B", duringSelection = true)
+        state.begin("B", listOf("\u65e5", "\u6c34"), multiSection = true)
+        assertEquals(setOf("\u65e5", "\u6708", "\u6c34"), state.selected)
+        assertEquals("B", state.revealSection)
+        state.toggle("\u65e5", "B")
+        assertEquals(setOf("\u6708", "\u6c34"), state.selected)
+        state.selectAll("C", listOf("\u6c34", "\u6728", "\u91d1"), expand = true)
+        assertEquals(setOf("\u6708", "\u6c34", "\u6728", "\u91d1"), state.selected)
+        state.collapseSections(listOf("B", "C"))
+        val restored = KanjiCollectionState.restore(state.save())
+        assertEquals(state.selected, restored.selected)
+        assertTrue(restored.selecting)
+        assertTrue(restored.expandedKeys.isEmpty())
+        val training = com.example.kanjidb.ui.training.TrainingSession.start(
+            com.example.kanjidb.ui.training.TrainingMode.MY_LISTS, restored.selected.toList())
+        assertEquals(state.selected, training.pool.toSet())
+        assertEquals(state.selected.size, training.pool.size)
+    }
+
+    @Test fun listHeaderTogglePreservesOutsideTargetsAndUnselectsSharedTargetsEverywhere() {
+        val state = KanjiCollectionState()
+        state.begin("A", listOf("\u65e5", "\u6708"), multiSection = true)
+        state.begin("B", listOf("\u65e5", "\u6c34"), multiSection = true)
+        state.toggleAll("A", listOf("\u65e5", "\u6708", "\u706b"))
+        assertEquals(setOf("\u65e5", "\u6708", "\u706b", "\u6c34"), state.selected)
+        state.toggleAll("A", listOf("\u65e5", "\u6708", "\u706b"))
+        assertEquals(setOf("\u6c34"), state.selected)
+        state.selectAll("B", listOf("\u65e5", "\u6c34"))
+        assertEquals(setOf("\u65e5", "\u6c34"), state.selected)
+        // Removing A cannot lose shared targets that remain in B.
+        state.retain(setOf("\u65e5", "\u6c34"))
+        assertEquals(setOf("\u65e5", "\u6c34"), state.selected)
+    }
+
+    @Test fun listRevealUsesItsOwnSectionAndIsTransientAcrossRestore() {
+        val state = KanjiCollectionState()
+        state.begin("A", listOf("\u65e5"), multiSection = true)
+        state.toggle("\u6708", "B")
+        assertEquals("\u6708", state.revealCharacter)
+        assertEquals("B", state.revealSection)
+        val restored = KanjiCollectionState.restore(state.save())
+        assertNull(restored.revealCharacter)
+        assertNull(restored.revealSection)
+        state.clearReveal()
+        assertNull(state.revealSection)
+        val otherTab = KanjiCollectionState()
+        assertFalse(otherTab.selecting)
+        assertTrue(otherTab.selected.isEmpty())
+    }
+
     @Test fun headerToggleClearsOnlyItsContextAndKeepsSelectionMode() {
         val state = KanjiCollectionState()
         state.selectAll("list", listOf("one", "two", "outside"))

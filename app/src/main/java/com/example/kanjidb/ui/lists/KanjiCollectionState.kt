@@ -14,6 +14,8 @@ internal class KanjiCollectionState {
         private set
     var revealCharacter by mutableStateOf<String?>(null)
         private set
+    var revealSection by mutableStateOf<String?>(null)
+        private set
     var expandedKeys by mutableStateOf(emptySet<String>())
         private set
     var collapsedSubgroups by mutableStateOf(emptySet<String>())
@@ -38,6 +40,7 @@ internal class KanjiCollectionState {
             if (multiSection) {
                 selected = selected + characters
                 revealCharacter = characters.first()
+                revealSection = key
             }
             return
         }
@@ -45,12 +48,13 @@ internal class KanjiCollectionState {
         selectionEntryId++
         selected = characters.toSet()
         revealCharacter = characters.first()
+        revealSection = key
     }
 
     /** Header selection preserves the viewport, including when extending a card selection. */
     fun selectAll(key: String, characters: Collection<String>, expand: Boolean = false) {
         // Do not enter through begin(): headers never create a card-reveal request.
-        revealCharacter = null
+        clearReveal()
         if (!selecting) {
             if (characters.isEmpty()) return
             section = key
@@ -64,37 +68,44 @@ internal class KanjiCollectionState {
     fun toggleAll(key: String, characters: Collection<String>, expand: Boolean = false) {
         if (characters.isEmpty()) return
         if (selecting && selected.containsAll(characters)) {
-            revealCharacter = null
+            clearReveal()
             selected = selected - characters.toSet()
         } else selectAll(key, characters, expand)
+    }
+
+    /** Return to section headers without changing the shared selected set. */
+    fun collapseSections(keys: Collection<String>) {
+        expandedKeys = expandedKeys - keys.toSet()
+        clearReveal()
     }
 
     /** Multi-group selection never forces presentation open. Isolated collections retain their active section. */
     fun isExpanded(key: String, multiSection: Boolean): Boolean =
         key in expandedKeys || (selecting && !multiSection && key == section)
 
-    fun toggle(character: String) {
+    fun toggle(character: String, sectionKey: String? = null) {
         if (!selecting) return
         if (character in selected) selected = selected - character
         else {
             selected = selected + character
             revealCharacter = character
+            revealSection = sectionKey
         }
     }
 
     fun retain(visibleCharacters: Set<String>) {
         selected = selected.intersect(visibleCharacters)
-        if (revealCharacter !in visibleCharacters) revealCharacter = null
+        if (revealCharacter !in visibleCharacters) clearReveal()
     }
 
-    fun clearReveal() { revealCharacter = null }
+    fun clearReveal() { revealCharacter = null; revealSection = null }
 
-    fun finishReorder() { revealCharacter = null }
+    fun finishReorder() { clearReveal() }
 
     fun cancel() {
         selected = emptySet()
         section = null
-        revealCharacter = null
+        clearReveal()
     }
 
     // Reveal requests are transient gestures, not state to replay after Back/recreation.

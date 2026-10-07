@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,7 +48,7 @@ internal fun MyListsPage(
     trainingPool?.let { pool ->
         com.example.kanjidb.ui.training.FixedPoolTrainingEntry(pool,
             onDismiss = { trainingPool = null },
-            onAccepted = { trainingPool = null; onOpenTraining() })
+            onAccepted = { trainingPool = null; collection.cancel(); onOpenTraining() })
     }
     var menu by rememberSaveable { mutableStateOf<Long?>(null) }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -83,12 +84,9 @@ internal fun MyListsPage(
         }
         result = Result(current, dictionary, states, savedSettings, organizedSections)
     }
-    LaunchedEffect(lists, collection.section) {
-        if (lists != null && collection.section != null) {
-            val active = lists.orEmpty().firstOrNull { it.list.id.toString() == collection.section }
-            if (active == null) collection.cancel()
-            else collection.retain(active.characters.toSet())
-        }
+    LaunchedEffect(lists) {
+        // Removing one list cannot discard targets that still belong to another list.
+        lists?.let { collection.retain(it.flatMap { list -> list.characters }.toSet()) }
     }
     fun write(operation: suspend () -> Unit) {
         if (saving) return
@@ -116,12 +114,18 @@ internal fun MyListsPage(
                     reordering = false
                 } }, error = saveError)
         } else {
-            val activeList = currentLists.firstOrNull { it.list.id.toString() == collection.section }
             // Room membership is authoritative even while sort/filter recomputation is pending.
             val displaySections = retainCustomListMembership(sections.orEmpty(), currentLists)
-            val canReorder = displayOptions.manualReorderAvailable &&
-                displaySections.firstOrNull { it.key == collection.section }?.cards?.map { it.character }?.toSet() ==
-                activeList?.characters?.toSet()
+            val expandedList = displaySections.filter { collection.isExpanded(it.key, multiSection = true) }.singleOrNull()
+            val activeList = currentLists.firstOrNull { it.list.id.toString() == expandedList?.key }
+            val canReorder = expandedList != null && displayOptions.manualReorderAvailable &&
+                expandedList.cards.map { it.character }.toSet() == activeList?.characters?.toSet()
+            fun returnToOverview(): Boolean {
+                val expanded = displaySections.filter { collection.isExpanded(it.key, multiSection = true) }
+                if (expanded.isEmpty()) return false
+                collection.collapseSections(expanded.map { it.key })
+                return true
+            }
             KanjiCollectionGrid(
                 sections = displaySections, state = collection, actions = listOf(
                     KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }),
@@ -129,7 +133,11 @@ internal fun MyListsPage(
                 ),
                 onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining, grid = grid, contentAvailable = sections != null,
                 modifier = Modifier.fillMaxSize(), activePage = activePage && !rulesOpen,
-                isolateSection = true, busy = saving || writer.saving, ready = ready,
+                multiSectionSelection = true,
+                reorderHint = stringResource(R.string.my_lists_drag_hint),
+                reorderHintEnabled = options.activeRules == 0,
+                onSelectionBack = { returnToOverview() },
+                busy = saving || writer.saving, ready = ready,
                 loading = !ready && !failed,
                 error = saveError ?: if (writer.failed) "Could not save kanji state." else if (failed) "Could not load kanji." else null,
                 onRetry = if (failed) onRetry else null, customListsDao = dao, namespaceCards = true,
@@ -137,9 +145,16 @@ internal fun MyListsPage(
                     OutlinedCard(onClick = { creating = true }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
                         Text("Add new list", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium)
                     }
-                }) else null,
+                }) else ({
+                    if (displaySections.any { collection.isExpanded(it.key, multiSection = true) }) {
+                        TextButton(enabled = !saving && !writer.saving, onClick = { returnToOverview() }) {
+                            Text("Back to My Lists")
+                        }
+                    }
+                }),
                 onHeaderLongClick = { section ->
-                    if (collection.selecting) collection.toggleAll(section.key, section.cards.map { it.character })
+                    if (collection.selecting && collection.isExpanded(section.key, multiSection = true))
+                        collection.toggleAll(section.key, section.cards.map { it.character })
                     else menu = section.key.toLong()
                 },
                 sectionCount = { section -> currentLists.firstOrNull { it.list.id.toString() == section.key }?.memberships?.size ?: 0 },
@@ -176,7 +191,7 @@ internal fun MyListsPage(
             OutlinedButton(onClick = {
                 // Reveal all list members through the existing shared filters/selection mechanism.
                 selectEntireList = true
-                collection.selectAll(list.list.id.toString(), list.characters)
+                collection.selectAll(list.list.id.toString(), list.characters, expand = true)
                 menu = null
             }, enabled = list.characters.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Select list's kanji") }
         }

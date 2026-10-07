@@ -56,14 +56,6 @@ internal fun MyKanjiScreen(
         mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
     }
     var myRulesOpen by rememberSaveable { mutableStateOf(false) }
-    val manualSelection = state.collection.selecting && myOptions.manualReorderAvailable
-    val snackbar = remember { SnackbarHostState() }
-    val dragHint = stringResource(R.string.my_kanji_drag_hint)
-    LaunchedEffect(state.collection.selectionEntryId, state.collection.selecting) {
-        if (state.collection.selectionEntryId > 0 && manualSelection) {
-            snackbar.showSnackbar(dragHint, duration = SnackbarDuration.Short)
-        } else snackbar.currentSnackbarData?.dismiss()
-    }
     // Both pages share the same bulk metadata/readings load; user data stays in Room.
     var entries by remember(dictionary) { mutableStateOf<List<KanjiGroupEntry>?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -105,7 +97,7 @@ internal fun MyKanjiScreen(
                 ) {
                     MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
                         activePage = pager.currentPage == 0 && !myRulesOpen,
-                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
+                        onOpenDetails = onOpenDetails, options = myOptions, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                 }
                 1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
                     activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining)
@@ -138,7 +130,7 @@ private data class PersonalGroupResult(
 private fun MyKanjiPage(
     state: MyKanjiState, entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
     failed: Boolean, onRetry: () -> Unit, writer: KanjiStateWriter, grid: LazyGridState,
-    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions, snackbar: SnackbarHostState,
+    activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions,
     customListsDao: com.example.kanjidb.data.user.CustomListDao, onOpenTraining: () -> Unit
 ) {
     var result by remember { mutableStateOf<PersonalGroupResult?>(null) }
@@ -171,7 +163,7 @@ private fun MyKanjiPage(
         },
         onRetry = if (failed) onRetry else null,
         tag = "my_kanji",
-        snackbar = snackbar,
+        reorderHint = stringResource(R.string.my_kanji_drag_hint),
         onReorder = if (options.manualReorderAvailable) ({ drop ->
             writer.reorder(LearningState.valueOf(drop.section), drop.before, drop.after, drop.character)
         }) else null

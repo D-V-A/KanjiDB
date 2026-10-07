@@ -164,7 +164,8 @@
         <item quantity="other">%d strokes</item>
     </plurals>    <string name="my_kanji_sort_manually">Manually</string>
     <string name="my_kanji_order_hint">To change order, enter selection mode</string>
-    <string name="my_kanji_drag_hint">To change order, hold and drag a kanji</string>
+    <string name="my_kanji_drag_hint">To change the order, hold and drag a kanji.</string>
+    <string name="my_lists_drag_hint">To change the order, hold and drag a kanji.\nKanji can only be reordered within the current list.</string>
     <string name="custom_lists">Custom Lists</string>
     <string name="selection_finish">Finish</string>
 </resources>

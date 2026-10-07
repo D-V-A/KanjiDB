@@ -37,18 +37,21 @@ internal class KanjiGridReorder(private val grid: LazyGridState) {
     var section: String? = null
         private set
     private var before = emptyList<String>()
+    private var charactersByItemKey = emptyMap<String, String>()
     private var grab = Offset.Zero
     private var lastMoveLayout: LazyGridLayoutInfo? = null
 
-    fun start(at: Offset, section: KanjiSection): Boolean {
+    fun start(at: Offset, section: KanjiSection, itemKey: (KanjiCardItem) -> String = { it.character }): Boolean {
         if (saving || awaitingCommit) return false
         val keys = section.cards.map { it.character }
+        val itemCharacters = section.cards.associate { itemKey(it) to it.character }
         val item = grid.layoutInfo.visibleItemsInfo.firstOrNull {
-            it.key in keys && Rect(it.offset.x.toFloat(), it.offset.y.toFloat(),
+            it.key in itemCharacters && Rect(it.offset.x.toFloat(), it.offset.y.toFloat(),
                 (it.offset.x + it.size.width).toFloat(), (it.offset.y + it.size.height).toFloat()).contains(at)
         } ?: return false
         this.section = section.key
-        character = item.key as String
+        charactersByItemKey = itemCharacters
+        character = itemCharacters.getValue(item.key as String)
         before = keys
         order = keys
         pointer = at
@@ -75,11 +78,11 @@ internal class KanjiGridReorder(private val grid: LazyGridState) {
         val center = Offset(rawCenter.x, rawCenter.y.coerceIn(top + halfHeight,
             maxOf(top + halfHeight, bottom - halfHeight)))
         val target = layout.visibleItemsInfo.firstOrNull {
-            it.key != dragged && it.key in current &&
+            charactersByItemKey[it.key] != dragged && charactersByItemKey[it.key] in current &&
                 Rect(it.offset.x.toFloat(), it.offset.y.toFloat(), (it.offset.x + it.size.width).toFloat(),
                     (it.offset.y + it.size.height).toFloat()).contains(center)
         } ?: return
-        val next = moveKanji(current, dragged, target.key as String)
+        val next = moveKanji(current, dragged, charactersByItemKey.getValue(target.key as String))
         if (next != current) {
             order = next
             lastMoveLayout = layout
@@ -111,6 +114,7 @@ internal class KanjiGridReorder(private val grid: LazyGridState) {
         order = null
         section = null
         awaitingCommit = false
+        charactersByItemKey = emptyMap()
         lastMoveLayout = null
     }
 }

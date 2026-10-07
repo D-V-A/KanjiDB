@@ -74,6 +74,7 @@ internal fun KanjiCollectionGrid(
     activePage: Boolean = true,
     isolateSection: Boolean = false,
     multiSectionSelection: Boolean = false,
+    onSelectionBack: (() -> Boolean)? = null,
     ready: Boolean = true,
     loading: Boolean = false,
     error: String? = null,
@@ -82,7 +83,8 @@ internal fun KanjiCollectionGrid(
     emptyMessage: String? = null,
     tag: String = "kanji_groups",
     onReorder: (suspend (KanjiReorderDrop) -> Boolean)? = null,
-    snackbar: SnackbarHostState? = null,
+    reorderHint: String? = null,
+    reorderHintEnabled: Boolean = true,
     customListsDao: com.example.kanjidb.data.user.CustomListDao? = null,
     namespaceCards: Boolean = false,
     leadingContent: (@Composable () -> Unit)? = null,
@@ -104,27 +106,47 @@ internal fun KanjiCollectionGrid(
     }
     val reorder = remember(grid) { KanjiGridReorder(grid) }
     val scope = rememberCoroutineScope()
-    val sourceSection = sourceSections.singleOrNull()
+    val expandedSections = sourceSections.filter { state.isExpanded(it.key, multiSectionSelection) }
+    val sourceSection = if (multiSectionSelection) expandedSections.singleOrNull() else sourceSections.singleOrNull()
+    fun cardKey(section: KanjiSection, card: KanjiCardItem): String =
+        if (namespaceCards && (!selecting || multiSectionSelection)) "${section.key}:${card.character}" else card.character
     val sourceOrder = sourceSection?.cards?.map { it.character }.orEmpty()
     val canReorder = onReorder != null && selecting && activePage && ready && !busy &&
         sourceSection != null && sourceSection.subgroups.isEmpty() && !reorder.saving && !reorder.awaitingCommit
+    val snackbar = remember { SnackbarHostState() }
+    // A restored selection or a later source switch is not a new entry gesture.
+    var handledHintEntry by remember { mutableIntStateOf(state.selectionEntryId) }
+    LaunchedEffect(state.selectionEntryId, selecting, activePage, ready, canReorder, reorderHintEnabled, reorderHint) {
+        if (!selecting || !activePage || !canReorder || !reorderHintEnabled) {
+            snackbar.currentSnackbarData?.dismiss()
+        }
+        if (!selecting || !activePage || !ready || state.selectionEntryId <= handledHintEntry) return@LaunchedEffect
+        handledHintEntry = state.selectionEntryId
+        if (canReorder && reorderHintEnabled && reorderHint != null && sourceOrder.isNotEmpty()) {
+            snackbar.showSnackbar(reorderHint, duration = SnackbarDuration.Short)
+        }
+    }
     val currentCanReorder by rememberUpdatedState(canReorder)
     val currentSource by rememberUpdatedState(sourceSection)
     val currentOnReorder by rememberUpdatedState(onReorder)
-    LaunchedEffect(sourceOrder, selecting, activePage, onReorder != null, ready, reorder.awaitingCommit) {
-        if (!selecting || !activePage || onReorder == null) reorder.cancel()
+    LaunchedEffect(sourceSection?.key, sourceOrder, selecting, activePage, onReorder != null, ready, reorder.awaitingCommit) {
+        if (!selecting || !activePage || onReorder == null ||
+            (reorder.section != null && reorder.section != sourceSection?.key)) reorder.cancel()
         else reorder.sync(sourceOrder)
     }
     val shown = if (reorder.order != null && sourceSection != null && sourceSection.key == reorder.section) {
         val cards = sourceSection.cards.associateBy { it.character }
-        listOf(sourceSection.copy(cards = reorder.order.orEmpty().mapNotNull { cards[it] }))
+        sourceSections.map { section ->
+            if (section.key == sourceSection.key) section.copy(cards = reorder.order.orEmpty().mapNotNull { cards[it] })
+            else section
+        }
     } else sourceSections
     val eligible = remember(shown) { shown.flatMap { it.cards }.mapTo(mutableSetOf()) { it.character } }
     LaunchedEffect(eligible, ready) { if (ready) state.retain(eligible) }
     val selected = state.selected.intersect(eligible)
     val interactionEnabled = ready && !busy && reorder.character == null && !reorder.saving && !reorder.awaitingCommit
     BackHandler(enabled = activePage && selecting) {
-        if (reorder.character != null) reorder.cancel() else if (!busy && !reorder.saving) state.cancel()
+        if (reorder.character != null) reorder.cancel() else if (!busy && !reorder.saving && onSelectionBack?.invoke() != true) state.cancel()
     }
     var panelHeight by remember { mutableIntStateOf(0) }
     var panelTop by remember { mutableStateOf<Float?>(null) }
@@ -134,8 +156,6 @@ internal fun KanjiCollectionGrid(
         state.isExpanded(section.key, multiSection = multiSectionSelection)
     }.mapTo(mutableSetOf()) { it.key }
     val footer = loading || error != null || (ready && shown.isEmpty() && emptyMessage != null)
-    fun cardKey(section: KanjiSection, card: KanjiCardItem): String =
-        if (namespaceCards && (!selecting || multiSectionSelection)) "${section.key}:${card.character}" else card.character
     val itemKeys = buildList {
         if (leadingContent != null) add("leading")
         shown.forEach { section ->
@@ -153,10 +173,11 @@ internal fun KanjiCollectionGrid(
     }
     val currentKeys by rememberUpdatedState(itemKeys)
     val anchor = state.revealCharacter
-    val revealKey by rememberUpdatedState(shown.firstOrNull { section -> section.cards.any { it.character == anchor } }
+    val revealKey by rememberUpdatedState(shown.firstOrNull { section -> section.key in expanded &&
+        (state.revealSection == null || state.revealSection == section.key) && section.cards.any { it.character == anchor } }
         ?.let { section -> section.cards.firstOrNull { it.character == anchor }?.let { cardKey(section, it) } })
     // Shared for both pages: measure the panel and reveal only the latest selected card as needed.
-    LaunchedEffect(anchor, selecting, activePage, ready, reorder.character) {
+    LaunchedEffect(anchor, state.revealSection, selecting, activePage, ready, reorder.character) {
         if (!selecting) {
             panelHeight = 0
             panelTop = null
@@ -246,13 +267,13 @@ internal fun KanjiCollectionGrid(
                 .pointerInput(reorder) {
                     detectKanjiReorder(
                         eligible = { at -> currentCanReorder && grid.layoutInfo.visibleItemsInfo.any {
-                            it.key in currentSource?.cards.orEmpty().map { card -> card.character } &&
+                            it.key in currentSource?.let { section -> section.cards.map { cardKey(section, it) } }.orEmpty() &&
                                 at.x >= it.offset.x && at.x < it.offset.x + it.size.width &&
                                 at.y >= it.offset.y && at.y < it.offset.y + it.size.height
                         } },
                         start = { at ->
                             val section = currentSource
-                            if (currentCanReorder && section != null && reorder.start(at, section)) {
+                            if (currentCanReorder && section != null && reorder.start(at, section) { cardKey(section, it) }) {
                                 state.clearReveal()
                                 true
                             } else false
@@ -290,14 +311,14 @@ internal fun KanjiCollectionGrid(
                         items(cards, key = { cardKey(section, it) }, contentType = { "kanji" }) { card ->
                             KanjiCard(
                                 modifier = Modifier.animateItem().graphicsLayer {
-                                    alpha = if (reorder.character == card.character) 0f else 1f
+                                    alpha = if (reorder.section == section.key && reorder.character == card.character) 0f else 1f
                                 },
                                 character = card.character,
                                 reading = card.reading ?: stringResource(R.string.my_kanji_no_reading),
                                 selecting = selecting, selected = card.character in selected,
                                 enabled = interactionEnabled,
                                 onClick = {
-                                    if (selecting) state.toggle(card.character) else onOpenDetails(card.character)
+                                    if (selecting) state.toggle(card.character, section.key) else onOpenDetails(card.character)
                                 },
                                 onLongClick = { state.begin(section.key, listOf(card.character), multiSection = multiSectionSelection) }
                             )
@@ -348,6 +369,7 @@ internal fun KanjiCollectionGrid(
         }
         if (selecting) {
             KanjiSelectionPanel(
+                selectedCount = selected.size,
                 onTrain = { trainingPool = selected.toList() },
                 actions = actions, selected = selected.toList(), enabled = interactionEnabled,
                 onCustomLists = if (customListsDao != null) ({ listSelection = selected.toList() }) else null,
@@ -357,7 +379,7 @@ internal fun KanjiCollectionGrid(
                     .testTag("${tag}_panel").onGloballyPositioned { panelTop = it.positionInRoot().y }
             )
         }
-        if (snackbar != null) SnackbarHost(snackbar,
+        if (reorderHint != null) SnackbarHost(snackbar,
             Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { panelHeight.toDp() }))
     }
 }
@@ -399,10 +421,11 @@ private fun KanjiSubgroupHeader(
 @Composable
 private fun KanjiSelectionPanel(
     actions: List<KanjiSelectionAction>, selected: List<String>, enabled: Boolean,
-    onTrain: () -> Unit, onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
+    selectedCount: Int, onTrain: () -> Unit, onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
 ) {
     FloatingActionPanel(modifier, contentPadding = PaddingValues(8.dp), spacing = 4.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Selected kanji: $selectedCount", style = MaterialTheme.typography.labelMedium)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 actions.asReversed().forEach { action ->
                     OutlinedButton(onClick = { action.onSelected?.invoke(selected) },

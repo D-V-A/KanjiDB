@@ -46,8 +46,8 @@ that feature is started unless explicitly fixed below.
     -   My Lists reorder hint matches the existing My Kanji hint.
     -   Kanji Groups allows additive selection across multiple groups;
         collapsing/expanding a group does not alter selection.
-    -   My Kanji and My Lists keep their existing
-        single-section/single-list selection isolation.
+    -   My Kanji keeps section isolation; My Lists uses the existing
+        multi-section selection behavior across lists (0.8.2-alpha).
     -   Custom List action dialog uses pill-style action buttons;
         selection controls remain rounded-rectangle where appropriate.
     -   Dragging has a temporary visual state independent of selection
@@ -90,6 +90,26 @@ that feature is started unless explicitly fixed below.
 - [ ] Reopen the same kanji: identical Related Words order. Toggle Known/Learning or edit Custom Lists and confirm the order does not change.
 - [ ] Compare examples with the current kanji itself rare/missing frequency; only other constituents should influence difficulty. Check older installed dictionaries lacking JLPT metadata if available.
 - [ ] Measure loading/Show more on a phone for large candidate sets; desktop SQL timing does not establish device performance.
+
+## Selection counters and reorder hints (versionCode 28)
+
+- [ ] My Kanji, manual sort / no grouping / no Rules: entering selection shows the drag hint and live selected count.
+- [ ] My Kanji with any Rule, nonmanual sort or grouping: no drag hint; counter still updates.
+- [ ] My Lists, exactly one expanded full-membership manual list / no Rules: selection entry shows the two-line hint and counter.
+- [ ] My Lists with Rules (including Select list's kanji temporary filter bypass), nonmanual sort or multiple expanded lists: no drag hint; shared unique count still works.
+- [ ] Across My Lists lists, count retains the combined set; hint states that reorder is within the current list and does not replay on list changes.
+- [ ] Kanji Groups: same counter placement/style, no drag hint. Check all three with select/deselect/clear-to-zero and restored selection.
+
+## My Lists cross-list selection 0.8.2 manual verification
+
+- [ ] List A: select several kanji; Back / Back to My Lists returns to collapsed headers with selection and count intact.
+- [ ] Open B and select more; count is the unique union. Shared kanji are already selected and deselect globally from either list.
+- [ ] From collapsed C's long-press menu, Select list's kanji adds all C members without replacing earlier selections, including with normal filters active.
+- [ ] Expanded-list header long press selects all / clears only its current displayed targets; kanji outside that list remain selected.
+- [ ] Train Selected uses the combined unique pool; both warning/modal Cancel paths preserve it, acceptance clears it, Kanji starts directly and Word retains fixed-pool setup.
+- [ ] Change tabs and return: My Lists state does not appear in My Kanji/Groups. Compare selection additions, duplicates and header toggles with Kanji Groups.
+- [ ] With exactly one list expanded and manual/unfiltered sorting, drag reorders only that list without losing other-list selections. With multiple expanded lists, drag is unavailable. Include overlapping glyphs.
+- [ ] Removing membership/deleting a list retains selected kanji still present elsewhere; rotation and overview return preserve count and do not replay card reveal.
 
 ## Next milestones
 
