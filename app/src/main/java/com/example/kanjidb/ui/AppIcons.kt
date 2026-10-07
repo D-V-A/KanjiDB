@@ -110,6 +110,11 @@ internal object AppIcons {
         "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0",
         "M10 10l4 4m0 -4l-4 4") }
 
+    val MessageReply by lazy { strokeIcon("MessageReply",
+        "M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12",
+        "M11 8l-3 3l3 3",
+        "M16 11h-8") }
+
     val InfoSquareRounded by lazy { strokeIcon("InfoSquareRounded",
         "M12 9h.01",
         "M11 12h1v4h1",

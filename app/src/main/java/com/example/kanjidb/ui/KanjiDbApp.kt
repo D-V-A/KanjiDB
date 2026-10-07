@@ -35,6 +35,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.kanjidb.ui.about.AboutScreen
+import com.example.kanjidb.ui.openalpha.FeedbackScreen
+import com.example.kanjidb.ui.openalpha.OpenAlphaNotice
 import com.example.kanjidb.ui.details.KanjiDetailsScreen
 import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
@@ -43,6 +45,7 @@ import com.example.kanjidb.ui.training.TrainingScreen
 
 private const val SEARCH = "search"
 private const val ABOUT = "about"
+private const val FEEDBACK = "open_alpha_feedback"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
@@ -59,6 +62,7 @@ private val topLevelDestinations = listOf(
 fun KanjiDbApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
+    OpenAlphaNotice()
     val userDao = remember(context) {
         com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()
     }
@@ -160,12 +164,17 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                     openDetails(character)
                 }, onOpenDetails = openDetails, onOpenAbout = {
                     navController.navigate(ABOUT) { launchSingleTop = true }
+                }, onOpenFeedback = {
+                    navController.navigate(FEEDBACK) { launchSingleTop = true }
                 }, onOpenWord = { entryId, written ->
                     navController.navigate("word/$entryId/${Uri.encode(written)}")
                 })
             }
             composable(ABOUT) {
                 AboutScreen(onBack = { navController.popBackStack() })
+            }
+            composable(FEEDBACK) {
+                FeedbackScreen(onBack = { navController.popBackStack() })
             }
             composable(MY_KANJI) {
                 MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao, onOpenTraining = { navigateTopLevel(TRAINING) })

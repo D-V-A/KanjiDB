@@ -232,6 +232,8 @@ that feature is started unless explicitly fixed below.
 
 ## Release / feedback direction
 
+-   [x] Add open-alpha-only first-launch notice and Search Feedback page with Google Forms / GitHub links on `open-alpha`.
+-   [ ] Manually verify clean-data notice, Close and subsequent process launches; Feedback left of working Info; Feedback page and both external URLs; Back preserving Search state; small-screen dialog scrolling and accessible Close.
 -   [ ] After Custom Lists and Train Selected are stable, prepare a
     build suitable for broader external feedback (for example Reddit)
     before committing to large secondary features.

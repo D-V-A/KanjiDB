@@ -4,7 +4,16 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.8.5-alpha**, `versionCode = 35`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **v0.8.5-open-alpha**, `versionCode = 35`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+
+## Open-alpha builds
+
+Primary development continues in `main`. `open-alpha` is for public alpha builds and temporary alpha UI/feedback infrastructure; it must not become a second permanent main branch. Functional fixes and ordinary development should land in `main` first, then be brought into `open-alpha` as needed. Public alpha builds currently use the `-open-alpha` versionName suffix.
+
+The current wrapper includes a first-launch alpha notice, a Feedback button immediately left of Search Info, and a Feedback page with Google Forms and GitHub project links. It is separate from product/dictionary/training/user-data logic and should remain easy to remove after testing. `ui/openalpha/` owns the notice and page; `AppIcons.MessageReply` and the Search/navigation entry points integrate them without build flavors or new dependencies.
+
+The notice's Close stores `openAlphaNoticeDismissed` in local `open_alpha` SharedPreferences, independently of both databases; subsequent process launches read that flag. Its body scrolls and includes the feedback vector inline with accessible alternate text. Feedback follows About's layout and navigation pattern, with Back popping one entry. Labeled text buttons open external URLs using Android `ACTION_VIEW`, without WebView or INTERNET permission.
+
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; stroke order remains a placeholder.
 
@@ -259,13 +268,3 @@ The single toggleable row fills the same parent width as the kanji surface, with
 ## Glyph/Strokes custom selector (v0.8.4-alpha)
 
 GlyphStrokesSelector replaces the standard Switch UI with a 104x40 dp theme-colored pill (bounded by kanji-column width), 34 dp opaque circular thumb and 3 dp inset. Eye stays left (35 dp), Brush right (29 dp). Default showStrokes=false opens Eye with the thumb right covering Brush; Strokes moves it left covering Eye. A 180 ms tween animates the thumb from existing state. Track uses surfaceContainerHighest, thumb outlineVariant, active icons onSurface and inactive onSurfaceVariant at 40% alpha; colors do not flip by mode. One full-column-width, minimum-48-dp clickable area has one accessible Button with current-mode stateDescription and an action naming the next mode. No Switch/on-off semantics or separate icon targets remain.
-
-## Search mode control (v0.8.5-alpha)
-
-Search uses one 64.4 dp icon-only Button without a touch indication, reusing AppIcons.RefreshMain (refresh-main) with a 62.1 dp arrow image and an upright central 字 (25.875 sp) / 語 (24.15 sp). Both central symbols have a -1 dp vertical offset. Arrows use the same OutlinedTextFieldDefaults colors as the Search bar border (unfocused/focused indicator color according to its shared focus interaction source); symbols retain onSurface. One next-mode accessibility action applies to the whole control. The existing saveable wordMode remains the search state; Search bar, queries and discovery pager behavior are unchanged. Results Entire session retains its original Refresh rendering.
-
-Every tap immediately toggles the existing wordMode; the central symbol reads that state directly and retains its 260 ms fade/scale feedback. Arrow rotation uses logical targets 45 + N * 180, displayed counterclockwise via 90 - logicalAngle. Each half-turn takes 260 ms. A tap during motion can queue at most the segment following the segment containing the actual animated angle; entering each new 180-degree segment renews that allowance. Search mode taps remain unrestricted regardless of the rotation queue. Both logical angles normalize together on the discrete grid only when motion stops.
-
-Search locally derives a cached display vector from the shared AppIcons.RefreshMain path data with stroke width multiplied by 32/62.1, preserving the original physical stroke weight at 62.1 dp, path proportions and round caps/joins. The shared vector and Results rendering are unchanged; no SVG/path coordinates are duplicated.
-
-RefreshMain (refresh-main) uses the final supplied 57-degree arrowhead bisector geometry with centrally symmetric 60-degree heads and length-4 wings; the original Refresh and Results repeat usage are unchanged.
