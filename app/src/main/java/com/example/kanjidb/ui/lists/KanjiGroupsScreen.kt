@@ -30,7 +30,7 @@ internal fun KanjiGroupsPage(
     failed: Boolean, onRetry: () -> Unit,
     state: KanjiCollectionState, writer: KanjiStateWriter, grid: LazyGridState,
     activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions,
-    rulesOpen: Boolean, customListsDao: com.example.kanjidb.data.user.CustomListDao? = null
+    rulesOpen: Boolean, onOpenTraining: () -> Unit, customListsDao: com.example.kanjidb.data.user.CustomListDao? = null
 ) {
     var result by remember { mutableStateOf<GroupResult?>(null) }
     LaunchedEffect(entries, rows, options) {
@@ -51,7 +51,7 @@ internal fun KanjiGroupsPage(
             frequencySubgroups(key, group))
     }
     KanjiCollectionGrid(
-        sections = sections, state = state, onOpenDetails = onOpenDetails, customListsDao = customListsDao,
+        sections = sections, state = state, onOpenDetails = onOpenDetails, customListsDao = customListsDao, onOpenTraining = onOpenTraining,
         grid = grid, contentAvailable = result != null,
         actions = listOf(
             KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }, 1.4f),

@@ -64,6 +64,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     LaunchedEffect(userDao) { RecommendedState.initialize(DictionaryDatabase(context), userDao) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != null && currentRoute != TRAINING) TrainingState.clearFixedPool()
+    }
     var exitTrainingTo by rememberSaveable { mutableStateOf<String?>(null) }
     // A restored exit dialog must not outlive the process-only session after process death.
     LaunchedEffect(!TrainingState.active) {
@@ -160,7 +163,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 AboutScreen(onBack = { navController.popBackStack() })
             }
             composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao)
+                MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao, onOpenTraining = { navigateTopLevel(TRAINING) })
             }
             composable(TRAINING) {
                 TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING })

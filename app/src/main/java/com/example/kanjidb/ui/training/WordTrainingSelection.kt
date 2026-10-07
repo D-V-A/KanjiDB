@@ -57,7 +57,7 @@ internal object WordTrainingSelection {
         settings: WordTrainingSettings
     ): WordTrainingPlan {
         val pool = selectedPool.distinct()
-        require(pool.size in 1..50)
+        require(pool.isNotEmpty())
         val poolSet = pool.toSet()
         val scores = candidates.associateWith { WordQuality.score(it.features, poolSet) }
         val eligible = candidates.filter { candidate ->

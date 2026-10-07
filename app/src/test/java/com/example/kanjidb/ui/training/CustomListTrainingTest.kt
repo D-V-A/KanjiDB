@@ -8,6 +8,17 @@ import org.junit.Test
 import kotlin.random.Random
 
 class CustomListTrainingTest {
+    @Test fun explicitPoolsAboveFiftyRetainEveryTargetInBothSessionBuilders() {
+        val pool = (1..120).map { "kanji$it" }
+        val session = TrainingSession.start(TrainingMode.MY_LISTS, pool, Random(1))
+        assertEquals(pool, session.pool)
+        assertEquals(pool.toSet(), session.questionOrder.toSet())
+        val plan = WordTrainingSelection.build(emptyList(), pool, emptySet(), WordTrainingSettings())
+        assertEquals(pool, plan.pool)
+        assertEquals(120, plan.coverage.size)
+        assertEquals(50, selectTrainingPool(pool, 120, Random(1)).size)
+    }
+
     private fun list(id: Long, order: Long, vararg characters: String) =
         CustomListWithKanji(CustomListEntity(id, "List $id", order),
             characters.mapIndexed { i, char -> CustomListKanjiEntity(id, char, i.toLong()) })

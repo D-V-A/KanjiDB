@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 internal fun MyKanjiScreen(
     onOpenDetails: (String) -> Unit,
     userDao: UserKanjiStateDao,
+    onOpenTraining: () -> Unit,
     state: MyKanjiState = rememberSaveable(saver = MyKanjiState.Saver) { MyKanjiState() },
     modifier: Modifier = Modifier
 ) {
@@ -104,10 +105,10 @@ internal fun MyKanjiScreen(
                 ) {
                     MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
                         activePage = pager.currentPage == 0 && !myRulesOpen,
-                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar, customListsDao = customListsDao)
+                        onOpenDetails = onOpenDetails, options = myOptions, snackbar = snackbar, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                 }
                 1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
-                    activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails)
+                    activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining)
                 2 -> CollectionFiltersHeader(
                     initiallyExpanded = true,
                     currentPage = pager.settledPage,
@@ -121,7 +122,7 @@ internal fun MyKanjiScreen(
                 ) {
                     KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,
                         activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
-                        options = options, rulesOpen = rulesOpen, customListsDao = customListsDao)
+                        options = options, rulesOpen = rulesOpen, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                 }
             }
         }
@@ -138,7 +139,7 @@ private fun MyKanjiPage(
     state: MyKanjiState, entries: List<KanjiGroupEntry>?, rows: List<UserKanjiStateEntity>?,
     failed: Boolean, onRetry: () -> Unit, writer: KanjiStateWriter, grid: LazyGridState,
     activePage: Boolean, onOpenDetails: (String) -> Unit, options: KanjiGroupOptions, snackbar: SnackbarHostState,
-    customListsDao: com.example.kanjidb.data.user.CustomListDao
+    customListsDao: com.example.kanjidb.data.user.CustomListDao, onOpenTraining: () -> Unit
 ) {
     var result by remember { mutableStateOf<PersonalGroupResult?>(null) }
     LaunchedEffect(entries, rows, options) {
@@ -152,7 +153,7 @@ private fun MyKanjiPage(
     val sections = personalKanjiSections(result?.sections.orEmpty(), result?.options?.groupBy ?: options.groupBy)
     val learning = state.selectionSection == LearningState.LEARNING
     KanjiCollectionGrid(
-        sections = sections, state = state.collection, onOpenDetails = onOpenDetails, customListsDao = customListsDao,
+        sections = sections, state = state.collection, onOpenDetails = onOpenDetails, customListsDao = customListsDao, onOpenTraining = onOpenTraining,
         // Do not measure restored grid state until Room + metadata + organization are ready.
         grid = grid, contentAvailable = result != null,
         actions = listOf(

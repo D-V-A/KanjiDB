@@ -47,6 +47,7 @@
     <string name="my_lists_title">My Lists</string>
     <string name="kanji_groups_title">Kanji Groups</string>
     <string name="training_title">Training</string>
+    <string name="train_selected">Train Selected</string>
     <string name="my_kanji_section_count">%1$s (%2$d)</string>
     <string name="my_kanji_remove_learning">Remove from Learning</string>
     <string name="my_kanji_remove_known">Remove from Known</string>

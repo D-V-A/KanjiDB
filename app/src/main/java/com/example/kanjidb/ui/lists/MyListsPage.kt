@@ -36,13 +36,19 @@ import kotlinx.coroutines.launch
 internal fun MyListsPage(
     dao: CustomListDao, userDao: UserKanjiStateDao, entries: List<KanjiGroupEntry>?,
     rows: List<UserKanjiStateEntity>?, failed: Boolean, onRetry: () -> Unit,
-    activePage: Boolean, currentPage: Int, onOpenDetails: (String) -> Unit
+    activePage: Boolean, currentPage: Int, onOpenDetails: (String) -> Unit, onOpenTraining: () -> Unit
 ) {
     val lists by remember(dao) { dao.observeLists() }.collectAsStateWithLifecycle(initialValue = null)
     val collection = rememberSaveable(saver = KanjiCollectionState.Saver) { KanjiCollectionState() }
     val writer = rememberKanjiStateWriter(userDao, collection)
     val grid = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+    var trainingPool by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    trainingPool?.let { pool ->
+        com.example.kanjidb.ui.training.FixedPoolTrainingEntry(pool,
+            onDismiss = { trainingPool = null },
+            onAccepted = { trainingPool = null; onOpenTraining() })
+    }
     var menu by rememberSaveable { mutableStateOf<Long?>(null) }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
@@ -55,18 +61,21 @@ internal fun MyListsPage(
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) {
         mutableStateOf(KanjiGroupOptions(groupBy = KanjiGroupBy.NONE, sortBy = KanjiSortBy.MANUAL))
     }
+    var selectEntireList by rememberSaveable { mutableStateOf(false) }
+    val displayOptions = if (selectEntireList && collection.selecting) options.resetRules() else options
+    LaunchedEffect(collection.selecting) { if (!collection.selecting) selectEntireList = false }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
     data class Result(val lists: List<CustomListWithKanji>, val entries: List<KanjiGroupEntry>,
         val rows: List<UserKanjiStateEntity>, val settings: KanjiGroupOptions, val sections: List<KanjiSection>)
     var result by remember { mutableStateOf<Result?>(null) }
     val sections = result?.sections
     val ready = result?.let { it.lists == lists && it.entries === entries &&
-        it.rows == rows && it.settings == options } == true
-    LaunchedEffect(lists, entries, rows, options) {
+        it.rows == rows && it.settings == displayOptions } == true
+    LaunchedEffect(lists, entries, rows, displayOptions) {
         val current = lists ?: return@LaunchedEffect
         val dictionary = entries ?: return@LaunchedEffect
         val states = rows ?: return@LaunchedEffect
-        val savedSettings = options
+        val savedSettings = displayOptions
         val organizedSections = withContext(Dispatchers.Default) {
             val metadata = dictionary.associateBy { it.character }
             val statuses = states.associate { it.character to it.state }
@@ -110,7 +119,7 @@ internal fun MyListsPage(
             val activeList = currentLists.firstOrNull { it.list.id.toString() == collection.section }
             // Room membership is authoritative even while sort/filter recomputation is pending.
             val displaySections = retainCustomListMembership(sections.orEmpty(), currentLists)
-            val canReorder = options.manualReorderAvailable &&
+            val canReorder = displayOptions.manualReorderAvailable &&
                 displaySections.firstOrNull { it.key == collection.section }?.cards?.map { it.character }?.toSet() ==
                 activeList?.characters?.toSet()
             KanjiCollectionGrid(
@@ -118,7 +127,7 @@ internal fun MyListsPage(
                     KanjiSelectionAction(R.string.groups_add_learning, { writer.assign(it, LearningState.LEARNING) }),
                     KanjiSelectionAction(R.string.groups_add_known, { writer.assign(it, LearningState.KNOWN) })
                 ),
-                onOpenDetails = onOpenDetails, grid = grid, contentAvailable = sections != null,
+                onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining, grid = grid, contentAvailable = sections != null,
                 modifier = Modifier.fillMaxSize(), activePage = activePage && !rulesOpen,
                 isolateSection = true, busy = saving || writer.saving, ready = ready,
                 loading = !ready && !failed,
@@ -130,7 +139,7 @@ internal fun MyListsPage(
                     }
                 }) else null,
                 onHeaderLongClick = { section ->
-                    if (collection.selecting) collection.selectAll(section.key, section.cards.map { it.character })
+                    if (collection.selecting) collection.toggleAll(section.key, section.cards.map { it.character })
                     else menu = section.key.toLong()
                 },
                 sectionCount = { section -> currentLists.firstOrNull { it.list.id.toString() == section.key }?.memberships?.size ?: 0 },
@@ -156,19 +165,21 @@ internal fun MyListsPage(
         }
     }
     currentLists.firstOrNull { it.list.id == menu }?.let { list ->
-        AlertDialog(onDismissRequest = { menu = null },
-            title = { Text(list.list.name, Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
-            text = {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { editId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Rename") }
-                    OutlinedButton(onClick = { deleteId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Delete") }
-                    OutlinedButton(onClick = {
-                        before = currentLists.map { it.list.id }; after = before; reordering = true; menu = null
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Change order") }
-                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Training") }
-                }
-            }, confirmButton = { TextButton(onClick = { menu = null }) { Text("Cancel") } })
+        com.example.kanjidb.ui.ActionMenuDialog(list.list.name, onDismiss = { menu = null }) {
+            OutlinedButton(onClick = { editId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Rename") }
+            OutlinedButton(onClick = { deleteId = list.list.id; menu = null }, modifier = Modifier.fillMaxWidth()) { Text("Delete") }
+            OutlinedButton(onClick = {
+                before = currentLists.map { it.list.id }; after = before; reordering = true; menu = null
+            }, modifier = Modifier.fillMaxWidth()) { Text("Change order") }
+            OutlinedButton(onClick = { trainingPool = list.characters.toList(); menu = null },
+                enabled = list.characters.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Training") }
+            OutlinedButton(onClick = {
+                // Reveal all list members through the existing shared filters/selection mechanism.
+                selectEntireList = true
+                collection.selectAll(list.list.id.toString(), list.characters)
+                menu = null
+            }, enabled = list.characters.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Select list's kanji") }
+        }
     }
     if (creating) CustomListNameDialog("Create new list", onDismiss = { creating = false }, onApply = { name ->
         val error = customListNameError(name, dao.getLists().map { it.list })

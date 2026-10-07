@@ -130,7 +130,7 @@ internal data class TrainingSession private constructor(
 
     companion object {
         fun start(mode: TrainingMode, pool: List<String>, random: Random = Random.Default): TrainingSession {
-            require(pool.isNotEmpty() && pool.distinct().size == pool.size && pool.size <= 50)
+            require(pool.isNotEmpty() && pool.distinct().size == pool.size)
             val fixed = pool.toList()
             return TrainingSession(mode, fixed, fixed, fixed.shuffled(random))
         }

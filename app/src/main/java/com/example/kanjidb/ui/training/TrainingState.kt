@@ -25,6 +25,16 @@ internal object TrainingState {
     var saveFailed by mutableStateOf(false)
         private set
 
+    var fixedWordPool by mutableStateOf<List<String>?>(null)
+        private set
+
+    fun prepareFixedWords(pool: List<String>) {
+        check(!active && !saving && pool.isNotEmpty())
+        fixedWordPool = pool.distinct().toList()
+    }
+
+    fun clearFixedPool() { fixedWordPool = null }
+
     fun start(mode: TrainingMode, kanji: List<DictionaryKanji>) {
         check(!active && !saving)
         cards = kanji.associateBy { it.character }
@@ -41,6 +51,7 @@ internal object TrainingState {
         val started = WordTrainingSession.start(plan)
         wordCards = summaries.toMap()
         wordSession = started
+        fixedWordPool = null
         saveFailed = false
     }
 
@@ -51,6 +62,7 @@ internal object TrainingState {
     /** Cancel has no DAO dependency and cannot apply actions. */
     fun cancel() {
         if (saving) return
+        fixedWordPool = null
         session = null
         wordSession = null
         cards = emptyMap()

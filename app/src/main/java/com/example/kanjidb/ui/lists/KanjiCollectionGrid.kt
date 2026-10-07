@@ -53,7 +53,7 @@ internal data class KanjiSection(
     val subgroups: List<KanjiSubgroup> = emptyList()
 )
 
-/** A null handler is a disabled action, including the future Training entry point.
+/** A null handler is a disabled selection action.
  * Every handler receives exactly the current visible selection, never the whole group. */
 internal data class KanjiSelectionAction(
     val label: Int,
@@ -67,6 +67,7 @@ internal fun KanjiCollectionGrid(
     state: KanjiCollectionState,
     actions: List<KanjiSelectionAction>,
     onOpenDetails: (String) -> Unit,
+    onOpenTraining: () -> Unit,
     grid: LazyGridState,
     contentAvailable: Boolean,
     modifier: Modifier = Modifier,
@@ -89,6 +90,12 @@ internal fun KanjiCollectionGrid(
     sectionCount: ((KanjiSection) -> Int)? = null,
     sectionControls: (@Composable (KanjiSection) -> Unit)? = null
 ) {
+    var trainingPool by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>?>(null) }
+    trainingPool?.let { pool ->
+        com.example.kanjidb.ui.training.FixedPoolTrainingEntry(pool,
+            onDismiss = { trainingPool = null },
+            onAccepted = { trainingPool = null; state.cancel(); onOpenTraining() })
+    }
     var listSelection by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>?>(null) }
     if (listSelection != null && customListsDao != null) CustomListsDialog(customListsDao, listSelection.orEmpty()) { listSelection = null }
     val selecting = state.selecting
@@ -274,7 +281,7 @@ internal fun KanjiCollectionGrid(
                         expanded = section.key in expanded, enabled = interactionEnabled,
                         onClick = { state.toggleExpanded(section.key, duringSelection = multiSectionSelection) },
                         onLongClick = { if (onHeaderLongClick != null) onHeaderLongClick(section)
-                            else state.selectAll(section.key, section.cards.map { it.character }, expand = multiSectionSelection) }
+                            else state.toggleAll(section.key, section.cards.map { it.character }, expand = multiSectionSelection) }
                     )
                 }
                 if (section.key in expanded) {
@@ -306,7 +313,7 @@ internal fun KanjiCollectionGrid(
                                     onClick = { state.toggleSubgroup(subgroup.key, duringSelection = multiSectionSelection) },
                                     onLongClick = if (subgroup.selectable) ({
                                         // Keep Learning/Known as the selection owner for isolate/Move/Remove.
-                                        state.selectAll(section.key, subgroup.cards.map { it.character })
+                                        state.toggleAll(section.key, subgroup.cards.map { it.character })
                                     }) else null)
                             }
                             if (subgroupExpanded) {
@@ -341,6 +348,7 @@ internal fun KanjiCollectionGrid(
         }
         if (selecting) {
             KanjiSelectionPanel(
+                onTrain = { trainingPool = selected.toList() },
                 actions = actions, selected = selected.toList(), enabled = interactionEnabled,
                 onCustomLists = if (customListsDao != null) ({ listSelection = selected.toList() }) else null,
                 onCancel = { reorder.cancel(); state.cancel() }, cancelEnabled = !busy && reorder.character == null && !reorder.saving,
@@ -391,7 +399,7 @@ private fun KanjiSubgroupHeader(
 @Composable
 private fun KanjiSelectionPanel(
     actions: List<KanjiSelectionAction>, selected: List<String>, enabled: Boolean,
-    onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
+    onTrain: () -> Unit, onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
 ) {
     FloatingActionPanel(modifier, contentPadding = PaddingValues(8.dp), spacing = 4.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -407,8 +415,8 @@ private fun KanjiSelectionPanel(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(4.dp)) { Text(stringResource(R.string.training_title), style = MaterialTheme.typography.labelSmall) }
+                OutlinedButton(onClick = onTrain, enabled = enabled && selected.isNotEmpty(), modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(4.dp)) { Text(stringResource(R.string.train_selected), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center) }
                 OutlinedButton(onClick = { onCustomLists?.invoke() },
                     enabled = enabled && selected.isNotEmpty() && onCustomLists != null,
                     modifier = Modifier.weight(1f), contentPadding = PaddingValues(4.dp)) {

@@ -282,26 +282,29 @@ class DictionaryDatabase(context: Context) {
     /** Pool characters are the only eligibility seed. Known is applied later by the training selector. */
     internal suspend fun getWordTrainingCandidates(pool: List<String>): List<WordTrainingCandidate> =
         withContext(Dispatchers.IO) {
-            require(pool.distinct().size in 1..50)
+            require(pool.isNotEmpty())
             SQLiteDatabase.openDatabase(dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                val args = pool.distinct().toTypedArray()
-                val selectedSql = wordTrainingFormsSql(args.size)
-                val hasJlpt = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='jlpt_kanji'", null)
-                    .use { it.moveToFirst() }
-                val candidates = loadWordCandidates(db, selectedSql, args, hasJlpt)
-                val allGlosses = mutableMapOf<Pair<Long, String>, MutableMap<String, MutableList<String>>>()
-                db.rawQuery(wordTrainingMeaningsSql(selectedSql), args).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        coroutineContext.ensureActive()
-                        val key = cursor.getLong(0) to cursor.getString(1)
-                        allGlosses.getOrPut(key) { linkedMapOf() }
-                            .getOrPut(cursor.getString(2)) { mutableListOf() }.add(cursor.getString(3))
+                // Stay below SDK 26 SQLite bind limits; rank/deduplicate the combined pool later.
+                pool.distinct().chunked(900).flatMap { chunk ->
+                    val args = chunk.toTypedArray()
+                    val selectedSql = wordTrainingFormsSql(args.size)
+                    val hasJlpt = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type='table' AND name='jlpt_kanji'", null)
+                        .use { it.moveToFirst() }
+                    val candidates = loadWordCandidates(db, selectedSql, args, hasJlpt)
+                    val allGlosses = mutableMapOf<Pair<Long, String>, MutableMap<String, MutableList<String>>>()
+                    db.rawQuery(wordTrainingMeaningsSql(selectedSql), args).use { cursor ->
+                        while (cursor.moveToNext()) {
+                            coroutineContext.ensureActive()
+                            val key = cursor.getLong(0) to cursor.getString(1)
+                            allGlosses.getOrPut(key) { linkedMapOf() }
+                                .getOrPut(cursor.getString(2)) { mutableListOf() }.add(cursor.getString(3))
+                        }
                     }
-                }
-                candidates.map { candidate ->
-                    WordTrainingCandidate(candidate,
-                        orderedWordMeanings(allGlosses[candidate.word.entryId to candidate.word.written].orEmpty()).firstOrNull())
-                }
+                    candidates.map { candidate ->
+                        WordTrainingCandidate(candidate,
+                            orderedWordMeanings(allGlosses[candidate.word.entryId to candidate.word.written].orEmpty()).firstOrNull())
+                    }
+                }.distinctBy { it.word.entryId to it.word.written }
             }
         }
 
@@ -474,7 +477,7 @@ class DictionaryDatabase(context: Context) {
         """
 
         internal fun wordTrainingFormsSql(poolSize: Int): String {
-            require(poolSize in 1..50)
+            require(poolSize > 0)
             val placeholders = List(poolSize) { "?" }.joinToString(",")
             return WORDS_SQL.replace("wk.kanji_id = ? AND (? = '0' OR f.common = 1)",
                 "wk.kanji_id IN (SELECT id FROM kanji WHERE character IN ($placeholders))")

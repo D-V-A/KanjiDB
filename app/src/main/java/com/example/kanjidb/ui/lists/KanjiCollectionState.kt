@@ -60,6 +60,15 @@ internal class KanjiCollectionState {
         if (expand) expandedKeys = expandedKeys + key
     }
 
+    /** Toggle only this header's members; other groups keep their selection. */
+    fun toggleAll(key: String, characters: Collection<String>, expand: Boolean = false) {
+        if (characters.isEmpty()) return
+        if (selecting && selected.containsAll(characters)) {
+            revealCharacter = null
+            selected = selected - characters.toSet()
+        } else selectAll(key, characters, expand)
+    }
+
     /** Multi-group selection never forces presentation open. Isolated collections retain their active section. */
     fun isExpanded(key: String, multiSection: Boolean): Boolean =
         key in expandedKeys || (selecting && !multiSection && key == section)

@@ -93,18 +93,24 @@ that feature is started unless explicitly fixed below.
 
 ## Next milestones
 
--   [ ] **Train Selected:** launch Kanji Training directly from the
-    current selection using an explicit/custom Training Pool.
-    -   Bypass Review/Learning/New/My Lists source selection for this
-        entry path.
-    -   Training core should accept an arbitrary explicit kanji pool
-        independent of Room learning state.
-    -   Do not break existing selection boundaries merely to support
-        mixed-state training: My Kanji remains section-limited; My Lists
-        remains list-limited; Kanji Groups may contain a mixed
-        multi-group selection.
-    -   Collection-panel Training actions remain disabled until this
-        milestone is implemented.
+-   [x] **Fixed-pool Training (0.8.0-alpha):** Train Selected and entire
+    Custom Lists share mode selection, >50-kanji soft warning, direct
+    Kanji sessions and fixed-pool Word setup/session construction.
+-   [ ] **Fixed-pool Training manual verification:**
+    - Selection <=50 opens mode selection directly; >50 opens warning.
+    - Cancel warning/mode menu preserves selection; mode acceptance clears it.
+    - Kanji starts immediately with every selected/list kanji, including >50.
+    - Word setup hides source/pool-size controls, shows Selected kanji: N,
+      keeps all other settings and passes the complete pool to the usual builder.
+    - >30 generated words still triggers the independent Word warning.
+    - Word setup Back/bottom navigation discards the fixed pool without
+      restoring the old selection; verify rotation in setup and sessions.
+    - Entire-list Training ignores active visual filters; empty lists disable actions.
+    - Select list's kanji selects/displays all members even with rules active;
+      header long press clears them, repeating selects all again. Exiting
+      selection restores the preceding filters.
+    - My Kanji, My Lists and multi-group Kanji Groups header/subgroup toggles
+      affect only their context, preserving other selected groups.
 -   [ ] **Stroke Order / KanjiVG:** integrate stroke-path/order data
     after attribution/license verification.
 -   [ ] **Handwriting Training:** build handwriting practice after

@@ -4,6 +4,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class KanjiCollectionStateTest {
+    @Test fun headerToggleClearsOnlyItsContextAndKeepsSelectionMode() {
+        val state = KanjiCollectionState()
+        state.selectAll("list", listOf("one", "two", "outside"))
+        state.toggleAll("list", listOf("one", "two"))
+        assertEquals(setOf("outside"), state.selected)
+        assertTrue(state.selecting)
+        state.toggleAll("list", listOf("one", "two"))
+        assertEquals(setOf("one", "two", "outside"), state.selected)
+        state.toggle("two")
+        state.toggleAll("list", listOf("one", "two"))
+        assertEquals(setOf("one", "two", "outside"), state.selected)
+        assertNull(state.revealCharacter)
+    }
+
+    @Test fun entireListHeaderClearsSelectionWithoutExiting() {
+        val state = KanjiCollectionState()
+        state.selectAll("list", listOf("one", "two"))
+        state.toggleAll("list", listOf("one", "two"))
+        assertTrue(state.selected.isEmpty())
+        assertEquals("list", state.section)
+    }
+
     @Test fun subgroupCollapseAndHeaderSelectionPreservePresentationAcrossRestore() {
         val state = KanjiCollectionState()
         state.toggleExpanded("N5")
