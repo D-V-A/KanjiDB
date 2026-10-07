@@ -172,7 +172,7 @@ internal fun MyListsPage(
                 before = currentLists.map { it.list.id }; after = before; reordering = true; menu = null
             }, modifier = Modifier.fillMaxWidth()) { Text("Change order") }
             OutlinedButton(onClick = { trainingPool = list.characters.toList(); menu = null },
-                enabled = list.characters.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Training") }
+                enabled = list.characters.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Text("Practice list's kanji") }
             OutlinedButton(onClick = {
                 // Reveal all list members through the existing shared filters/selection mechanism.
                 selectEntireList = true

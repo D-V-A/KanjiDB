@@ -31,7 +31,7 @@ internal fun WordTrainingOptions(settings: WordTrainingSettings, enabled: Boolea
         input = it.filter(Char::isDigit)
         onChange(settings.copy(targetCoverage = normalizedCoverage(input)))
     }, enabled = enabled, singleLine = true, label = { Text("Target coverage") },
-        supportingText = { Text("Goal: ${settings.targetCoverage} different words per pool kanji") },
+        supportingText = { Text("Goal: ${settings.targetCoverage} unique words per pool kanji that contain it") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { input = settings.targetCoverage.toString(); focus.clearFocus() }),
         modifier = Modifier.fillMaxWidth().onFocusChanged { if (!it.isFocused) input = settings.targetCoverage.toString() })
@@ -56,12 +56,8 @@ internal fun WordTrainingOptions(settings: WordTrainingSettings, enabled: Boolea
                 onClick = { onChange(settings.copy(length = length)) }, label = { Text(length.title) })
         }
     }
-    Text("Length counts kanji, including repeated kanji. Kana and other characters do not count.",
+    Text("Only kanji in the word are counted",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (settings.length.shortPriorityMaximum == 0) {
-        Text("This length restriction may make your target coverage unreachable.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
     var expanded by rememberSaveable { mutableStateOf(false) }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
