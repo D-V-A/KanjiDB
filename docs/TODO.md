@@ -382,3 +382,11 @@ that feature is started unless explicitly fixed below.
 - [ ] Collapsed Blobs shows up to six, unchanged cards; collapsed Strings up to ten, unchanged blob height and shared Blobs spacing.
 - [ ] Blobs -> Strings -> Blobs expands/contracts the ordered prefix 6/10/6; Show more/less respects the active limit.
 - [ ] Search finds words beyond either prefix, preserving normalization/order/help/Backspace and open/close behavior.
+
+## Custom Lists v0.8.9-alpha manual verification
+
+- [ ] Partial selection: current size x, add only missing members; NONE adds selectedCount, staged ALL add shows +0.
+- [ ] Staged remove counts only present selected members; NONE shows -0, ALL shows -selectedCount.
+- [ ] Same selection across multiple lists shows each list's actual effect; Apply matches the preview, Cancel discards changes.
+- [ ] Draft effects survive recreation; new staged lists show persisted size zero.
+- [ ] Selection Mode has no Back to My Lists; Finish exits normally; system Back and normal list expansion/navigation remain functional.

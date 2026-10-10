@@ -147,13 +147,7 @@ internal fun MyListsPage(
                     OutlinedCard(onClick = { creating = true }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
                         Text("Add new list", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium)
                     }
-                }) else ({
-                    if (displaySections.any { collection.isExpanded(it.key, multiSection = true) }) {
-                        TextButton(enabled = !saving && !writer.saving, onClick = { returnToOverview() }) {
-                            Text("Back to My Lists")
-                        }
-                    }
-                }),
+                }) else null,
                 onHeaderLongClick = { section ->
                     if (collection.selecting && collection.isExpanded(section.key, multiSection = true))
                         collection.toggleAll(section.key, section.cards.map { it.character })
