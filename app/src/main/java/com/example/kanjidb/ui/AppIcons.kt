@@ -17,6 +17,16 @@ import androidx.compose.ui.unit.dp
  * Stroke geometry is color-neutral; Material Icon applies the current content color.
  */
 internal object AppIcons {
+    val TextQuestion by lazy { strokeIcon("TextQuestion",
+        "M10 8v6a2 2 0 1 0 4 0v-1a2 2 0 1 0 -4 0v1",
+        "M7 16v-3a2 2 0 1 0 -4 0v1a2 2 0 0 0 3.726 1.01",
+        "M19 16v.01",
+        "M19 13a2 2 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483") }
+
+    val Backspace by lazy { strokeIcon("Backspace",
+        "M20 6a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-11l-5 -5a1.5 1.5 0 0 1 0 -2l5 -5l11 0",
+        "M12 10l4 4m0 -4l-4 4") }
+
     val Search by lazy { strokeIcon("Search",
         "M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0",
         "M21 21l-6 -6") }

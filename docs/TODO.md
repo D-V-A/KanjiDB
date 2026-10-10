@@ -197,7 +197,7 @@ that feature is started unless explicitly fixed below.
 ## Dictionary and data
 
 -   [x] Static, user-agnostic Related Words ranking on Kanji Details (0.7.2-alpha).
--   [ ] Further assess Related Words weights/whitelist using manual examples; ranking for Search/Explore remains separate future work.
+-   [ ] Further assess Related Words weights/whitelist using manual examples; Search now has separate relevance ranking; Explore ranking remains future work.
 -   [ ] Improve presentation of huge reading sets such as 生.
 -   [ ] Test that the Jōyō badge is absent for `joyo=0`.
 -   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
@@ -267,3 +267,50 @@ that feature is started unless explicitly fixed below.
 - [ ] Any tap across the full kanji-width area toggles once, including empty margins.
 - [ ] Verify narrow layouts, no clipping/protrusion, minimum 48 dp touch height and light/dark theme colors.
 - [ ] Accessibility exposes one display-mode action with current Glyph/Strokes and next-mode action, without on/off announcements.
+
+## Search v0.8.6-alpha manual verification
+
+- [x] Implement English relevance and Search-only matched meanings on existing dictionary data.
+- [x] Implement isolated pairwise subsequence presentation groups with individually clickable forms.
+- [x] Add anchored Search help with persistent automatic-display opt-out and manual access.
+- [x] Search Sunday: direct meanings precede Sunday best, parenthetical examples and Whitsunday; 五旬節 displays its matched gloss, while Details retains its existing heading. Repeat with other words and multiword queries.
+- [x] Verify 日曜日 / 日曜 / 日 grouping when their primary glosses agree; longer forms first, each opens its own Details; Show more preserves all identities. Review heuristic groups against real dictionary examples.
+- [x] Verify written/kana/romaji search, unchanged earliest reading, Explore and Details return state.
+- [x] Empty-field focus shows help; typing, focus loss and outside tap dismiss it naturally without disrupting the keyboard. There is no Close action.
+- [x] Don't show again survives process restart; manual help on the empty field still works and no longer offers the opt-out action.
+- [x] Check popup, grouped rows and the single state-dependent trailing icon on narrow screens, larger fonts and light/dark themes.
+- [ ] Measure broad/single-letter query responsiveness on a phone; full candidate relevance evaluation happens before pagination.
+
+
+## Search UI/state follow-up (versionCode 37) manual verification
+
+- [x] Search -> Word Details -> Back retains query, Words mode and results without repeating completed SQL.
+- [x] Search -> Kanji Details -> Back retains query, Kanji mode and results without repeating completed SQL.
+- [x] Repeat both after Show more results and opening a result far down the list; preserve expanded result count and exact scroll position.
+- [x] Query change starts the appropriate fresh search; clearing returns to discovery. The mode-switch behavior tested here is superseded by independent sessions in versionCode 38.
+- [x] Primary meanings begin with capitals (Day / Every day); matched secondary meanings do too (One's Sunday best / Whitsunday), preserving the remaining spelling.
+- [x] Empty query: only supplied TextQuestion; nonempty query: only supplied Backspace, which clears the entire query. Never both, and no info/circle-x action in the field.
+- [x] Search Help has correct Kanji and Words examples, no Close, and closes naturally without obstructing typing.
+- [x] Don't show again disables automatic help across restarts; manual help via TextQuestion remains available and hides the already-used opt-out action.
+- [x] Grouped result: transparent rounded outline, separate filled written/reading blobs, one centered meaning on the right; longest variant first. Single results have no group outline.
+- [x] Tap every variant of a grouped result; each opens the correct entry/written form in Word Details. Check narrow screens, larger fonts and both themes.
+
+## Dictionary deduplication / word variant model (future research)
+
+- [ ] Investigate duplicate dictionary entries with identical written forms (for example 五 or 男 with different readings/meanings).
+- [ ] Determine whether readings/meanings can safely be combined at import time or in the dictionary model, preserving their applicable restrictions and distinct senses.
+- [ ] Investigate a representation of orthographic variants of one word: 飛切り / 飛び切り / 飛びきり / とびっ切り, 今時 / 今どき, 学びや / 学び舎 / 学舎. Do not add kana removal/fuzzy matching to Search grouping.
+- [ ] Separately assess kanji variants (for example 五 / 伍) and historical/alternative forms after component/key data or a suitable external dataset becomes available.
+- [ ] Future Search Results should consume explicit dictionary variant information instead of guessing it through presentation heuristics. No part of this research is implemented in versionCode 37.
+
+## Search independent sessions / grouped blob width (versionCode 38)
+
+- [ ] Short written forms: every blob fills the same left-column width; forms/readings stay left-aligned, outline remains transparent and one shared meaning wraps on the right.
+- [ ] Long written form uses one line with ellipsis; long reading also uses one line with ellipsis. Neither changes blob/column width.
+- [ ] Each group variant still opens its correct entry/written form independently; longest-first order is unchanged.
+- [ ] Words: query -> Kanji -> Words restores its query/results; Kanji: query -> Words -> Kanji restores its own query/results. A never-used mode starts empty, with no copied query.
+- [ ] Keep different queries in both modes simultaneously; editing/clearing one mode leaves the other untouched, without SQL solely for mode switching when its results are complete.
+- [ ] Show more in Words -> Kanji -> Words retains expanded count; repeat Show more in Kanji -> Words -> Kanji where applicable.
+- [ ] Scroll restoration Words -> Kanji -> Words and Kanji -> Words -> Kanji preserves each mode's own index/offset.
+- [ ] Words -> Word Details -> Back and Kanji -> Kanji Details -> Back retain the active session. Combine mode switching with Details navigation and repeat for both modes.
+- [ ] Check narrow screens, larger fonts and both themes for equal columns, padding and ellipsis/meaning wrapping.

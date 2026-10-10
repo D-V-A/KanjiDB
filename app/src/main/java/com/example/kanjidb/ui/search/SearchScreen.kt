@@ -7,6 +7,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,11 +39,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,12 +52,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -66,50 +66,33 @@ import com.example.kanjidb.ui.DictionaryText
 import com.example.kanjidb.ui.standaloneKanjiMeaning
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryWord
-import com.example.kanjidb.data.dictionary.WordSearchPage
-import com.example.kanjidb.data.dictionary.KanjiSearchPage
+import com.example.kanjidb.data.dictionary.WordSearchResult
 import com.example.kanjidb.data.dictionary.KanjiSummary
 import kotlin.math.floor
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
-    var query by rememberSaveable { mutableStateOf("") }
+fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
+    val query = state.query
+    val wordMode = state.wordMode
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
-    var wordMode by rememberSaveable { mutableStateOf(false) }
     val pagerState = rememberPagerState(pageCount = { 3 })
     val pagerScope = rememberCoroutineScope()
-    var limit by remember(query, wordMode) { mutableIntStateOf(10) }
-    var page by remember(query, wordMode) { mutableStateOf(KanjiSearchPage(emptyList(), false)) }
-    var wordPage by remember(query, wordMode) { mutableStateOf(WordSearchPage(emptyList(), false)) }
-    var searchLoading by remember(query, wordMode) { mutableStateOf(true) }
-    var searchFailed by remember(query, wordMode) { mutableStateOf(false) }
-    var searchRetry by remember(query, wordMode) { mutableIntStateOf(0) }
-    val listState = rememberLazyListState()
     val exploring = query.isBlank()
+    val searchInteractionSource = remember { MutableInteractionSource() }
+    val searchFocused by searchInteractionSource.collectIsFocusedAsState()
+    val helpPreferences = remember(context) { SearchHelpPreferences(context) }
+    var autoHelp by remember { mutableStateOf(helpPreferences.autoShow) }
+    var helpVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(searchFocused, query) {
+        helpVisible = searchFocused && query.isEmpty() && autoHelp
+    }
 
     LaunchedEffect(dictionary) { ExploreState.initialize(dictionary) }
-    LaunchedEffect(query, wordMode) { listState.scrollToItem(0) }
-    LaunchedEffect(dictionary, query, wordMode, limit, searchRetry) {
-        if (exploring) return@LaunchedEffect
-        searchLoading = true
-        searchFailed = false
-        try {
-            delay(250)
-            if (wordMode) wordPage = dictionary.searchWords(query, limit)
-            else page = dictionary.searchKanji(query, limit)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            android.util.Log.e("Search", "Cannot search dictionary", error)
-            searchFailed = true
-        } finally {
-            searchLoading = false
-        }
+    LaunchedEffect(dictionary, state, query, wordMode, state.limit, state.retry) {
+        state.search(dictionary::searchKanji, dictionary::searchWords)
     }
     Column(
         modifier = modifier.fillMaxSize().imePadding().padding(16.dp),
@@ -123,37 +106,48 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
                     contentDescription = stringResource(R.string.about_open))
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val searchInteractionSource = remember { MutableInteractionSource() }
-            val searchFocused by searchInteractionSource.collectIsFocusedAsState()
-            val searchColors = OutlinedTextFieldDefaults.colors()
-            SearchModeControl(wordMode = wordMode,
-                arrowColor = if (searchFocused) searchColors.focusedIndicatorColor
-                    else searchColors.unfocusedIndicatorColor,
-                onSwitch = {
-                wordMode = !wordMode
-                wordMode
-            })
-            OutlinedTextField(
-                interactionSource = searchInteractionSource,
-                colors = searchColors,
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(
-                    if (wordMode) R.string.search_words_hint else R.string.search_kanji_hint)) },
-                trailingIcon = if (query.isNotEmpty()) {
-                    {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_close),
-                                contentDescription = stringResource(R.string.search_clear)
-                            )
+        Box(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val searchColors = OutlinedTextFieldDefaults.colors()
+                SearchModeControl(wordMode = wordMode,
+                    arrowColor = if (searchFocused) searchColors.focusedIndicatorColor
+                        else searchColors.unfocusedIndicatorColor,
+                    onSwitch = {
+                        state.switchMode()
+                        state.wordMode
+                    })
+                OutlinedTextField(
+                    interactionSource = searchInteractionSource,
+                    colors = searchColors,
+                    value = query,
+                    onValueChange = { helpVisible = false; state.changeQuery(it) },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(
+                        if (wordMode) R.string.search_words_hint else R.string.search_kanji_hint)) },
+                    trailingIcon = {
+                        if (query.isEmpty()) {
+                            IconButton(onClick = { helpVisible = !helpVisible }) {
+                                Icon(AppIcons.TextQuestion, contentDescription = stringResource(R.string.search_help))
+                            }
+                        } else {
+                            IconButton(onClick = { state.changeQuery("") }) {
+                                Icon(AppIcons.Backspace, contentDescription = stringResource(R.string.search_clear))
+                            }
                         }
-                    }
-                } else null,
-                singleLine = true
+                    },
+                    singleLine = true
+                )
+            }
+            if (helpVisible) SearchHelpPopup(
+                wordMode = wordMode,
+                showDisableAutoShow = autoHelp,
+                onDismiss = { helpVisible = false },
+                onDisableAutoShow = {
+                    helpPreferences.disableAutoShow()
+                    autoHelp = false
+                    helpVisible = false
+                }
             )
         }
         if (exploring) {
@@ -201,12 +195,12 @@ fun SearchScreen(onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> 
         } else {
             SearchList(
                 exploring = false, showingWords = wordMode,
-                rows = page.kanji, wordRows = wordPage.words,
-                loading = searchLoading, failed = searchFailed,
-                hasMore = if (wordMode) wordPage.hasMore else page.hasMore,
-                onRetry = { searchRetry++ }, onRefresh = {}, onShowMore = { limit += 10 },
+                rows = state.kanjiPage.kanji, wordRows = emptyList(), searchWordRows = state.wordPage.words,
+                loading = state.loading, failed = state.failed,
+                hasMore = if (wordMode) state.wordPage.hasMore else state.kanjiPage.hasMore,
+                onRetry = state::retrySearch, onRefresh = {}, onShowMore = state::showMore,
                 onOpenDetails = onOpenDetails, onOpenWord = onOpenWord,
-                modifier = Modifier.weight(1f), listState = listState
+                modifier = Modifier.weight(1f), listState = state.listState
             )
         }
     }
@@ -323,6 +317,7 @@ private fun SearchList(
     showingWords: Boolean,
     rows: List<KanjiSummary>,
     wordRows: List<DictionaryWord>,
+    searchWordRows: List<WordSearchResult> = emptyList(),
     loading: Boolean,
     failed: Boolean,
     hasMore: Boolean,
@@ -335,13 +330,29 @@ private fun SearchList(
     listState: LazyListState = rememberLazyListState()
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
-    val empty = if (showingWords) wordRows.isEmpty() else rows.isEmpty()
+    val groups = remember(searchWordRows) { groupWordSearchResults(searchWordRows) }
+    val empty = if (showingWords) (if (exploring) wordRows.isEmpty() else searchWordRows.isEmpty()) else rows.isEmpty()
     LazyColumn(
         state = listState,
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(if (exploring) 12.dp else 4.dp)
     ) {
-        if (showingWords) {
+        if (showingWords && !exploring) {
+            items(groups, key = { group -> group.minOf { "${it.word.entryId}:${it.word.written}" } }) { group ->
+                if (group.size > 1) {
+                    GroupedSearchWordRow(group) { word ->
+                        keyboardController?.hide()
+                        onOpenWord(word.entryId, word.written)
+                    }
+                } else {
+                    val result = group.single()
+                    SearchWordRow(result.word, Modifier.fillMaxWidth().clickable {
+                        keyboardController?.hide()
+                        onOpenWord(result.word.entryId, result.word.written)
+                    }, meaning = result.displayMeaning.standaloneKanjiMeaning())
+                }
+            }
+        } else if (showingWords) {
             items(wordRows, key = { "${it.entryId}:${it.written}" }) { word ->
                 val open = {
                     keyboardController?.hide()
@@ -421,14 +432,43 @@ private fun KanjiRow(kanji: KanjiSummary, compact: Boolean, modifier: Modifier =
 }
 
 @Composable
-private fun SearchWordRow(word: DictionaryWord, modifier: Modifier = Modifier) {
+private fun SearchWordRow(word: DictionaryWord, modifier: Modifier = Modifier, meaning: String = word.meanings.firstOrNull().orEmpty()) {
     Row(modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             DictionaryText(word.written, style = MaterialTheme.typography.titleLarge)
             DictionaryText(word.reading, style = MaterialTheme.typography.bodySmall)
         }
-        DictionaryText(word.meanings.firstOrNull().orEmpty(), modifier = Modifier.weight(1f),
+        DictionaryText(meaning, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** The outline links variants; only the individual filled spelling surfaces are actions. */
+@Composable
+private fun GroupedSearchWordRow(group: List<WordSearchResult>, onOpen: (DictionaryWord) -> Unit) {
+    Row(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant,
+        MaterialTheme.shapes.medium).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            group.forEach { result ->
+                Surface(onClick = { onOpen(result.word) }, modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.Start) {
+                        DictionaryText(result.word.written, modifier = Modifier.fillMaxWidth(),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleLarge)
+                        DictionaryText(result.word.reading, modifier = Modifier.fillMaxWidth(),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+        DictionaryText(group.minWith(com.example.kanjidb.data.dictionary.wordSearchOrder)
+            .displayMeaning.standaloneKanjiMeaning(), modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium)
     }
 }

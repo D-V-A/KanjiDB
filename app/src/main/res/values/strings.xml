@@ -169,4 +169,7 @@
     <string name="my_lists_drag_hint">To change the order, hold and drag a kanji.\nKanji can only be reordered within the current list.</string>
     <string name="custom_lists">Custom Lists</string>
     <string name="selection_finish">Finish</string>
+    <string name="search_help">Search input help</string>
+    <string name="search_help_examples">Try any of these:</string>
+    <string name="search_help_dont_show">Don\'t show again</string>
 </resources>

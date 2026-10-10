@@ -39,6 +39,8 @@ import com.example.kanjidb.ui.details.KanjiDetailsScreen
 import com.example.kanjidb.ui.details.WordDetailsScreen
 import com.example.kanjidb.ui.lists.MyKanjiScreen
 import com.example.kanjidb.ui.search.SearchScreen
+import com.example.kanjidb.ui.search.SearchState
+import androidx.lifecycle.ViewModelProvider
 import com.example.kanjidb.ui.training.TrainingScreen
 
 private const val SEARCH = "search"
@@ -144,6 +146,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 .fillMaxSize()
         ) {
             composable(SEARCH) { entry ->
+                val searchState = remember(entry) { ViewModelProvider(entry)[SearchState::class.java] }
                 DisposableEffect(entry) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -155,7 +158,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                     entry.lifecycle.addObserver(observer)
                     onDispose { entry.lifecycle.removeObserver(observer) }
                 }
-                SearchScreen(onOpenRecommended = { character ->
+                SearchScreen(state = searchState, onOpenRecommended = { character ->
                     entry.savedStateHandle["recommendedDetails"] = character
                     openDetails(character)
                 }, onOpenDetails = openDetails, onOpenAbout = {

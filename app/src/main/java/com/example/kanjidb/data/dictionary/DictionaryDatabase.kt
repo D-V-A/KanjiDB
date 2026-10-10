@@ -109,9 +109,12 @@ class DictionaryDatabase(context: Context) {
         val text = query.trim().lowercase(Locale.ROOT)
         if (text.isEmpty()) return@withContext WordSearchPage(emptyList(), false)
         val reading = normalizeReading(text).orEmpty()
-        val rows = queryWordSummaries(SEARCH_WORDS_SQL,
-            arrayOf(text, reading, toKatakana(reading), (limit + 1).toString()))
-        WordSearchPage(rows.take(limit), rows.size > limit)
+        SQLiteDatabase.openDatabase(
+            dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
+        ).use { db ->
+            val rows = searchWordResults(db, text, reading)
+            WordSearchPage(rows.take(limit), rows.size > limit)
+        }
     }
 
     suspend fun getExploreWords(): List<DictionaryWord> = withContext(Dispatchers.IO) {
