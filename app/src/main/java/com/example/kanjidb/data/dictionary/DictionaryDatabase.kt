@@ -106,9 +106,10 @@ class DictionaryDatabase(context: Context) {
 
     suspend fun searchWords(query: String, limit: Int): WordSearchPage = withContext(Dispatchers.IO) {
         require(limit in 1 until Int.MAX_VALUE)
-        val text = query.trim().lowercase(Locale.ROOT)
+        val prepared = prepareWordSearchQuery(query)
+        val text = prepared.text
         if (text.isEmpty()) return@withContext WordSearchPage(emptyList(), false)
-        val reading = normalizeReading(text).orEmpty()
+        val reading = prepared.reading
         SQLiteDatabase.openDatabase(
             dictionaryFile().absolutePath, null, SQLiteDatabase.OPEN_READONLY
         ).use { db ->

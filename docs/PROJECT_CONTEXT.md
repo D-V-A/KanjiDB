@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.8.7-alpha**, `versionCode = 42`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
+Current version: **v0.8.8-alpha**, `versionCode = 44`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Neither currently versions the dictionary.
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; stroke order remains a placeholder.
 
@@ -307,3 +307,19 @@ Kanji Training Results now uses the same TrainingResultCard entity click callbac
 ## Results switch icon polish (versionCode 42)
 
 Results circular arrows render at 30 dp inside the unchanged 20 dp layout slot, preserving control width, label position and tap zone. The arrows use the same LocalContentColor as the label. Header typography, animation and Search rendering remain unchanged.
+
+## Related Words presentation and local search (v0.8.8-alpha / versionCode 43)
+
+Kanji Details defaults to the existing Blobs cards. Strings shows compact rounded clickable rows with written/first English meaning in 38%/62% columns, single-line ellipsis and no reading/additional glosses. Both retain the existing ranked DictionaryWord set and Word Details route. Exact supplied Blobs/Strings/ListSearch/ListSearchOff vectors live in AppIcons.
+
+GlyphStrokesSelector delegates to TwoIconSelector with its original dimensions/colors/180 ms sliding inactive cover; Related Words uses the same component at 52x24 dp with 20 dp icons and a 48 dp invisible tap height. The header search action uses a 20 dp icon and the standard IconButton touch area. Search appears only for an original set larger than six, matching Show more availability, regardless of filtered count.
+
+Search filters the complete already-loaded related-word set, including items hidden by Show more. prepareWordSearchQuery shares the existing trim/lowercase/normalizeReading preprocessing with global Word Search; local substring matching checks written, hiragana/katakana reading and all loaded English glosses without SQL or reranking. Nonblank queries show all matches; empty/closed search retains the original six/Show more presentation. Backspace clears only query; crossed ListSearch closes and resets search. Empty matches display No matching words. The existing TextQuestion/Backspace and manual Words SearchHelpPopup are reused without auto-help/opt-out. No new romanization rules are added.
+
+Mode, search open/query and Show more use rememberSaveable keyed by kanjiId within each existing navigation entry. Mode changes preserve filtering; Word Details/Back restores the local values. New independent Details entries start Blobs with closed/empty search. No settings, dictionary schema/query/ranking or Room changes.
+
+## Related Words polish (versionCode 44)
+
+Normal collapsed prefixes are six words in Blobs and ten in Strings; Show more appears when the set exceeds the active limit. Search remains available for >6 original words and filters the whole set with all matches shown, independently of these prefixes. Existing expansion preference, normalization/help and navigation are unchanged.
+
+Both modes reuse RelatedWordsItemSpacing (12 dp). Strings disables Material's invisible minimum-interactive layout clearance around its compact Card; visual card padding/height stays unchanged and Compose's expanded touch targeting remains. Zero words keeps Words and displays No related words found in the dictionary, without mode/search controls.

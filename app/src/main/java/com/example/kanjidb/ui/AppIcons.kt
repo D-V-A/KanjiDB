@@ -17,6 +17,15 @@ import androidx.compose.ui.unit.dp
  * Stroke geometry is color-neutral; Material Icon applies the current content color.
  */
 internal object AppIcons {
+    val Strings by lazy { strokeIcon("Strings", "M4 6h16", "M4 12h16", "M4 18h16") }
+    val Blobs by lazy { strokeIcon("Blobs",
+        "M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -2",
+        "M4 16a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -2") }
+    private val listSearchPaths = arrayOf("M11 15a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
+        "M18.5 18.5l2.5 2.5", "M4 6h16", "M4 12h4", "M4 18h4")
+    val ListSearch by lazy { strokeIcon("ListSearch", *listSearchPaths) }
+    val ListSearchOff by lazy { strokeIcon("ListSearchOff", *listSearchPaths, "M3 3l18 18") }
+
     val TextQuestion by lazy { strokeIcon("TextQuestion",
         "M10 8v6a2 2 0 1 0 4 0v-1a2 2 0 1 0 -4 0v1",
         "M7 16v-3a2 2 0 1 0 -4 0v1a2 2 0 0 0 3.726 1.01",
@@ -67,13 +76,6 @@ internal object AppIcons {
         "M4 10v-4.5a1.5 1.5 0 0 1 3 0v4.5",
         "M4 8h3",
         "M4 20h1.5a1.5 1.5 0 0 0 0 -3h-1.5h1.5a1.5 1.5 0 0 0 0 -3h-1.5v6") }
-
-    val ListSearch by lazy { strokeIcon("ListSearch",
-        "M11 15a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
-        "M18.5 18.5l2.5 2.5",
-        "M4 6h16",
-        "M4 12h4",
-        "M4 18h4") }
 
     val FilterDown by lazy { strokeIcon("FilterDown",
         "M12 20l-3 1v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v3",

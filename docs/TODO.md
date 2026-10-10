@@ -357,3 +357,28 @@ that feature is started unless explicitly fixed below.
 - [ ] Results arrows render at 30 dp in the main foreground/text color matching the label.
 - [ ] Kanji -> Words -> Kanji retains icon/label positions and the existing tap zone.
 - [ ] Search switch retains its size, central symbol, colors and animation.
+
+## Related Words v0.8.8-alpha manual verification
+
+- [ ] <=6 original words: Blobs/Strings selector present, no Search; >6: selector and Search present.
+- [ ] New Details defaults to unchanged Blobs cards and closed/empty search.
+- [ ] Blobs -> Strings -> Blobs uses supplied icons and the Glyph/Strokes cover animation; controls stay compact.
+- [ ] Strings: low rounded clickable rows, written left, first meaning right, no reading/additional meanings; long text ellipsizes without row-height growth.
+- [ ] Strings -> matching Word Details -> Back returns to Kanji Details with Strings retained.
+- [ ] Open search: full-width field under Words, list moves down naturally, crossed ListSearch appears.
+- [ ] Search written, hiragana, katakana, symbolic romaji (nitiyoubi), primary and available secondary English meanings.
+- [ ] A match hidden below Show more is found; all matches retain original ranking/order.
+- [ ] Blobs/Strings switches preserve open search, query and filtered set.
+- [ ] Empty query: TextQuestion manually opens Words help without auto-popup/opt-out. Nonempty: only Backspace, clearing query while leaving field open.
+- [ ] Crossed ListSearch closes field/clears query/restores original list and Show more state; Search remains available even with <=6 filtered matches.
+- [ ] No matches: No matching words, search remains open/editable.
+- [ ] Blobs -> matching Word Details -> Back remains functional; filtered search -> Details -> Back restores mode/open/query/Show more.
+- [ ] Glyph/Strokes retains previous size, icons, colors, tap behavior and animation. Check both themes, narrow screens and larger fonts.
+
+## Related Words polish (versionCode 44) manual verification
+
+- [ ] Zero words: Words + No related words found in the dictionary, no selector/search.
+- [ ] 1..6 words: selector, no Search; 7+ words: selector and Search (threshold remains >6).
+- [ ] Collapsed Blobs shows up to six, unchanged cards; collapsed Strings up to ten, unchanged blob height and shared Blobs spacing.
+- [ ] Blobs -> Strings -> Blobs expands/contracts the ordered prefix 6/10/6; Show more/less respects the active limit.
+- [ ] Search finds words beyond either prefix, preserving normalization/order/help/Backspace and open/close behavior.
