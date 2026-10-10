@@ -61,7 +61,8 @@ internal fun CustomListNameDialog(
 internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onDismiss: () -> Unit) {
     val draftSaver = remember {
         listSaver<CustomListDraft?, String>(
-            save = { it?.save().orEmpty() }, restore = { if (it.isEmpty()) null else CustomListDraft.restore(it) })
+            // Older drafts lack exact membership counts; reload instead of estimating their effects.
+            save = { it?.save().orEmpty() }, restore = { if (it.firstOrNull() != "v3") null else CustomListDraft.restore(it) })
     }
     var draft by rememberSaveable(stateSaver = draftSaver) { mutableStateOf<CustomListDraft?>(null) }
     var revision by remember { mutableIntStateOf(0) }
@@ -88,14 +89,14 @@ internal fun CustomListsDialog(dao: CustomListDao, characters: List<String>, onD
                     val targets = remember(current, revision) { current.targets }
                     LazyColumn(Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (current.targets.isEmpty()) item { Text("You don't have any lists yet.") }
-                            itemsIndexed(targets) { index, target ->
+                            itemsIndexed(targets) { index, _ ->
                                 val state = when (current.state(index)) {
                                     ListMembershipState.UNCHECKED -> ToggleableState.Off
                                     ListMembershipState.PARTIAL -> ToggleableState.Indeterminate
                                     ListMembershipState.CHECKED -> ToggleableState.On
                                 }
                                 CustomListMembershipButton(
-                                    label = target.name + " (" + target.kanjiCount + ")",
+                                    label = current.effectLabel(index),
                                     state = state, enabled = !saving,
                                     onClick = { current.tap(index); revision++ })
                             }

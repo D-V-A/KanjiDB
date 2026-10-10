@@ -31,7 +31,7 @@ class WordReadingOrderTest {
                 assertEquals(listOf("\u304d\u3087\u3046", "\u3053\u3093\u306b\u3061", "\u3053\u3093\u3061", "\u3053\u3093\u3058\u3064"), readings)
             }
             listOf(
-                SEARCH_WORDS_SQL to arrayOf("\u4eca\u65e5", "", "", "10"),
+                SEARCH_WORDS_SQL to arrayOf("\u4eca\u65e5", "", ""),
                 EXPLORE_WORDS_SQL to emptyArray(),
                 DictionaryDatabase.WORDS_SQL to arrayOf("1", "1"),
                 DictionaryDatabase.WORDS_SQL to arrayOf("1", "0")

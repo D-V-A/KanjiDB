@@ -15,6 +15,26 @@ internal object TrainingState {
         private set
     var wordSession by mutableStateOf<WordTrainingSession?>(null)
         private set
+    var kanjiResultsScroll = androidx.compose.foundation.lazy.LazyListState()
+        private set
+    var wordResultsWords by mutableStateOf(false)
+        private set
+    var wordResultsKanjiScroll = androidx.compose.foundation.lazy.LazyListState()
+        private set
+    var wordResultsWordsScroll = androidx.compose.foundation.lazy.LazyListState()
+        private set
+
+    fun switchWordResults(): Boolean {
+        if (!saving) wordResultsWords = !wordResultsWords
+        return wordResultsWords
+    }
+
+    private fun resetWordResultsPresentation() {
+        wordResultsWords = false
+        wordResultsKanjiScroll = androidx.compose.foundation.lazy.LazyListState()
+        wordResultsWordsScroll = androidx.compose.foundation.lazy.LazyListState()
+    }
+
     val active get() = session != null || wordSession != null
     var wordCards: Map<String, KanjiSummary> = emptyMap()
         private set
@@ -37,6 +57,7 @@ internal object TrainingState {
 
     fun start(mode: TrainingMode, kanji: List<DictionaryKanji>) {
         check(!active && !saving)
+        kanjiResultsScroll = androidx.compose.foundation.lazy.LazyListState()
         cards = kanji.associateBy { it.character }
         session = TrainingSession.start(mode, kanji.map { it.character })
         saveFailed = false
@@ -50,6 +71,7 @@ internal object TrainingState {
         check(!active && !saving)
         val started = WordTrainingSession.start(plan)
         wordCards = summaries.toMap()
+        resetWordResultsPresentation()
         wordSession = started
         fixedWordPool = null
         saveFailed = false
@@ -65,6 +87,8 @@ internal object TrainingState {
         fixedWordPool = null
         session = null
         wordSession = null
+        resetWordResultsPresentation()
+        kanjiResultsScroll = androidx.compose.foundation.lazy.LazyListState()
         cards = emptyMap()
         wordCards = emptyMap()
         saveFailed = false
@@ -100,6 +124,8 @@ internal object TrainingState {
                 dao.applyStates(assignments)
                 session = null
                 wordSession = null
+                resetWordResultsPresentation()
+                kanjiResultsScroll = androidx.compose.foundation.lazy.LazyListState()
                 cards = emptyMap()
                 wordCards = emptyMap()
             } catch (error: CancellationException) { throw error }

@@ -28,15 +28,24 @@ fun membershipState(members: Collection<String>, selected: Collection<String>): 
 }
 
 /** Null target means preserve the original partial/all/none state, including concurrent changes. */
-data class CustomListTarget(val id: Long?, val name: String, val target: Boolean? = null, val kanjiCount: Int = 0)
+data class CustomListTarget(val id: Long?, val name: String, val target: Boolean? = null, val kanjiCount: Int = 0, val selectedMemberCount: Int = 0)
 class CustomListDraft(lists: List<CustomListWithKanji>, val selected: List<String>) {
-    var targets: List<CustomListTarget> = lists.map { CustomListTarget(it.list.id, it.list.name, kanjiCount = it.memberships.size) }
+    var targets: List<CustomListTarget> = lists.map { CustomListTarget(it.list.id, it.list.name, kanjiCount = it.memberships.size,
+            selectedMemberCount = it.characters.toSet().intersect(selected.toSet()).size) }
         private set
     private var initial = lists.associate { it.list.id to membershipState(it.characters, selected) }
     fun state(index: Int): ListMembershipState {
         val target = targets[index]
         return target.target?.let { if (it) ListMembershipState.CHECKED else ListMembershipState.UNCHECKED }
             ?: initial.getValue(requireNotNull(target.id))
+    }
+    /** Untouched rows preview the next toggle; staged rows preview their Apply operation. */
+    fun effectLabel(index: Int): String {
+        val row = targets[index]
+        val add = row.target ?: (state(index) != ListMembershipState.CHECKED)
+        val affected = if (add) selected.distinct().size - row.selectedMemberCount else row.selectedMemberCount
+        val size = if (row.id == null) 0 else row.kanjiCount
+        return "${row.name} ($size ${if (add) "+" else "-"} $affected)"
     }
     fun tap(index: Int) {
         val checked = state(index).tapped() == ListMembershipState.CHECKED
@@ -46,23 +55,25 @@ class CustomListDraft(lists: List<CustomListWithKanji>, val selected: List<Strin
             else target
         }
     }
-    fun save(): List<String> = listOf("v2", selected.size.toString()) + selected +
+    fun save(): List<String> = listOf("v3", selected.size.toString()) + selected +
         listOf(targets.size.toString()) + targets.flatMap {
             listOf(it.id?.toString().orEmpty(), it.name, it.target?.toString().orEmpty(),
-                (it.id?.let { id -> initial[id] } ?: ListMembershipState.UNCHECKED).name, it.kanjiCount.toString())
+                (it.id?.let { id -> initial[id] } ?: ListMembershipState.UNCHECKED).name, it.kanjiCount.toString(), it.selectedMemberCount.toString())
         }
 
     companion object {
         fun restore(saved: List<String>): CustomListDraft {
-            val counted = saved.first() == "v2"
+            val effects = saved.first() == "v3"
+            val counted = effects || saved.first() == "v2"
             val values = if (counted) saved.drop(1) else saved
             val selectedCount = values[0].toInt()
             val selected = values.subList(1, 1 + selectedCount)
             val targetCount = values[1 + selectedCount].toInt()
-            val rows = values.drop(2 + selectedCount).chunked(if (counted) 5 else 4).take(targetCount)
+            val rows = values.drop(2 + selectedCount).chunked(if (effects) 6 else if (counted) 5 else 4).take(targetCount)
             return CustomListDraft(emptyList(), selected).apply {
                 targets = rows.map { CustomListTarget(it[0].toLongOrNull(), it[1],
-                    it[2].takeIf(String::isNotEmpty)?.toBooleanStrict(), if (counted) it[4].toInt() else 0) }
+                    it[2].takeIf(String::isNotEmpty)?.toBooleanStrict(), if (counted) it[4].toInt() else 0,
+                    if (effects) it[5].toInt() else 0) }
                 initial = rows.filter { it[0].isNotEmpty() }.associate {
                     it[0].toLong() to ListMembershipState.valueOf(it[3])
                 }

@@ -3,6 +3,7 @@ package com.example.kanjidb.ui.training
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -47,14 +48,15 @@ internal enum class TrainingResultStatus { SUCCESS, PARTIAL, FAILURE, NOT_TESTED
 internal fun TrainingResultCard(
     character: String, meaning: String, status: TrainingResultStatus, participated: Boolean,
     detail: String? = null, actions: List<LearningState>, pending: LearningState?,
-    saving: Boolean, onAction: (LearningState) -> Unit, reviewing: Boolean = false, wordColors: Boolean = false
+    saving: Boolean, onAction: (LearningState) -> Unit, reviewing: Boolean = false, wordColors: Boolean = false,
+    onOpenEntity: (() -> Unit)? = null
 ) {
     val actionAreaHeight = with(LocalDensity.current) { 52.sp.toDp().coerceAtLeast(56.dp) }
     val singleActionMaxHeight = with(LocalDensity.current) { 32.sp.toDp().coerceAtLeast(32.dp) }
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(8.dp).heightIn(min = actionAreaHeight), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.weight(1f).alpha(if (participated) 1f else 0.45f),
+            Row(Modifier.weight(1f).then(if (onOpenEntity != null) Modifier.clickable(enabled = !saving, onClick = onOpenEntity) else Modifier).alpha(if (participated) 1f else 0.45f),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val label = when (status) {
                     TrainingResultStatus.SUCCESS -> "Correct"

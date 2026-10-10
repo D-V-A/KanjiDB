@@ -197,7 +197,7 @@ that feature is started unless explicitly fixed below.
 ## Dictionary and data
 
 -   [x] Static, user-agnostic Related Words ranking on Kanji Details (0.7.2-alpha).
--   [ ] Further assess Related Words weights/whitelist using manual examples; ranking for Search/Explore remains separate future work.
+-   [ ] Further assess Related Words weights/whitelist using manual examples; Search now has separate relevance ranking; Explore ranking remains future work.
 -   [ ] Improve presentation of huge reading sets such as 生.
 -   [ ] Test that the Jōyō badge is absent for `joyo=0`.
 -   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
@@ -269,3 +269,126 @@ that feature is started unless explicitly fixed below.
 - [ ] Any tap across the full kanji-width area toggles once, including empty margins.
 - [ ] Verify narrow layouts, no clipping/protrusion, minimum 48 dp touch height and light/dark theme colors.
 - [ ] Accessibility exposes one display-mode action with current Glyph/Strokes and next-mode action, without on/off announcements.
+
+## Search v0.8.6-alpha manual verification
+
+- [x] Implement English relevance and Search-only matched meanings on existing dictionary data.
+- [x] Implement isolated pairwise subsequence presentation groups with individually clickable forms.
+- [x] Add anchored Search help with persistent automatic-display opt-out and manual access.
+- [x] Search Sunday: direct meanings precede Sunday best, parenthetical examples and Whitsunday; 五旬節 displays its matched gloss, while Details retains its existing heading. Repeat with other words and multiword queries.
+- [x] Verify 日曜日 / 日曜 / 日 grouping when their primary glosses agree; longer forms first, each opens its own Details; Show more preserves all identities. Review heuristic groups against real dictionary examples.
+- [x] Verify written/kana/romaji search, unchanged earliest reading, Explore and Details return state.
+- [x] Empty-field focus shows help; typing, focus loss and outside tap dismiss it naturally without disrupting the keyboard. There is no Close action.
+- [x] Don't show again survives process restart; manual help on the empty field still works and no longer offers the opt-out action.
+- [x] Check popup, grouped rows and the single state-dependent trailing icon on narrow screens, larger fonts and light/dark themes.
+- [ ] Measure broad/single-letter query responsiveness on a phone; full candidate relevance evaluation happens before pagination.
+
+
+## Search UI/state follow-up (versionCode 37) manual verification
+
+- [x] Search -> Word Details -> Back retains query, Words mode and results without repeating completed SQL.
+- [x] Search -> Kanji Details -> Back retains query, Kanji mode and results without repeating completed SQL.
+- [x] Repeat both after Show more results and opening a result far down the list; preserve expanded result count and exact scroll position.
+- [x] Query change starts the appropriate fresh search; clearing returns to discovery. The mode-switch behavior tested here is superseded by independent sessions in versionCode 38.
+- [x] Primary meanings begin with capitals (Day / Every day); matched secondary meanings do too (One's Sunday best / Whitsunday), preserving the remaining spelling.
+- [x] Empty query: only supplied TextQuestion; nonempty query: only supplied Backspace, which clears the entire query. Never both, and no info/circle-x action in the field.
+- [x] Search Help has correct Kanji and Words examples, no Close, and closes naturally without obstructing typing.
+- [x] Don't show again disables automatic help across restarts; manual help via TextQuestion remains available and hides the already-used opt-out action.
+- [x] Grouped result: transparent rounded outline, separate filled written/reading blobs, one centered meaning on the right; longest variant first. Single results have no group outline.
+- [x] Tap every variant of a grouped result; each opens the correct entry/written form in Word Details. Check narrow screens, larger fonts and both themes.
+
+## Dictionary deduplication / word variant model (future research)
+
+- [ ] Investigate duplicate dictionary entries with identical written forms (for example 五 or 男 with different readings/meanings).
+- [ ] Determine whether readings/meanings can safely be combined at import time or in the dictionary model, preserving their applicable restrictions and distinct senses.
+- [ ] Investigate a representation of orthographic variants of one word: 飛切り / 飛び切り / 飛びきり / とびっ切り, 今時 / 今どき, 学びや / 学び舎 / 学舎. Do not add kana removal/fuzzy matching to Search grouping.
+- [ ] Separately assess kanji variants (for example 五 / 伍) and historical/alternative forms after component/key data or a suitable external dataset becomes available.
+- [ ] Future Search Results should consume explicit dictionary variant information instead of guessing it through presentation heuristics. No part of this research is implemented in versionCode 37.
+
+## Search independent sessions / grouped blob width (versionCode 38)
+
+- [ ] Short written forms: every blob fills the same left-column width; forms/readings stay left-aligned, outline remains transparent and one shared meaning wraps on the right.
+- [ ] Long written form uses one line with ellipsis; long reading also uses one line with ellipsis. Neither changes blob/column width.
+- [ ] Each group variant still opens its correct entry/written form independently; longest-first order is unchanged.
+- [ ] Words: query -> Kanji -> Words restores its query/results; Kanji: query -> Words -> Kanji restores its own query/results. A never-used mode starts empty, with no copied query.
+- [ ] Keep different queries in both modes simultaneously; editing/clearing one mode leaves the other untouched, without SQL solely for mode switching when its results are complete.
+- [ ] Show more in Words -> Kanji -> Words retains expanded count; repeat Show more in Kanji -> Words -> Kanji where applicable.
+- [ ] Scroll restoration Words -> Kanji -> Words and Kanji -> Words -> Kanji preserves each mode's own index/offset.
+- [ ] Words -> Word Details -> Back and Kanji -> Kanji Details -> Back retain the active session. Combine mode switching with Details navigation and repeat for both modes.
+- [ ] Check narrow screens, larger fonts and both themes for equal columns, padding and ellipsis/meaning wrapping.
+
+## Word Training Results v0.8.7-alpha manual verification
+
+- [ ] Incorrect -> Repeat -> Correct: last word result Correct; old error removed from kanji aggregates.
+- [ ] Correct -> Repeat -> Incorrect: last word result Incorrect.
+- [ ] Incorrect -> Incorrect: no additional penalty.
+- [ ] Correct -> Correct: no additional bonus.
+- [ ] Repeat one word several times: Shown stays the unique evaluated word count.
+- [ ] Mistakes only updates only repeated words; other last results remain.
+- [ ] Entire session counts every word once by its last result.
+- [ ] Current iteration with mixed Correct/Incorrect replaces the corresponding per-word results.
+- [ ] Kanji -> Words -> Kanji retains presentation state and pending choices.
+- [ ] Words -> Kanji -> Words returns to the Words presentation.
+- [ ] Words lists each unique word once with its latest result.
+- [ ] Kanji aggregates agree with current Words results.
+- [ ] Kanji Results -> Kanji Details -> Back returns to the same Results session.
+- [ ] Words Results -> matching Word Details -> Back returns to Words.
+- [ ] Pending Learning/Known -> Kanji Details -> Back preserves pending choices.
+- [ ] Kanji scroll restores after Details -> Back.
+- [ ] Words scroll restores after Details -> Back.
+- [ ] Kanji and Words have independent retained scroll positions across switches.
+- [ ] Details navigation does not write Results pending changes.
+- [ ] Kanji/Words switches do not write pending changes.
+- [ ] Finish applies pending changes once through the existing Room transaction; Repeat preserves them. Check failure/retry.
+- [ ] Header switch uses circular arrows alone at shared 20 dp beside headlineMedium Kanji/Words in a stable maximum-label-width control, with one icon/label tap zone without highlight; check rotation, rapid taps, large fonts, narrow screens and light/dark themes. Search retains its central character and existing size.
+
+## Results UI/navigation follow-up (versionCode 41) manual verification
+
+- [ ] Kanji switch: arrows only, Kanji label, shared 20 dp icon and header headlineMedium label.
+- [ ] Kanji -> Words -> Kanji: icon/label start remain stationary, control stays right, whole area including spare width toggles.
+- [ ] Search switch retains its central symbols, size and behavior.
+- [ ] Words cards: compact written/reading left, meaning right, green check/error cross left, no separate status text.
+- [ ] Long written/reading/meaning: bounded columns and ellipsis; check narrow screens, larger fonts and both themes.
+- [ ] Words -> matching Word Details -> Back retains Words, results and scroll.
+- [ ] Word Training Kanji Results -> matching Kanji Details -> Back retains results, pending and scroll.
+- [ ] Kanji Training Results -> matching Kanji Details -> Back retains session, pending choices and scroll.
+- [ ] Pending Learning/Known -> Details -> Back neither applies nor discards choices; Finish still applies them through the existing transaction.
+
+## Results switch icon polish (versionCode 42) manual verification
+
+- [ ] Results arrows render at 30 dp in the main foreground/text color matching the label.
+- [ ] Kanji -> Words -> Kanji retains icon/label positions and the existing tap zone.
+- [ ] Search switch retains its size, central symbol, colors and animation.
+
+## Related Words v0.8.8-alpha manual verification
+
+- [ ] <=6 original words: Blobs/Strings selector present, no Search; >6: selector and Search present.
+- [ ] New Details defaults to unchanged Blobs cards and closed/empty search.
+- [ ] Blobs -> Strings -> Blobs uses supplied icons and the Glyph/Strokes cover animation; controls stay compact.
+- [ ] Strings: low rounded clickable rows, written left, first meaning right, no reading/additional meanings; long text ellipsizes without row-height growth.
+- [ ] Strings -> matching Word Details -> Back returns to Kanji Details with Strings retained.
+- [ ] Open search: full-width field under Words, list moves down naturally, crossed ListSearch appears.
+- [ ] Search written, hiragana, katakana, symbolic romaji (nitiyoubi), primary and available secondary English meanings.
+- [ ] A match hidden below Show more is found; all matches retain original ranking/order.
+- [ ] Blobs/Strings switches preserve open search, query and filtered set.
+- [ ] Empty query: TextQuestion manually opens Words help without auto-popup/opt-out. Nonempty: only Backspace, clearing query while leaving field open.
+- [ ] Crossed ListSearch closes field/clears query/restores original list and Show more state; Search remains available even with <=6 filtered matches.
+- [ ] No matches: No matching words, search remains open/editable.
+- [ ] Blobs -> matching Word Details -> Back remains functional; filtered search -> Details -> Back restores mode/open/query/Show more.
+- [ ] Glyph/Strokes retains previous size, icons, colors, tap behavior and animation. Check both themes, narrow screens and larger fonts.
+
+## Related Words polish (versionCode 44) manual verification
+
+- [ ] Zero words: Words + No related words found in the dictionary, no selector/search.
+- [ ] 1..6 words: selector, no Search; 7+ words: selector and Search (threshold remains >6).
+- [ ] Collapsed Blobs shows up to six, unchanged cards; collapsed Strings up to ten, unchanged blob height and shared Blobs spacing.
+- [ ] Blobs -> Strings -> Blobs expands/contracts the ordered prefix 6/10/6; Show more/less respects the active limit.
+- [ ] Search finds words beyond either prefix, preserving normalization/order/help/Backspace and open/close behavior.
+
+## Custom Lists v0.8.9-alpha manual verification
+
+- [ ] Partial selection: current size x, add only missing members; NONE adds selectedCount, staged ALL add shows +0.
+- [ ] Staged remove counts only present selected members; NONE shows -0, ALL shows -selectedCount.
+- [ ] Same selection across multiple lists shows each list's actual effect; Apply matches the preview, Cancel discards changes.
+- [ ] Draft effects survive recreation; new staged lists show persisted size zero.
+- [ ] Selection Mode has no Back to My Lists; Finish exits normally; system Back and normal list expansion/navigation remain functional.

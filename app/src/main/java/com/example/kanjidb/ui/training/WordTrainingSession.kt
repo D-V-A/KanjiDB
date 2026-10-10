@@ -35,15 +35,27 @@ internal data class WordTrainingSession private constructor(
     val questionOrder: List<WordTrainingCandidate>,
     val questionIndex: Int = 0,
     val revealed: Boolean = false,
-    val tallies: Map<String, WordKanjiTally> = emptyMap(),
-    // Explicit word answers, independent of per-kanji status; Correct removes a resolved mistake.
-    val incorrectWords: Set<Pair<Long, String>> = emptySet(),
+    val lastResults: Map<Pair<Long, String>, TrainingResult> = emptyMap(),
     val pending: Map<String, LearningState> = emptyMap()
 ) {
     val complete get() = questionIndex == questionOrder.size
     val currentWord get() = questionOrder.getOrNull(questionIndex)
     val resultCharacters get() = (plan.pool + plan.words.flatMap { it.kanjiOccurrences }
         .filter { it in plan.known }).distinct()
+    // Aggregates are derived from unique evaluated words, never from attempt history.
+    val tallies: Map<String, WordKanjiTally> by lazy {
+        val aggregates = mutableMapOf<String, WordKanjiTally>()
+        plan.words.forEach { word ->
+            lastResults[word.key]?.let { result ->
+                hidden(word).forEach { character ->
+                    aggregates[character] = (aggregates[character] ?: WordKanjiTally()).answer(result)
+                }
+            }
+        }
+        aggregates.toMap()
+    }
+    val incorrectWords get() = lastResults.filterValues { it == TrainingResult.INCORRECT }.keys
+    val evaluatedWords get() = plan.words.filter { it.key in lastResults }
     val repeatWords get() = plan.words.filter { it.key in incorrectWords }
 
     fun hidden(word: WordTrainingCandidate): Set<String> = word.kanji.intersect(plan.pool.toSet() + plan.known)
@@ -53,11 +65,8 @@ internal data class WordTrainingSession private constructor(
     fun answer(result: TrainingResult): WordTrainingSession {
         if (complete || !revealed) return this
         val word = requireNotNull(currentWord)
-        val updated = hidden(word).associateWith { (tallies[it] ?: WordKanjiTally()).answer(result) }
         return copy(questionIndex = questionIndex + 1, revealed = false,
-            tallies = tallies + updated,
-            incorrectWords = if (result == TrainingResult.INCORRECT) incorrectWords + word.key else incorrectWords - word.key,
-            pending = pending - updated.keys)
+            lastResults = lastResults + (word.key to result))
     }
 
     fun repeatMistakes(random: Random = Random.Default): WordTrainingSession {

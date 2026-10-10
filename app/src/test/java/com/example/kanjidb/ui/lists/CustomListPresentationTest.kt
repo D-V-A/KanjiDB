@@ -115,4 +115,33 @@ class CustomListPresentationTest {
         restored.tap(1); restored.tap(1)
         assertEquals(ListMembershipState.UNCHECKED, restored.state(1))
     }
+    @Test fun effectsUseEachListsActualMembershipAndStagedApplyTarget() {
+        val selection = listOf("日", "水", "水")
+        val all = list.copy(list = list.list.copy(id = 2, name = "All"),
+            memberships = listOf(CustomListKanjiEntity(2, "日", 0), CustomListKanjiEntity(2, "水", 1)))
+        val none = list.copy(list = list.list.copy(id = 3, name = "None"), memberships = emptyList())
+        val draft = CustomListDraft(listOf(list, all, none), selection)
+        assertEquals("Practice (3 + 1)", draft.effectLabel(0))
+        assertEquals("All (2 - 2)", draft.effectLabel(1))
+        assertEquals("None (0 + 2)", draft.effectLabel(2))
+        draft.tap(0)
+        assertEquals("Practice (3 + 1)", draft.effectLabel(0))
+        draft.tap(0)
+        assertEquals("Practice (3 - 1)", draft.effectLabel(0))
+        draft.tap(1); draft.tap(1)
+        assertEquals("All (2 + 0)", draft.effectLabel(1))
+        draft.tap(2); draft.tap(2)
+        assertEquals("None (0 - 0)", draft.effectLabel(2))
+        val restored = CustomListDraft.restore(draft.save())
+        assertEquals((0..2).map(draft::effectLabel), (0..2).map(restored::effectLabel))
+    }
+
+    @Test fun newListEffectUsesZeroPersistedSizeAcrossTogglesAndRestore() {
+        val draft = CustomListDraft(emptyList(), listOf("日", "月"))
+        draft.create("New list")
+        assertEquals("New list (0 + 2)", draft.effectLabel(0))
+        draft.tap(0)
+        assertEquals("New list (0 - 0)", draft.effectLabel(0))
+        assertEquals(draft.effectLabel(0), CustomListDraft.restore(draft.save()).effectLabel(0))
+    }
 }

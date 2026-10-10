@@ -1,6 +1,13 @@
 package com.example.kanjidb.ui.details
 
 import com.example.kanjidb.ui.AppIcons
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import com.example.kanjidb.ui.search.SearchHelpPopup
+import com.example.kanjidb.data.dictionary.filterRelatedWords
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +28,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +63,8 @@ import com.example.kanjidb.data.user.UserKanjiStateDao
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
+private val RelatedWordsItemSpacing = 12.dp
+
 @Composable
 fun KanjiDetailsScreen(
     kanjiId: String,
@@ -68,7 +79,10 @@ fun KanjiDetailsScreen(
     var loadedKanji by remember(kanjiId) { mutableStateOf<DictionaryKanji?>(null) }
     var loading by remember(kanjiId) { mutableStateOf(true) }
     var failed by remember(kanjiId) { mutableStateOf(false) }
-    var commonWordsExpanded by remember(kanjiId) { mutableStateOf(false) }
+    var commonWordsExpanded by rememberSaveable(kanjiId) { mutableStateOf(false) }
+    var stringsMode by rememberSaveable(kanjiId) { mutableStateOf(false) }
+    var wordsSearchOpen by rememberSaveable(kanjiId) { mutableStateOf(false) }
+    var wordsQuery by rememberSaveable(kanjiId) { mutableStateOf("") }
     LaunchedEffect(dictionary, kanjiId) {
         try {
             loadedKanji = dictionary.getKanji(kanjiId)
@@ -102,7 +116,10 @@ fun KanjiDetailsScreen(
         return
     }
 
-    val visibleWords = if (commonWordsExpanded) kanji.words else kanji.words.take(6)
+    val filteredWords = remember(kanji.words, wordsQuery) { filterRelatedWords(kanji.words, wordsQuery) }
+    val filtering = wordsSearchOpen && wordsQuery.isNotBlank()
+    val visibleLimit = if (stringsMode) 10 else 6
+    val visibleWords = if (filtering || commonWordsExpanded) filteredWords else filteredWords.take(visibleLimit)
 
     val savedState by remember(userDao, kanjiId) { userDao.observeState(kanjiId) }
         .collectAsStateWithLifecycle(initialValue = null)
@@ -141,7 +158,7 @@ fun KanjiDetailsScreen(
             contentPadding = PaddingValues(
                 start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomPadding
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(RelatedWordsItemSpacing)
         ) {
             item {
                 Row(
@@ -175,16 +192,31 @@ fun KanjiDetailsScreen(
             item {
                 KanjiOverview(kanji, showStrokes, onShowStrokes = { showStrokes = it })
             }
-            item {
-                Text(
-                    stringResource(R.string.details_words),
-                    style = MaterialTheme.typography.titleLarge
-                )
+            item(key = "words_header") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.details_words), Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleLarge)
+                    if (kanji.words.isNotEmpty()) TwoIconSelector(stringsMode, { stringsMode = it }, AppIcons.Blobs, AppIcons.Strings,
+                        stringResource(R.string.related_words_blobs), stringResource(R.string.related_words_strings),
+                        modifier = Modifier.width(52.dp))
+                    if (kanji.words.size > 6) IconButton(onClick = {
+                        wordsSearchOpen = !wordsSearchOpen
+                        wordsQuery = ""
+                    }) {
+                        Icon(if (wordsSearchOpen) AppIcons.ListSearchOff else AppIcons.ListSearch,
+                            contentDescription = stringResource(if (wordsSearchOpen)
+                                R.string.related_words_search_close else R.string.related_words_search_open),
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+                if (wordsSearchOpen) RelatedWordsSearchField(wordsQuery) { wordsQuery = it }
             }
             items(visibleWords, key = { "${it.entryId}:${it.written}" }) { word ->
-                WordRow(word, recommended = true, onClick = { onOpenWord(word.entryId, word.written) })
+                if (stringsMode) WordStringRow(word, onClick = { onOpenWord(word.entryId, word.written) })
+                else WordRow(word, recommended = true, onClick = { onOpenWord(word.entryId, word.written) })
             }
-            if (kanji.words.size > 6) {
+            if (kanji.words.size > visibleLimit && !filtering) {
                 item(key = "common_words_toggle") {
                     TextButton(onClick = { commonWordsExpanded = !commonWordsExpanded }) {
                         Text(stringResource(
@@ -193,6 +225,10 @@ fun KanjiDetailsScreen(
                         ))
                     }
                 }
+            }
+            if (filtering && visibleWords.isEmpty()) {
+                item(key = "words_no_match") { Text(stringResource(R.string.related_words_no_match),
+                    style = MaterialTheme.typography.bodyMedium) }
             }
             if (kanji.words.isEmpty()) {
                 item { Text(stringResource(R.string.details_no_words)) }
@@ -349,6 +385,42 @@ private fun WordRow(word: DictionaryWord, recommended: Boolean, onClick: () -> U
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+        }
+    }
+}
+@Composable
+private fun RelatedWordsSearchField(query: String, onQuery: (String) -> Unit) {
+    var helpVisible by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        OutlinedTextField(value = query, onValueChange = { helpVisible = false; onQuery(it) },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            placeholder = { Text(stringResource(R.string.related_words_search_hint)) },
+            trailingIcon = {
+                if (query.isEmpty()) IconButton(onClick = { helpVisible = !helpVisible }) {
+                    Icon(AppIcons.TextQuestion, contentDescription = stringResource(R.string.search_help))
+                } else IconButton(onClick = { helpVisible = false; onQuery("") }) {
+                    Icon(AppIcons.Backspace, contentDescription = stringResource(R.string.search_clear))
+                }
+            })
+        if (helpVisible) SearchHelpPopup(wordMode = true, showDisableAutoShow = false,
+            onDismiss = { helpVisible = false }, onDisableAutoShow = {})
+    }
+}
+
+@Composable
+private fun WordStringRow(word: DictionaryWord, onClick: () -> Unit) {
+    // Avoid invisible 48 dp layout clearance around the compact visual card.
+    // Compose still expands the touch target; list gaps use RelatedWordsItemSpacing.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        Card(onClick = onClick, modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(word.written, Modifier.weight(0.38f), style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(word.meanings.firstOrNull() ?: "", Modifier.weight(0.62f),
+                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
