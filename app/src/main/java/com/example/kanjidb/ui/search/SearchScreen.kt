@@ -1,10 +1,8 @@
 package com.example.kanjidb.ui.search
 
+import com.example.kanjidb.ui.DictionaryModeControl
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -44,9 +42,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.VectorPath
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -54,9 +49,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
@@ -68,8 +60,6 @@ import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.dictionary.DictionaryWord
 import com.example.kanjidb.data.dictionary.WordSearchResult
 import com.example.kanjidb.data.dictionary.KanjiSummary
-import kotlin.math.floor
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
@@ -110,7 +100,7 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val searchColors = OutlinedTextFieldDefaults.colors()
-                SearchModeControl(wordMode = wordMode,
+                DictionaryModeControl(wordMode = wordMode,
                     arrowColor = if (searchFocused) searchColors.focusedIndicatorColor
                         else searchColors.unfocusedIndicatorColor,
                     onSwitch = {
@@ -203,111 +193,6 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
                 modifier = Modifier.weight(1f), listState = state.listState
             )
         }
-    }
-}
-
-/** Reuse the shared vector's paths; only Search needs a thinner display stroke. */
-private fun searchRefreshIcon(): ImageVector {
-    val source = AppIcons.RefreshMain
-    return ImageVector.Builder(
-        name = "SearchRefresh",
-        defaultWidth = source.defaultWidth,
-        defaultHeight = source.defaultHeight,
-        viewportWidth = source.viewportWidth,
-        viewportHeight = source.viewportHeight
-    ).apply {
-        for (node in source.root) {
-            val path = node as VectorPath
-            addPath(
-                pathData = path.pathData,
-                pathFillType = path.pathFillType,
-                fill = path.fill,
-                fillAlpha = path.fillAlpha,
-                stroke = path.stroke,
-                strokeAlpha = path.strokeAlpha,
-                strokeLineWidth = path.strokeLineWidth * (32f / 62.1f),
-                strokeLineCap = path.strokeLineCap,
-                strokeLineJoin = path.strokeLineJoin,
-                strokeLineMiter = path.strokeLineMiter
-            )
-        }
-    }.build()
-}
-
-/** Only presentation state lives here; onSwitch returns the existing Search mode. */
-@Composable
-private fun SearchModeControl(wordMode: Boolean, arrowColor: Color, onSwitch: () -> Boolean) {
-    val rotation = remember { Animatable(45f) }
-    val scope = rememberCoroutineScope()
-    var rotationRunning by remember { mutableStateOf(false) }
-    var targetRotation by remember { mutableStateOf(45f) }
-    var symbolJob by remember { mutableStateOf<Job?>(null) }
-    val symbolOpacity = remember { Animatable(1f) }
-    val actionDescription = stringResource(
-        if (wordMode) R.string.search_mode_words else R.string.search_mode_kanji)
-
-    Box(
-        modifier = Modifier.size(64.4.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                role = Role.Button,
-                onClick = {
-                    onSwitch()
-                    // Every tap changes Search mode, even when the rotation queue is full.
-                    symbolJob?.cancel()
-                    symbolJob = scope.launch {
-                        symbolOpacity.animateTo(0f, tween(130))
-                        symbolOpacity.animateTo(1f, tween(130))
-                    }
-                    if (!rotationRunning) {
-                        rotationRunning = true
-                        targetRotation += 180f
-                        scope.launch {
-                            var endpoint = rotation.value + 180f
-                            do {
-                                rotation.animateTo(endpoint, tween(260, easing = FastOutSlowInEasing))
-                                endpoint += 180f
-                            } while (rotation.value < targetRotation)
-                            // Normalize both logical angles on the same discrete grid.
-                            val normalizedAngle = 45f + (targetRotation - 45f) % 360f
-                            rotation.snapTo(normalizedAngle)
-                            targetRotation = normalizedAngle
-                            rotationRunning = false
-                        }
-                    } else {
-                        // The actual angle determines the active segment, not the distant target.
-                        val segment = floor((rotation.value - 45f) / 180f)
-                        val maximumTarget = 45f + (segment + 2f) * 180f
-                        if (targetRotation < maximumTarget) targetRotation += 180f
-                    }
-                }
-            )
-            .semantics { contentDescription = actionDescription },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = remember { searchRefreshIcon() },
-            contentDescription = null,
-            tint = arrowColor,
-            modifier = Modifier.size(62.1.dp).graphicsLayer { rotationZ = 90f - rotation.value }
-        )
-        Text(
-            text = if (wordMode) "\u8A9E" else "\u5B57",
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = if (wordMode) 24.15.sp else 25.875.sp,
-                lineHeight = 27.6.sp,
-                platformStyle = PlatformTextStyle(includeFontPadding = false)
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.offset(y = (-1).dp).clearAndSetSemantics {}.graphicsLayer {
-                alpha = symbolOpacity.value
-                scaleX = 0.85f + 0.15f * symbolOpacity.value
-                scaleY = scaleX
-            }
-        )
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,7 +70,7 @@ internal fun WordTrainingOptions(settings: WordTrainingSettings, enabled: Boolea
                     "Kana and other characters stay visible.",
                     "Choose the translation, reading, or both. Try to reproduce the hidden kanji on paper or from memory.",
                     "Reveal the answer, then mark the whole word Correct or Incorrect.",
-                    "Results are estimated per hidden kanji across the whole session, including repeats.",
+                    "Results are estimated per hidden kanji across the whole session, using the latest answer for each unique word.",
                     "Target coverage is a goal: some kanji may appear fewer times because of the dictionary and filters."
                 ).forEach { Text(it, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -112,10 +113,42 @@ internal fun WordTrainingQuestion(session: WordTrainingSession) {
 }
 
 @Composable
-internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.kanjidb.data.user.UserKanjiStateDao) {
+internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.kanjidb.data.user.UserKanjiStateDao,
+    onOpenKanji: (String) -> Unit, onOpenWord: (Long, String) -> Unit) {
     var choosePractice by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (TrainingState.wordResultsWords) {
+            LazyColumn(Modifier.weight(1f), state = TrainingState.wordResultsWordsScroll,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(session.evaluatedWords, key = { "${it.word.entryId}:${it.word.written}" }) { candidate ->
+                    val word = candidate.word
+                    val correct = session.lastResults[candidate.key] == TrainingResult.CORRECT
+                    Card(onClick = { onOpenWord(word.entryId, word.written) },
+                        enabled = !TrainingState.saving, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(if (correct) com.example.kanjidb.ui.AppIcons.Check else com.example.kanjidb.ui.AppIcons.Cross,
+                                contentDescription = if (correct) "Correct" else "Incorrect",
+                                tint = if (correct) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp))
+                            // Match Related Words' column proportions, spacing and line budgets.
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Column(Modifier.weight(0.38f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(word.written, style = MaterialTheme.typography.titleLarge,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(word.reading, style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text(candidate.primaryMeaning?.takeIf { it.isNotBlank() } ?: "No English meaning",
+                                    modifier = Modifier.weight(0.62f), style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+        } else LazyColumn(Modifier.weight(1f), state = TrainingState.wordResultsKanjiScroll, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(LearningState.LEARNING, LearningState.KNOWN).forEach { target ->
                 if (session.bulkTargets(target).isNotEmpty()) {
                     item(key = "bulk_$target") {
@@ -148,6 +181,7 @@ internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.
                     detail = "Shown: ${tally.shownCount}",
                     actions = session.allowedActions(character), pending = session.pending[character],
                     saving = TrainingState.saving, wordColors = true,
+                    onOpenEntity = { onOpenKanji(character) },
                     onAction = { target -> TrainingState.updateWords { it.toggleAction(character, target) } })
             }
         }

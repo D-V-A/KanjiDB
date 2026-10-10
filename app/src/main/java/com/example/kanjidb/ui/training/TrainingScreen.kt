@@ -47,7 +47,7 @@ private data class PreparedWordTraining(
 )
 
 @Composable
-internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Unit, modifier: Modifier = Modifier) {
+internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Unit, onOpenKanji: (String) -> Unit, onOpenWord: (Long, String) -> Unit, modifier: Modifier = Modifier) {
     var setup by rememberSaveable { mutableStateOf<TrainingKind?>(null) }
     val fixedPool = TrainingState.fixedWordPool
     val session = TrainingState.session
@@ -67,6 +67,13 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
                 else -> setup?.title ?: "Training"
             },
                 Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+            if (wordSession?.complete == true) {
+                com.example.kanjidb.ui.DictionaryModeControl(
+                    wordMode = TrainingState.wordResultsWords,
+                    arrowColor = LocalContentColor.current,
+                    showLabel = true, showSymbol = false, enabled = !TrainingState.saving,
+                    onSwitch = TrainingState::switchWordResults)
+            }
             if (!complete && (TrainingState.active || setup != null || fixedPool != null)) {
                 TextButton(enabled = !TrainingState.saving, onClick = {
                     if (TrainingState.active) onRequestExit() else { setup = null; TrainingState.clearFixedPool() }
@@ -76,9 +83,9 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
             }
         }
         when {
-            wordSession != null && wordSession.complete -> WordTrainingResults(wordSession, userDao)
+            wordSession != null && wordSession.complete -> WordTrainingResults(wordSession, userDao, onOpenKanji, onOpenWord)
             wordSession != null -> key(wordSession.currentWord?.key) { WordTrainingQuestion(wordSession) }
-            session != null && session.complete -> TrainingResults(session, userDao)
+            session != null && session.complete -> TrainingResults(session, userDao, onOpenKanji)
             session != null -> key(session.currentCharacter) { TrainingQuestion(session) }
             fixedPool != null -> TrainingSetup(userDao, wordMode = true, fixedPool = fixedPool, onStarted = { setup = null })
             setup != null -> TrainingSetup(userDao, wordMode = setup == TrainingKind.WORD, onStarted = { setup = null })
@@ -364,12 +371,13 @@ private fun TrainingAnswerArea(kanji: DictionaryKanji, revealed: Boolean, displa
 }
 
 @Composable
-private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
+private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao, onOpenKanji: (String) -> Unit) {
     var choosePractice by rememberSaveable { mutableStateOf(false) }
     val options = session.practiceOptions()
     val saving = TrainingState.saving
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.weight(1f), state = TrainingState.kanjiResultsScroll,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (session.mode == TrainingMode.NEW) {
                 listOf(LearningState.LEARNING, LearningState.KNOWN).forEach { target ->
                     item(key = "new_bulk_$target") {
@@ -405,6 +413,7 @@ private fun TrainingResults(session: TrainingSession, dao: UserKanjiStateDao) {
                     participated = participated, actions = session.allowedActions(character),
                     pending = session.pending[character], saving = saving,
                     reviewing = session.mode == TrainingMode.REVIEW,
+                    onOpenEntity = { onOpenKanji(character) },
                     onAction = { target -> TrainingState.update { it.toggleAction(character, target) } })
             }
         }

@@ -87,18 +87,52 @@ class WordTrainingSessionTest {
         assertEquals(listOf(first, second), failure.repeatWords)
     }
 
-    @Test fun repeatUsesSameSnapshotAndAccumulatesStatsWithoutExpandingWordList() {
+    @Test fun repeatUsesSameSnapshotAndReplacesResultsWithoutExpandingWordList() {
         val completed = finish(start())
         val repeating = completed.repeatMistakes(Random(2))
         assertEquals(listOf(first), repeating.questionOrder)
         assertEquals(completed.plan, repeating.plan)
         assertEquals(completed.tallies, repeating.tallies)
         val corrected = finish(repeating, emptySet())
-        assertEquals(WordKanjiTally(2, 0), corrected.tallies["今"])
-        assertEquals(WordKanjiTally(3, 1), corrected.tallies["日"])
+        assertEquals(WordKanjiTally(1, 1), corrected.tallies["今"])
+        assertEquals(WordKanjiTally(2, 2), corrected.tallies["日"])
         assertEquals(WordKanjiTally(1, 1), corrected.tallies["語"])
         assertTrue(corrected.repeatWords.isEmpty())
         assertEquals(corrected, corrected.repeatMistakes())
+    }
+
+    @Test fun repeatedAnswersReplaceBothDirectionsAndIdenticalAnswersKeepUniqueCounts() {
+        var completed = finish(start(), emptySet())
+        repeat(4) {
+            completed = finish(completed.practice(PracticeKind.ALL, Random(it)), setOf(1))
+            assertEquals(TrainingResult.INCORRECT, completed.lastResults[first.key])
+            assertEquals(WordKanjiTally(1, -1), completed.tallies["今"])
+            assertEquals(WordKanjiTally(2, 0), completed.tallies["日"])
+            completed = finish(completed.practice(PracticeKind.ALL, Random(it)), emptySet())
+            assertEquals(TrainingResult.CORRECT, completed.lastResults[first.key])
+            assertEquals(WordKanjiTally(1, 1), completed.tallies["今"])
+            assertEquals(WordKanjiTally(2, 2), completed.tallies["日"])
+        }
+        val sameCorrect = finish(completed.practice(PracticeKind.ALL), emptySet())
+        assertEquals(completed.tallies, sameCorrect.tallies)
+        val incorrect = finish(sameCorrect.practice(PracticeKind.ALL), setOf(1))
+        val sameIncorrect = finish(incorrect.practice(PracticeKind.MISTAKES), setOf(1))
+        assertEquals(incorrect.lastResults, sameIncorrect.lastResults)
+        assertEquals(incorrect.tallies, sameIncorrect.tallies)
+        assertEquals(2, sameIncorrect.evaluatedWords.size)
+    }
+
+    @Test fun currentIterationWithMixedAnswersReplacesOnlyItsWords() {
+        val third = word("月日", 3)
+        val original = finish(start(listOf(first, second, third)), setOf(1, 2))
+        val mixedSubset = finish(original.practice(PracticeKind.MISTAKES), setOf(2))
+        assertEquals(setOf(first, second), mixedSubset.questionOrder.toSet())
+        val repeated = finish(mixedSubset.practice(PracticeKind.CURRENT), setOf(1))
+        assertEquals(TrainingResult.INCORRECT, repeated.lastResults[first.key])
+        assertEquals(TrainingResult.CORRECT, repeated.lastResults[second.key])
+        assertEquals(original.lastResults[third.key], repeated.lastResults[third.key])
+        assertEquals(WordKanjiTally(3, 1), repeated.tallies["日"])
+        assertEquals(WordKanjiTally(1, 1), repeated.tallies["月"])
     }
 
     @Test fun noMistakesDisablesRepeatAndEarlyRepeatDoesNothing() {
@@ -131,10 +165,10 @@ class WordTrainingSessionTest {
         assertTrue(start().toggleAction("日", LearningState.LEARNING).pending.isEmpty())
     }
 
-    @Test fun newAnswersClearOnlyDecisionsForAffectedKanji() {
+    @Test fun newAnswersPreserveExplicitPendingDecisions() {
         val completed = finish(start()).toggleAction("日", LearningState.KNOWN).toggleAction("語", LearningState.KNOWN)
         val repeated = finish(completed.repeatMistakes(Random(2)), emptySet())
-        assertFalse(repeated.pending.containsKey("日"))
+        assertEquals(LearningState.KNOWN, repeated.pending["日"])
         assertEquals(LearningState.KNOWN, repeated.pending["語"])
     }
 

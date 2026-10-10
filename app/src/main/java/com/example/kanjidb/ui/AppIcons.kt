@@ -181,6 +181,8 @@ internal object AppIcons {
         }.build()
 }
 
+internal val AppActionIconSize = 20.dp
+
 /** Decorative icon beside existing text; the control's text supplies its accessible label. */
 @Composable
 internal fun IconLabel(icon: ImageVector, trailing: Boolean = false, content: @Composable () -> Unit) {
@@ -193,5 +195,5 @@ internal fun IconLabel(icon: ImageVector, trailing: Boolean = false, content: @C
 
 @Composable
 internal fun AppControlIcon(icon: ImageVector) {
-    Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+    Icon(icon, contentDescription = null, modifier = Modifier.size(AppActionIconSize))
 }

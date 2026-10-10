@@ -64,6 +64,39 @@ class WordTrainingPersistenceTest {
         } finally { TrainingState.cancel(); db.close() }
     }
 
+    @Test fun presentationAndIndependentScrollSurviveSwitchAndRepeatWithoutRoomWrites() {
+        val db = database()
+        TrainingState.cancel()
+        try {
+            startCompleted()
+            val kanjiScroll = TrainingState.wordResultsKanjiScroll
+            val wordsScroll = TrainingState.wordResultsWordsScroll
+            kanjiScroll.requestScrollToItem(3, 24)
+            wordsScroll.requestScrollToItem(1, 12)
+            TrainingState.updateWords { it.withBulkActions(LearningState.LEARNING) }
+            val original = TrainingState.wordSession!!
+            assertTrue(TrainingState.switchWordResults())
+            assertSame(original, TrainingState.wordSession)
+            assertSame(wordsScroll, TrainingState.wordResultsWordsScroll)
+            assertFalse(TrainingState.switchWordResults())
+            assertSame(kanjiScroll, TrainingState.wordResultsKanjiScroll)
+            assertTrue(TrainingState.switchWordResults())
+            TrainingState.updateWords { it.repeatMistakes() }
+            TrainingState.updateWords { it.reveal().answer(TrainingResult.CORRECT) }
+            assertTrue(TrainingState.wordResultsWords)
+            assertEquals(original.pending, TrainingState.wordSession!!.pending)
+            assertEquals(3, kanjiScroll.firstVisibleItemIndex)
+            assertEquals(24, kanjiScroll.firstVisibleItemScrollOffset)
+            assertEquals(1, wordsScroll.firstVisibleItemIndex)
+            assertEquals(12, wordsScroll.firstVisibleItemScrollOffset)
+            assertTrue(runBlocking { db.kanjiStates().getAll() }.isEmpty())
+            TrainingState.finishWords(db.kanjiStates())
+            awaitSave()
+            assertFalse(TrainingState.wordResultsWords)
+            assertNotSame(kanjiScroll, TrainingState.wordResultsKanjiScroll)
+        } finally { TrainingState.cancel(); db.close() }
+    }
+
     @Test fun finishPersistsOnlyExplicitChoicesAndBulkSuccessExcludesPartialAndFailure() {
         val db = database()
         TrainingState.cancel()

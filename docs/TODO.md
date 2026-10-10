@@ -314,3 +314,46 @@ that feature is started unless explicitly fixed below.
 - [ ] Scroll restoration Words -> Kanji -> Words and Kanji -> Words -> Kanji preserves each mode's own index/offset.
 - [ ] Words -> Word Details -> Back and Kanji -> Kanji Details -> Back retain the active session. Combine mode switching with Details navigation and repeat for both modes.
 - [ ] Check narrow screens, larger fonts and both themes for equal columns, padding and ellipsis/meaning wrapping.
+
+## Word Training Results v0.8.7-alpha manual verification
+
+- [ ] Incorrect -> Repeat -> Correct: last word result Correct; old error removed from kanji aggregates.
+- [ ] Correct -> Repeat -> Incorrect: last word result Incorrect.
+- [ ] Incorrect -> Incorrect: no additional penalty.
+- [ ] Correct -> Correct: no additional bonus.
+- [ ] Repeat one word several times: Shown stays the unique evaluated word count.
+- [ ] Mistakes only updates only repeated words; other last results remain.
+- [ ] Entire session counts every word once by its last result.
+- [ ] Current iteration with mixed Correct/Incorrect replaces the corresponding per-word results.
+- [ ] Kanji -> Words -> Kanji retains presentation state and pending choices.
+- [ ] Words -> Kanji -> Words returns to the Words presentation.
+- [ ] Words lists each unique word once with its latest result.
+- [ ] Kanji aggregates agree with current Words results.
+- [ ] Kanji Results -> Kanji Details -> Back returns to the same Results session.
+- [ ] Words Results -> matching Word Details -> Back returns to Words.
+- [ ] Pending Learning/Known -> Kanji Details -> Back preserves pending choices.
+- [ ] Kanji scroll restores after Details -> Back.
+- [ ] Words scroll restores after Details -> Back.
+- [ ] Kanji and Words have independent retained scroll positions across switches.
+- [ ] Details navigation does not write Results pending changes.
+- [ ] Kanji/Words switches do not write pending changes.
+- [ ] Finish applies pending changes once through the existing Room transaction; Repeat preserves them. Check failure/retry.
+- [ ] Header switch uses circular arrows alone at shared 20 dp beside headlineMedium Kanji/Words in a stable maximum-label-width control, with one icon/label tap zone without highlight; check rotation, rapid taps, large fonts, narrow screens and light/dark themes. Search retains its central character and existing size.
+
+## Results UI/navigation follow-up (versionCode 41) manual verification
+
+- [ ] Kanji switch: arrows only, Kanji label, shared 20 dp icon and header headlineMedium label.
+- [ ] Kanji -> Words -> Kanji: icon/label start remain stationary, control stays right, whole area including spare width toggles.
+- [ ] Search switch retains its central symbols, size and behavior.
+- [ ] Words cards: compact written/reading left, meaning right, green check/error cross left, no separate status text.
+- [ ] Long written/reading/meaning: bounded columns and ellipsis; check narrow screens, larger fonts and both themes.
+- [ ] Words -> matching Word Details -> Back retains Words, results and scroll.
+- [ ] Word Training Kanji Results -> matching Kanji Details -> Back retains results, pending and scroll.
+- [ ] Kanji Training Results -> matching Kanji Details -> Back retains session, pending choices and scroll.
+- [ ] Pending Learning/Known -> Details -> Back neither applies nor discards choices; Finish still applies them through the existing transaction.
+
+## Results switch icon polish (versionCode 42) manual verification
+
+- [ ] Results arrows render at 30 dp in the main foreground/text color matching the label.
+- [ ] Kanji -> Words -> Kanji retains icon/label positions and the existing tap zone.
+- [ ] Search switch retains its size, central symbol, colors and animation.

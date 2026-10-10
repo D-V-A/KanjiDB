@@ -174,7 +174,10 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao, onOpenTraining = { navigateTopLevel(TRAINING) })
             }
             composable(TRAINING) {
-                TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING })
+                TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING },
+                    onOpenKanji = openDetails, onOpenWord = { entryId, written ->
+                        navController.navigate("word/$entryId/${Uri.encode(written)}")
+                    })
             }
             composable(
                 route = WORD_DETAILS,
