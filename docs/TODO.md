@@ -203,7 +203,7 @@ that feature is started unless explicitly fixed below.
 -   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
     current source still omits it; keep source/import/verifier behavior
     coherent.
--   [ ] Define and implement a `dictionary.db` asset version/update
+-   [x] Define and implement a `dictionary.db` asset version/update
     mechanism so an APK update can replace the copied `noBackupFilesDir`
     dictionary when required.
 -   [ ] Verify EDRDG attribution and licenses.

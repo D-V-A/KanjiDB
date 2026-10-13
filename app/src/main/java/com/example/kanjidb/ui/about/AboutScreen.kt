@@ -13,6 +13,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+import com.example.kanjidb.data.dictionary.DictionaryDatabase
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +32,15 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         @Suppress("DEPRECATION")
         context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     }
+    val databaseVersion by produceState<Int?>(null, context) {
+        value = try {
+            DictionaryDatabase(context).getDatabaseVersion()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -41,6 +54,8 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
         Text(stringResource(R.string.about_version, versionName))
+        Text(databaseVersion?.let { stringResource(R.string.about_database_version, it) }
+            ?: stringResource(R.string.about_database_version_unknown))
         Text(stringResource(R.string.about_developer))
         Text(stringResource(R.string.about_credits), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.about_kanjidic))

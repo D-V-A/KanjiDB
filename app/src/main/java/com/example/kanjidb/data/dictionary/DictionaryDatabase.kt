@@ -406,21 +406,10 @@ class DictionaryDatabase(context: Context) {
             }
         }
 
-    private fun dictionaryFile(): File = synchronized(copyLock) {
-        // Exclude the reproducible asset copy from Android backups.
-        val target = File(context.noBackupFilesDir, "dictionary.db")
-        if (!target.exists()) {
-            val temporary = File(context.noBackupFilesDir, "dictionary.db.tmp")
-            try {
-                context.assets.open("dictionary.db").use { input ->
-                    temporary.outputStream().use { output -> input.copyTo(output) }
-                }
-                check(temporary.renameTo(target)) { "Cannot install dictionary asset" }
-            } finally {
-                temporary.delete()
-            }
-        }
-        target
+    private fun dictionaryFile(): File = DictionaryInstallation.file(context)
+
+    suspend fun getDatabaseVersion(): Int = withContext(Dispatchers.IO) {
+        DictionaryInstallation.readVersion(dictionaryFile())
     }
 
     private fun SQLiteDatabase.strings(sql: String, id: String): List<String> =
@@ -432,7 +421,6 @@ class DictionaryDatabase(context: Context) {
         if (isNull(index)) null else getInt(index)
 
     internal companion object {
-        private val copyLock = Any()
 
         const val WORD_READINGS_SQL = """
             SELECT reading, written FROM word_form

@@ -1,5 +1,6 @@
 *.iml
 .gradle
+.kotlin/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -15,5 +16,8 @@
 local.properties
 tools/data/
 app/src/main/assets/dictionary.db
+app/src/main/assets/dictionary_version.txt
+app/src/main/assets/dictionary_version.txt.tmp
+tools/__pycache__/
 .vs/
 /app/release/

@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from dictionary_version import ASSET_VERSION_PATH, read_version
 
 
 BASE_DIR = Path(__file__).parent
@@ -48,7 +49,7 @@ if not DB_PATH.exists():
     )
 
 
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DB_PATH.resolve().as_uri() + "?mode=ro", uri=True)
 
 try:
     cur = conn.cursor()
@@ -56,6 +57,17 @@ try:
     cur.execute("PRAGMA foreign_keys = ON")
 
     success = True
+
+    try:
+        expected_version = read_version()
+        asset_version = read_version(ASSET_VERSION_PATH)
+        database_version = cur.execute("PRAGMA user_version").fetchone()[0]
+        if database_version == asset_version == expected_version:
+            ok(f"Dictionary release version: {expected_version} (source, SQLite, asset)")
+        else:
+            success = fail(f"Version mismatch: source={expected_version}, SQLite={database_version}, asset={asset_version}")
+    except ValueError as error:
+        success = fail(str(error))
 
     print(f"Checking: {DB_PATH}")
     print()
