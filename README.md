@@ -126,6 +126,8 @@ Pre-built Android APKs are available from the repository's **Releases** section.
 
 KanjiDB supports **Android 8.0 (API 26) and newer**.
 
+Application takes 300 MB of device's memory after first launch.
+
 ## Dictionary and third-party sources
 
 KanjiDB uses data derived from:
