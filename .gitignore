@@ -19,5 +19,6 @@ app/src/main/assets/dictionary.db
 app/src/main/assets/dictionary_version.txt
 app/src/main/assets/dictionary_version.txt.tmp
 tools/__pycache__/
+tools/tests/__pycache__/
 .vs/
 /app/release/

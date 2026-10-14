@@ -85,6 +85,7 @@ try:
     DROP TABLE IF EXISTS word_reading;
     DROP TABLE IF EXISTS word;
 
+    DROP TABLE IF EXISTS kanji_stroke;
     DROP TABLE IF EXISTS kanji_reading;
     DROP TABLE IF EXISTS kanji_meaning;
     DROP TABLE IF EXISTS kanji;

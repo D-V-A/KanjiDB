@@ -35,6 +35,22 @@ class DictionaryVersionReadTest {
         assertEquals("invalid SQLite", file.readText())
     }
 
+    @Test fun versionThreeRequiresStrokeSchemaAndOlderVersionsRemainUpgradeable() {
+        val file=folder.newFile("v3.db")
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->
+            db.execSQL("CREATE TABLE kanji(id INTEGER,character TEXT)")
+            db.execSQL("INSERT INTO kanji VALUES (1,'a')")
+            for(table in listOf("kanji_meaning","kanji_reading","jlpt_kanji")) db.execSQL("CREATE TABLE $table(id INTEGER)")
+            db.version=2
+        }
+        assertTrue(shouldInstallDictionary(DictionaryInstallation.readVersion(file),3))
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { it.version=3 }
+        assertTrue(runCatching { DictionaryInstallation.readVersion(file) }.isFailure)
+        assertTrue(file.exists())
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { it.execSQL("CREATE TABLE kanji_stroke(kanji_id INTEGER,stroke_index INTEGER,path_data TEXT)") }
+        assertEquals(3,DictionaryInstallation.readVersion(file))
+    }
+
     @Test fun newSchemaValidatesButLegacyMetadataDoesNotRequireNewWordTables() {
         val file=folder.newFile("v2.db")
         SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->

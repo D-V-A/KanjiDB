@@ -60,6 +60,7 @@ fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Text(stringResource(R.string.about_credits), style = MaterialTheme.typography.titleLarge)
         Text(stringResource(R.string.about_kanjidic))
         Text(stringResource(R.string.about_jmdict))
+        Text(stringResource(R.string.about_kanjivg))
         Text(stringResource(R.string.about_tabler_icons))
     }
 }

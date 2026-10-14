@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dictionary_version import DB_PATH, ASSET_VERSION_PATH, TOOLS_DIR, read_version
 from import_jmdict import normalize_language, reading_priority_score, XML_LANG
+from import_kanjivg import source_rows
+from download_kanjivg import cached_source
 
 
 def verify_source(db):
@@ -87,6 +89,12 @@ def main():
         assert actual=={c:level for c,level in expected.items() if c in known}, 'JLPT source/override mismatch'
         assert set(actual.values())=={1,2,3,4,5}
         print('[ OK ] KANJIDIC samples; JLPT source + existing override')
+        archive, manifest = cached_source()
+        actual_strokes = list(db.execute('SELECT kanji_id,stroke_index,path_data FROM kanji_stroke ORDER BY kanji_id,stroke_index'))
+        assert actual_strokes == list(source_rows(db, archive)), 'KanjiVG geometry/codepoint/order mismatch'
+        assert actual_strokes, 'Empty KanjiVG enrichment'
+        covered = len({row[0] for row in actual_strokes})
+        print(f"[ OK ] KanjiVG {manifest['release']}: {covered} covered / {len(known)-covered} uncovered; {len(actual_strokes)} strokes")
         verify_source(db)
         # Kanji links correspond only to exact spelling, retaining repeated positions.
         kid=dict(db.execute('SELECT character,id FROM kanji'))

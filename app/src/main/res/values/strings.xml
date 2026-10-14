@@ -114,7 +114,12 @@
     <string name="details_kun">Kun</string>
     <string name="details_glyph">Glyph</string>
     <string name="details_strokes">Strokes</string>
-    <string name="details_stroke_placeholder">Stroke order coming soon</string>
+    <string name="details_stroke_replay">Replay stroke order</string>
+    <string name="details_copy_word">Copy word</string>
+    <string name="details_copy_kanji">Copy kanji</string>
+    <string name="details_copied">Copied to clipboard</string>
+    <string name="details_stroke_progress">%1$d / %2$d</string>
+    <string name="about_kanjivg">KanjiVG / Ulrich Apel / CC BY-SA 3.0</string>
     <string name="details_recommended">Common words</string>
     <string name="details_other">Other words</string>
     <string name="details_learning">Learning</string>

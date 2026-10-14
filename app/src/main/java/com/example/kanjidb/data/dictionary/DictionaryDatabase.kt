@@ -20,7 +20,8 @@ data class DictionaryKanji(
     val onReadings: List<String>,
     val kunReadings: List<String>,
     val words: List<DictionaryWord>,
-    val jlpt: Int? = null
+    val jlpt: Int? = null,
+    val strokes: List<KanjiStroke> = emptyList()
 )
 
 data class DictionaryWord(
@@ -238,7 +239,8 @@ class DictionaryDatabase(context: Context) {
                         id
                     ),
                     words = wordSection,
-                    jlpt = jlpt
+                    jlpt = jlpt,
+                    strokes = loadKanjiStrokes(db, id)
                 )
             }
         }

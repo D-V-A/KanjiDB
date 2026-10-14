@@ -144,8 +144,7 @@ that feature is started unless explicitly fixed below.
       selection restores the preceding filters.
     - My Kanji, My Lists and multi-group Kanji Groups header/subgroup toggles
       affect only their context, preserving other selected groups.
--   [ ] **Stroke Order / KanjiVG:** integrate stroke-path/order data
-    after attribution/license verification.
+-   [x] **Stroke Order / KanjiVG (v0.9.2):** canonical source cache, dictionary enrichment and animated Kanji Details; attribution/license verified.
 -   [ ] **Handwriting Training:** build handwriting practice after
     stroke-order data is available. Exact recognition/validation UX
     should be designed at implementation time; preserve the possibility
@@ -209,7 +208,7 @@ that feature is started unless explicitly fixed below.
     mechanism so an APK update can replace the copied `noBackupFilesDir`
     dictionary when required.
 -   [ ] Verify EDRDG attribution and licenses.
--   [ ] Verify KanjiVG attribution/license before integration.
+-   [x] Verify KanjiVG attribution/license: Ulrich Apel / CC BY-SA 3.0; notice packaged and About credit added.
 -   [ ] Do not persist dictionary-internal SQLite IDs in user-owned
     data; continue using stable character text/codepoints where
     appropriate.

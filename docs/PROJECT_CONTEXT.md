@@ -4,9 +4,9 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.9.1**, `versionCode = 51`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.9.2**, `versionCode = 53`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
 
-Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; stroke order remains a placeholder.
+Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; Kanji Details supports optional animated KanjiVG stroke order.
 
 ## Branch workflow
 
@@ -18,9 +18,41 @@ Minor branch-specific changes, such as the feedback screen and release wrapper i
 
 By default, manual test checklists belong only in CLI output or the final implementation report. Do not save them in TODO.md, PROJECT_CONTEXT.md or other project documentation unless the user explicitly asks.
 
+## Stroke Order enrichment (v0.9.2 / dictionary v3)
+
+KANJIDIC remains entity/metadata authority. `kanji_stroke` is a WITHOUT ROWID
+table with `(kanji_id,stroke_index)` primary key, FK to kanji and one validated
+canonical path_data per stroke. Unicode filename/source IDs establish identity;
+component labels are not used. Geometry stays in checked 109x109 coordinates.
+No XML/SVG document is parsed at runtime. Missing canonical files leave kanji
+valid without strokes. No components/radicals, variants, handwriting or Training
+integration is included.
+
+`download_kanjivg.py` selects an official main release, recording tag/URL/SHA-256
+in ignored `tools/data/kanjivg/selected.json`. Ordinary builds reuse verified cache
+offline; first build needs network for latest. Explicit --update/--force/--release
+support controlled updates/reproduction. See tools/ReadMe.md. Enrichment follows
+KANJIDIC/JMdict/JLPT and precedes release stamping; verifier compares all paths
+to selected source. Atomic dictionary replacement installs v3; user Room remains
+independent. Initial r20260714 build: 6417 covered, 6691 uncovered, 79054 strokes;
+169668608-byte DB versus 161660928 bytes before (+8007680). 108 stroke-count
+differences leave KANJIDIC metadata intact. A stale component label in 06a45.svg
+is reported; canonical filename/source IDs remain the mapping authority.
+
+Kanji Details keeps the selector/card location. Without strokes the selector is
+fully hidden and ordinary glyph shown. With data, sequential start-to-end animation
+retains finished strokes, accents the current one and shows progress. It repeats
+after a two-second completed-frame pause; tap canvas to restart immediately. Glyph/Strokes mode remains saveable; re-entering/restoring the view
+restarts animation. Geometry is parsed once using AndroidX PathParser and drawn
+with PathMeasure segments. Training's independent hidden placeholder is unchanged.
+
+About adds KanjiVG / Ulrich Apel / CC BY-SA 3.0. Upstream COPYING plus notice of
+extraction/animation is packaged in assets/licenses/kanjivg.txt; extracted geometry
+remains CC BY-SA 3.0. License prose is not displayed in UI.
+
 ## Custom icons (V0.8.3-alpha)
 
-ui/AppIcons.kt owns 31 cached Compose ImageVectors: the original 29 Tabler icons plus TextQuestion and Backspace for Search, without an icon-library dependency. All paths use a 24x24 viewport, no fill, stroke width 2 and round caps/joins; Material Icon supplies the existing content tint. IconLabel shares 20 dp decorative icons / 6 dp spacing with existing text, while bottom navigation and Results status icons use 24 dp. Glyph/Strokes use a single toggleable Eye / Material 3 Switch / Brush row, with shared accessibility semantics and the existing showStrokes state. Show/Hide filters intentionally has a trailing icon. Search Info and Return to origin keep their existing icon-only behavior and accessible descriptions; navigation icons rely on their existing text labels.
+ui/AppIcons.kt owns 32 cached Compose ImageVectors: the original 29 Tabler icons plus TextQuestion and Backspace for Search, without an icon-library dependency. All paths use a 24x24 viewport, no fill, stroke width 2 and round caps/joins; Material Icon supplies the existing content tint. IconLabel shares 20 dp decorative icons / 6 dp spacing with existing text, while bottom navigation and Results status icons use 24 dp. Glyph/Strokes use a single toggleable Eye / Material 3 Switch / Brush row, with shared accessibility semantics and the existing showStrokes state. Show/Hide filters intentionally has a trailing icon. Search Info and Return to origin keep their existing icon-only behavior and accessible descriptions; navigation icons rely on their existing text labels.
 
 Icons cover the three bottom navigation items, Glyph/Strokes, collection tabs, filter/group/sort/direction controls, Training setup Back, Continue training and End training, Correct/Incorrect, Results statuses/practice/Finish/repeat options, Search Info and refresh, and Return to origin. Labels, sorting/training/navigation actions and status colors remain unchanged. SortAscending is the approved correction of the supplied out-of-bounds SVG into increasing 6/12/16 bars. Frequency direction icons follow numeric rank: ascending is Frequent first; descending is Rare first. Selection-panel Finish and unrelated Back/actions retain their existing appearance.
 
@@ -40,11 +72,11 @@ User-owned kanji state is stored in a separate Room `user.db` (schema version 3)
 
 ## Dictionary and import pipeline
 
-Sources configured in [download_dictionary_sources.py](../tools/download_dictionary_sources.py): EDRDG KANJIDIC2 and **JMdict_e** (English edition). KANJIDIC2 supplies characters, meanings, Japanese on/kun readings, stroke count, grade and frequency. Jōyō is derived from grades 1–6 or 8. KanjiVG is not integrated.
+Sources configured in [download_dictionary_sources.py](../tools/download_dictionary_sources.py): EDRDG KANJIDIC2 and **JMdict_e** (English edition). KANJIDIC2 supplies characters, meanings, Japanese on/kun readings, stroke count, grade and frequency. Jōyō is derived from grades 1–6 or 8. KanjiVG main release supplies optional stroke geometry to existing KANJIDIC entities.
 
-The Python/SQLite pipeline is run explicitly, separately from Gradle, using `python tools/build_dictionary.py`: validate version -> download (reuse existing sources) -> KANJIDIC2 -> JMdict -> JLPT with existing overrides -> stamp version and generate sidecar -> verify. Source inputs under `tools/data/` and both generated assets (`dictionary.db`, `dictionary_version.txt`) are Git-ignored; a fresh checkout needs a full build. Individual scripts remain available for development. See [tools/README.md](../tools/README.md).
+The Python/SQLite pipeline is run explicitly, separately from Gradle, using `python tools/build_dictionary.py`: validate version -> download (reuse existing sources) -> KANJIDIC2 -> JMdict -> JLPT with existing overrides -> KanjiVG enrichment -> stamp version and generate sidecar -> verify. Source inputs under `tools/data/` and both generated assets (`dictionary.db`, `dictionary_version.txt`) are Git-ignored; a fresh checkout needs a full build. Individual scripts remain available for development. See [tools/README.md](../tools/README.md).
 
-`tools/dictionary_version.txt` is the sole manually maintained dictionary release version (currently **2**). Full builds stamp `PRAGMA user_version` only after all imports and generate the small bundled version asset from that same value. The verifier checks source/SQLite/asset consistency. Rebuilds never auto-increment it; intentionally released content/schema changes require a manual increase.
+`tools/dictionary_version.txt` is the sole manually maintained dictionary release version (currently **3**). Full builds stamp `PRAGMA user_version` only after all imports and generate the small bundled version asset from that same value. The verifier checks source/SQLite/asset consistency. Rebuilds never auto-increment it; intentionally released content/schema changes require a manual increase.
 
 KANJIDIC2 import rebuilds the dictionary, removing the JMdict tables too. JMdict import rebuilds only its own tables. Do not rerun imports as a routine documentation/UI check.
 
@@ -63,7 +95,7 @@ The importer retains its existing eligibility filters: no kana-only entry expans
 
 At runtime, before any query handles open, initialization reads the small version asset and the local `PRAGMA user_version` in `noBackupFilesDir`. Missing, unreadable, legacy version 0 and older dictionaries are replaced; equal versions are reused without recopying, while newer local versions are kept with a warning (no downgrade). Invalid/missing bundled metadata fails before modifying the local file. Initialization is serialized across instances and cached for the process lifetime.
 
-Replacement copies into a temporary file in the same directory, syncs and closes the completed output, validates SQLite/schema access and matching version, closes validation handles, then atomically moves it over the destination. Copy/validation/move failures preserve the old destination and clean temporary artifacts. No full checksum or integrity scan is performed at startup. Existing 0.8.x installations require no updater in their old APK: the new APK detects their legacy version 0 and installs bundled version 2; v0.9.0 local version 1 is replaced by version 2 as well. This mechanism only owns the replaceable dictionary; separate Room `user.db`, Learning/Known, Custom Lists and manual order are untouched. About displays the actual local SQLite version between Version and Developer, with a neutral fallback on read failure.
+Replacement copies into a temporary file in the same directory, syncs and closes the completed output, validates SQLite/schema access and matching version, closes validation handles, then atomically moves it over the destination. Copy/validation/move failures preserve the old destination and clean temporary artifacts. No full checksum or integrity scan is performed at startup. Existing 0.8.x installations require no updater in their old APK: the new APK detects their legacy version 0 and installs bundled version 3; local dictionary versions 1 and 2 are replaced by version 3 as well. This mechanism only owns the replaceable dictionary; separate Room `user.db`, Learning/Known, Custom Lists and manual order are untouched. About displays the actual local SQLite version between Version and Developer, with a neutral fallback on read failure.
 
 SQL avoids window functions for SDK 26 compatibility. Internal SQLite IDs can change on rebuild; do not assume they are stable identifiers for future user data.
 
@@ -253,7 +285,7 @@ The 0.6.2 focused JVM checks cover temporary header suppression with saved expan
 
 Instrumented tests cover Room toggle/bulk/removal semantics, database reopening, and the existing My Kanji interactions using an isolated test database. JVM tests cover empty initial collections, toggling, shared selection/save-restore, filter/status semantics, group ordering (including grades 8/9/10), stable NULL-last sorting, Ranked/Unranked presentation, semantic direction labels, Rules summary/reset and idempotent bulk overwrite. Focused My Kanji organization tests additionally cover N/A determinism, section ownership, missing dictionary characters, independent group/sort options, arbitrary Grade values, per-group frequency splitting, filters without Status, header selection without reveal requests and nested clearance indices. Nested-scroll JVM tests cover user drag/fling versus programmatic clearance and horizontal swipe. Manual-order JVM tests cover DAO assignment/reorder, append-on-Move and same-state idempotency, stale/invalid drops, separate state positions, automatic sort/filter/group independence, reorder eligibility and post-drop selection preservation/entry-event semantics. Migration SQL has also been checked against an isolated SQLite v1 table and the exported v2 schema; this does not replace on-device upgrade testing. Device/UI tests require explicit permission and are not part of these JVM checks. Existing focused JVM tests also cover kanji search/normalization and common-word merge/grouping under `app/src/test/.../data/dictionary/`. The Python verifier checks the generated dictionary. Run the debug build after significant implementation changes as specified in [AGENTS.md](../AGENTS.md).
 
-Future work and unresolved checks are maintained only in [TODO.md](TODO.md). About currently names KANJIDIC2/JMdict and EDRDG; this is not confirmation that attribution/license requirements have been fully verified.
+Future work and unresolved checks are maintained only in [TODO.md](TODO.md). About names KANJIDIC2/JMdict and EDRDG, KanjiVG / Ulrich Apel / CC BY-SA 3.0 and Tabler Icons / MIT. KanjiVG attribution/license was verified for v0.9.2; the separate EDRDG attribution audit remains listed in TODO.
 
 ## Results/panel UI update (v0.7.4-alpha)
 
@@ -352,3 +384,16 @@ Alternative writings and Can also mean use matching centered outlined controls s
 ## Single Search session (versionCode 50)
 
 The earlier independent-mode sessions (versionCode 38) are superseded by one SearchState session. switchMode resets results on mode change while preserving the shared query and immediately searching the new mode (versionCode 51); navigation restoration and composition do not invoke it. Search algorithms, grouping, ranking, normalization and Explore remain unchanged.
+
+## Details clipboard and selection polish (versionCode 53)
+
+Kanji glyph and Word writing cards have a top-right ClipboardCopy icon. The action
+copies only the displayed character/writing with Android ClipboardManager and
+shows a short Snackbar above the existing bottom action panel. Word writing uses
+a local SelectionContainer through DictionaryText; controls remain outside it.
+Details roots observe unconsumed short background taps in the final pointer pass
+and clear focus, which releases focused text selection. The observer consumes
+no events and ignores handled clicks, drags and long presses; popup handling
+remains separate. This is focused-selection clearing, not a global selection
+registry. Stroke playback has one keyed LaunchedEffect loop; replay keys cancel
+the current playback/pause before restarting, and removing the view cancels it.

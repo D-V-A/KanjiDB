@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.DropdownMenu
@@ -54,6 +56,8 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
     matchedGlossId: Long = -1, matchedMeaning: String = "") {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
+    val snackbar = remember { SnackbarHostState() }
+    val copyText = rememberDetailsCopyAction(snackbar)
     var activeEntry by rememberSaveable(entryId,written) { mutableStateOf(entryId) }
     var selectedWritten by rememberSaveable(entryId,written) { mutableStateOf(written) }
     var alternativesExpanded by rememberSaveable(entryId,written) { mutableStateOf(false) }
@@ -78,7 +82,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
     }
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
-    Box(modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize().clearSelectionOnBackgroundTap()) {
         val details = word
         if (loading || failed || details == null) {
             Text(stringResource(when {
@@ -102,13 +106,13 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                 item {
                     if (compact) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            WrittenBlock(details.written, Modifier.weight(1f), compact = true)
+                            WrittenBlock(details.written, Modifier.weight(1f), copyText, compact = true)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(stringResource(R.string.word_readings), style = MaterialTheme.typography.titleSmall)
                                 WordTextList(details.readings, columns = true, primaryBold = true)
                             }
                         }
-                    } else WrittenBlock(details.written, Modifier.fillMaxWidth())
+                    } else WrittenBlock(details.written, Modifier.fillMaxWidth(), copyText)
                 }
                 if (details.alternativeWrittenForms.isNotEmpty() || details.otherEntries.isNotEmpty()) {
                     item {
@@ -206,17 +210,22 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                 }
             }
         }
+        SnackbarHost(snackbar,Modifier.align(Alignment.BottomCenter)
+            .padding(bottom=with(LocalDensity.current) { panelHeight.toDp() }))
     }
 }
 
 @Composable
-private fun WrittenBlock(written: String, modifier: Modifier, compact: Boolean = false) {
+private fun WrittenBlock(written: String, modifier: Modifier, onCopy: (String) -> Unit, compact: Boolean = false) {
     Surface(modifier, shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Box(Modifier.heightIn(min = 144.dp).padding(8.dp), contentAlignment = Alignment.Center) {
-            Text(written, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
-                fontSize = if (compact) 28.sp else 32.sp, lineHeight = 40.sp)
+            DictionaryText(written, modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyLarge.copy(textAlign=TextAlign.Center,
+                    fontSize = if (compact) 28.sp else 32.sp, lineHeight = 40.sp))
+            DetailsCopyButton(written,stringResource(R.string.details_copy_word),onCopy,
+                Modifier.align(Alignment.TopEnd))
         }
     }
 }

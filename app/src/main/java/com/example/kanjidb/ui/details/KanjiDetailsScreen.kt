@@ -24,6 +24,8 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,6 +78,8 @@ fun KanjiDetailsScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
+    val snackbar = remember { SnackbarHostState() }
+    val copyText = rememberDetailsCopyAction(snackbar)
     var loadedKanji by remember(kanjiId) { mutableStateOf<DictionaryKanji?>(null) }
     var loading by remember(kanjiId) { mutableStateOf(true) }
     var failed by remember(kanjiId) { mutableStateOf(false) }
@@ -151,7 +155,7 @@ fun KanjiDetailsScreen(
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().clearSelectionOnBackgroundTap()) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -190,7 +194,7 @@ fun KanjiDetailsScreen(
                 item { Text(stringResource(R.string.search_error)) }
             }
             item {
-                KanjiOverview(kanji, showStrokes, onShowStrokes = { showStrokes = it })
+                KanjiOverview(kanji, showStrokes, onShowStrokes = { showStrokes = it },onCopy=copyText)
             }
             item(key = "words_header") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -267,6 +271,8 @@ fun KanjiDetailsScreen(
                 Text(stringResource(R.string.custom_lists))
             }
         }
+        SnackbarHost(snackbar,Modifier.align(Alignment.BottomCenter)
+            .padding(bottom=with(LocalDensity.current) { panelHeight.toDp() }))
     }
 }
 
@@ -274,7 +280,8 @@ fun KanjiDetailsScreen(
 private fun KanjiOverview(
     kanji: DictionaryKanji,
     showStrokes: Boolean,
-    onShowStrokes: (Boolean) -> Unit
+    onShowStrokes: (Boolean) -> Unit,
+    onCopy: (String) -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(
@@ -282,7 +289,7 @@ private fun KanjiOverview(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            GlyphStrokesSelector(showStrokes, onShowStrokes)
+            if (kanji.strokes.isNotEmpty()) GlyphStrokesSelector(showStrokes, onShowStrokes)
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceContainer
@@ -291,15 +298,12 @@ private fun KanjiOverview(
                     modifier = Modifier.fillMaxWidth().height(144.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (showStrokes) {
-                        Text(
-                            stringResource(R.string.details_stroke_placeholder),
-                            modifier = Modifier.padding(12.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                    if (showStrokes && kanji.strokes.isNotEmpty()) {
+                        StrokeOrderView(kanji.strokes, Modifier.fillMaxSize())
                     } else {
                         DictionaryText(kanji.character, fontSize = 88.sp, lineHeight = 104.sp)
+                        DetailsCopyButton(kanji.character,stringResource(R.string.details_copy_kanji),onCopy,
+                            Modifier.align(Alignment.TopEnd))
                     }
                 }
             }

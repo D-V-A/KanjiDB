@@ -77,7 +77,11 @@ internal object DictionaryInstallation {
         }
         db.rawQuery("PRAGMA user_version", null).use {
             check(it.moveToFirst()) { "Cannot read dictionary version" }
-            it.getInt(0).also { version -> check(version >= 0) { "Invalid local dictionary version" } }
+            it.getInt(0).also { version ->
+                check(version >= 0) { "Invalid local dictionary version" }
+                if (version >= 3) db.rawQuery("SELECT kanji_id,stroke_index,path_data FROM kanji_stroke LIMIT 1",null)
+                    .use { strokes -> strokes.moveToFirst() }
+            }
         }
     }
 }

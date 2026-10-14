@@ -23,13 +23,16 @@ def main():
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8")
     version = None
+    previous_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
     try:
         print("== Validate dictionary release version ==", flush=True)
         version = read_version()
         stage("Download required sources (reuse existing inputs)", "download_dictionary_sources.py")
+        stage("Select verified KanjiVG release (reuse selected cache)", "download_kanjivg.py")
         stage("Import KANJIDIC2", "import_kanjidic.py")
         stage("Import JMdict", "import_jmdict.py")
         stage("Import JLPT and existing overrides", "import_jlpt_with_override.py")
+        stage("Enrich existing kanji with canonical KanjiVG strokes", "import_kanjivg.py")
         print("\n== Stamp database and generate version asset ==", flush=True)
         with closing(sqlite3.connect(DB_PATH.resolve().as_uri() + "?mode=rw", uri=True)) as db:
             db.execute(f"PRAGMA user_version = {version}")
@@ -44,7 +47,9 @@ def main():
     except (ValueError, OSError, sqlite3.Error, subprocess.CalledProcessError) as error:
         print(f"\nBUILD FAILED: {error}\nDatabase: {DB_PATH}\nDictionary version: {version if version is not None else 'invalid/unknown'}", file=sys.stderr)
         return 1
-    print(f"\nBUILD SUCCESS\nDatabase: {DB_PATH}\nDictionary version: {version}", flush=True)
+    size = DB_PATH.stat().st_size
+    print(f"\nBUILD SUCCESS\nDatabase: {DB_PATH}\nDictionary version: {version}"
+          f"\nDatabase bytes: {size} (before {previous_size}, delta {size-previous_size:+d})", flush=True)
     return 0
 
 
