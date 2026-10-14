@@ -63,6 +63,9 @@
     <string name="about_open">About KanjiDB</string>
     <string name="about_back">Back</string>
     <string name="about_version">Version %1$s</string>
+    <string name="word_alternative_writings">Alternative writings</string>
+    <string name="word_other_meanings">Other Meanings</string>
+    <string name="word_other_entries">Can also mean</string>
     <string name="about_database_version">Database v%1$d</string>
     <string name="about_database_version_unknown">Database version unknown</string>
     <string name="about_developer">Developer D_V_A</string>

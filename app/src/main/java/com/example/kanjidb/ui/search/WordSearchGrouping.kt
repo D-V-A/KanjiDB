@@ -13,7 +13,7 @@ internal fun orderedSubsequence(short: String, long: String): Boolean {
     return false
 }
 
-/** Complete pairwise compatibility prevents short forms bridging unrelated longer forms. */
+/** Visual containers only: retain every v2 card and its original Search match context. */
 internal fun groupWordSearchResults(results: List<WordSearchResult>): List<List<WordSearchResult>> {
     val groups = mutableListOf<MutableList<WordSearchResult>>()
     for (result in results) {
@@ -27,6 +27,5 @@ internal fun groupWordSearchResults(results: List<WordSearchResult>): List<List<
         }
         if (group == null) groups.add(mutableListOf(result)) else group.add(result)
     }
-    // Stable sort preserves relevance/priority order for equal lengths; groups retain best-hit order.
     return groups.map { group -> group.sortedByDescending { it.word.written.codePointCount(0, it.word.written.length) } }
 }

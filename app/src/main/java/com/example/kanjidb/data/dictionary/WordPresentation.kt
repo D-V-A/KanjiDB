@@ -24,6 +24,6 @@ internal data class WordTrainingCandidate(
     val kanjiOccurrences: List<String> = writtenKanji(features.word.written)
 ) {
     val word get() = features.word
-    val key = features.word.entryId to features.word.written
+    val key = features.word.entryId
     val kanji = kanjiOccurrences.toSet()
 }

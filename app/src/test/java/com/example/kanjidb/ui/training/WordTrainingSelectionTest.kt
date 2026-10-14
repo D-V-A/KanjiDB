@@ -115,12 +115,12 @@ class WordTrainingSelectionTest {
         assertEquals(3, lacking.belowTarget)
     }
 
-    @Test fun dedupReusesSameEntryReadingGlossThresholdAndSessionWrittenUniqueness() {
+    @Test fun dedupUsesEntryIdentityButKeepsSameWritingInDifferentEntries() {
         val words = listOf(word("食べ物", meanings = listOf("a", "b", "c")),
             word("食物", meanings = listOf("a", "b", "c", "d"), priority = 2000),
             word("食物", id = 99, reading = "other", meanings = listOf("different")))
         val plan = WordTrainingSelection.build(words, listOf("食", "物"), emptySet(), WordTrainingSettings(targetCoverage = 5))
-        assertEquals(listOf("食物"), plan.words.map { it.word.written })
+        assertEquals(listOf("食物", "食物"), plan.words.map { it.word.written })
     }
 
     @Test fun emptyMissingMeaningLowQualityAndRestrictiveFiltersStaySafe() {
@@ -144,5 +144,40 @@ class WordTrainingSelectionTest {
         assertEquals(a, b)
         assertEquals(40, a.words.size)
         assertTrue(a.coverage.values.all { it == 1 })
+    }
+
+    @Test fun representativeIsChosenAfterEligibilityAndItsOwnWritingDeterminesCoverageAndMasking() {
+        val eligible = word("今時", id=1, priority=0)
+        val inapplicable = word("今どき", id=1, priority=4000)
+        val plan = WordTrainingSelection.build(listOf(inapplicable,eligible),listOf("時"),emptySet(),WordTrainingSettings())
+        assertEquals(listOf(eligible),plan.words)
+        assertEquals(mapOf("時" to 1),plan.coverage)
+        assertEquals("今＊",maskedWord(plan.words.single(),setOf("時"),emptySet()))
+    }
+
+    @Test fun oneEntryHasOneFrozenRepresentativeEvenWhenOtherWritingWouldFillRemainingCoverage() {
+        val day = word("日",id=1).let { it.copy(features=it.features.copy(writtenOrder=1)) }
+        val moon = word("月",id=1).let { it.copy(features=it.features.copy(writtenOrder=0)) }
+        val plan = WordTrainingSelection.build(listOf(day,moon),listOf("日","月"),emptySet(),WordTrainingSettings(targetCoverage=5))
+        assertEquals(listOf(moon),plan.words)
+        assertEquals(mapOf("日" to 0,"月" to 1),plan.coverage)
+        assertEquals(plan,WordTrainingSelection.build(listOf(moon,day),listOf("日","月"),emptySet(),WordTrainingSettings(targetCoverage=5)))
+    }
+
+    @Test fun distinctSourceEntriesWithSameExactWritingRemainDistinctTrainingItems() {
+        val plan = WordTrainingSelection.build(listOf(word("日",id=1),word("日",id=2)),listOf("日"),emptySet(),WordTrainingSettings(targetCoverage=2))
+        assertEquals(listOf(1L,2L),plan.words.map { it.key })
+        assertEquals(mapOf("日" to 2),plan.coverage)
+    }
+
+    @Test fun promptEligibilitySelectsApplicableReadingBeforeFreezingWriting() {
+        val first = word("日",id=1,reading="ひ",primary=null)
+        val second = word("日",id=1,reading="にち",primary="Sunday").let {
+            it.copy(features=it.features.copy(primaryReadingOrder=1))
+        }
+        val plan = WordTrainingSelection.build(listOf(second,first),listOf("日"),emptySet(),WordTrainingSettings())
+        assertEquals(listOf(second),plan.words)
+        val readingOnly = WordTrainingSelection.build(listOf(second,first),listOf("日"),emptySet(),WordTrainingSettings(prompt=WordPrompt.READING))
+        assertEquals(listOf(first),readingOnly.words)
     }
 }

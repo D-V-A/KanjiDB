@@ -36,7 +36,8 @@ internal object DictionaryInstallation {
         }
         val localVersion = if (target.exists()) {
             try {
-                readVersion(target)
+                val version = readVersion(target)
+                if (version == bundledVersion) readVersion(target, validateWords = true) else version
             } catch (error: Exception) {
                 Log.w("DictionaryInstallation", "Unreadable local dictionary; restoring bundled copy", error)
                 null
@@ -51,7 +52,7 @@ internal object DictionaryInstallation {
                             output.fd.sync()
                         }
                     }
-                }, validate = ::readVersion)
+                }, validate = { readVersion(it, validateWords = true) })
         } else if (localVersion!! > bundledVersion) {
             Log.w("DictionaryInstallation", "Keeping newer local dictionary v$localVersion; bundled v$bundledVersion")
         }
@@ -59,7 +60,7 @@ internal object DictionaryInstallation {
         return target
     }
 
-    fun readVersion(file: File): Int = SQLiteDatabase.openDatabase(
+    fun readVersion(file: File, validateWords: Boolean = false): Int = SQLiteDatabase.openDatabase(
         file.absolutePath, null,
         SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
         // Avoid Android's default corruption handler deleting a file before replacement is ready.
@@ -69,7 +70,9 @@ internal object DictionaryInstallation {
         db.rawQuery("SELECT id, character FROM kanji LIMIT 1", null).use {
             check(it.moveToFirst()) { "Dictionary has no kanji" }
         }
-        for (table in listOf("kanji_meaning", "kanji_reading", "word_form", "word_meaning", "word_kanji", "jlpt_kanji")) {
+        val tables = listOf("kanji_meaning", "kanji_reading", "jlpt_kanji") + if(validateWords)
+            listOf("word_entry", "word_written", "word_entry_written", "word_reading", "word_entry_written_reading", "word_sense", "word_meaning", "word_sense_form", "word_written_kanji") else emptyList()
+        for (table in tables) {
             db.rawQuery("SELECT 1 FROM $table LIMIT 1", null).use { it.moveToFirst() }
         }
         db.rawQuery("PRAGMA user_version", null).use {

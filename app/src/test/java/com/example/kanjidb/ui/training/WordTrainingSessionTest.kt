@@ -28,6 +28,15 @@ class WordTrainingSessionTest {
             emptyList()), "meaning")
     private val first = word("今日", 1)
     private val second = word("日語", 2)
+
+    @Test fun resultsAndRepeatUseEntryIdentityEvenForIdenticalDisplayedWriting() {
+        val a=word("日",1); val b=word("日",2)
+        val complete=finish(start(listOf(a,b)),setOf(1))
+        assertEquals(setOf(1L,2L),complete.lastResults.keys)
+        assertEquals(listOf(a),complete.repeatWords)
+        assertEquals(WordKanjiTally(2,0),complete.tallies["日"])
+        assertEquals(setOf(1L,2L),complete.repeatMistakes(Random(1)).lastResults.keys)
+    }
     private fun start(words: List<WordTrainingCandidate> = listOf(first, second)): WordTrainingSession {
         val plan = WordTrainingPlan(listOf("今", "日", "月"), setOf("語"), WordTrainingSettings(), words,
             mapOf("今" to 1, "日" to 2, "月" to 0))

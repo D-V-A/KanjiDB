@@ -34,4 +34,26 @@ class DictionaryVersionReadTest {
         assertTrue(runCatching { DictionaryInstallation.readVersion(file) }.isFailure)
         assertEquals("invalid SQLite", file.readText())
     }
+
+    @Test fun newSchemaValidatesButLegacyMetadataDoesNotRequireNewWordTables() {
+        val file=folder.newFile("v2.db")
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->
+            val fixture=WordDatabaseFixture(db)
+            fixture.form(1,1,"日","ひ")
+            fixture.meaning(1,0,"day")
+            fixture.kanji("日","日",0)
+            db.execSQL("CREATE TABLE kanji_reading(id INTEGER)")
+            db.execSQL("CREATE TABLE jlpt_kanji(kanji_id INTEGER,level INTEGER)")
+            db.version=2
+        }
+        assertEquals(2,DictionaryInstallation.readVersion(file,validateWords=true))
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->
+            db.execSQL("DROP TABLE word_sense_form")
+            db.version=1
+        }
+        assertEquals(1,DictionaryInstallation.readVersion(file))
+        assertTrue(shouldInstallDictionary(DictionaryInstallation.readVersion(file),2))
+        assertTrue(runCatching { DictionaryInstallation.readVersion(file,validateWords=true) }.isFailure)
+        assertTrue(file.exists())
+    }
 }

@@ -81,12 +81,25 @@ internal object WordTrainingSelection {
                 .thenByDescending { scores.getValue(it) }
                 .thenComparator { a, b -> WordQuality.tieBreak.compare(a.features, b.features) }
         }
-        val initiallySorted = eligible.sortedWith(pedagogicalOrder())
-        val byWord = initiallySorted.associateBy { it.word }
-        val equivalent = initiallySorted.map { it.word }.distinctBy { it.entryId to it.written }
-            .deduplicateCommonWords().map { byWord.getValue(it) }
+        // Choose only from eligible writings, then freeze one realization per source entry.
+        // Coverage and masking always refer to this exact representative throughout the session.
+        val representativeOrder = compareBy<WordTrainingCandidate> { tier(it,poolSet,known,settings.length) }
+            .thenByDescending { it.kanji.intersect(poolSet).size }
+            .thenBy { it.kanji.count { c -> c !in poolSet && c !in known } }
+            .thenByDescending { scores.getValue(it) }
+            .thenByDescending { it.features.writtenCommon }
+            .thenByDescending { it.features.maxReadingPriority }
+            .thenBy { it.features.writtenOrder }
+            .thenBy { it.word.written }
+            .thenBy { it.features.primaryReadingOrder }
+        // First select an applicable prompt/reading per writing (original reading order),
+        // then select the eligible writing per entry. A later reading may be the only one
+        // with an English meaning; it must not be replaced by an inapplicable prompt.
+        val eligibleWritings = eligible.sortedWith(compareBy<WordTrainingCandidate> { it.features.primaryReadingOrder }
+            .thenBy { it.word.reading }).distinctBy { it.word.entryId to it.word.written }
+        val equivalent = eligibleWritings.sortedWith(representativeOrder).distinctBy { it.key }
         val families = mutableSetOf<String>()
-        val remaining = equivalent.distinctBy { it.word.written }.filter {
+        val remaining = equivalent.sortedWith(pedagogicalOrder()).filter {
             val family = CounterConstructions.family(it.word.written)
             family == null || families.add(family)
         }.toMutableList()

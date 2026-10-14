@@ -12,11 +12,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.kanjidb.data.dictionary.highlightedMeaning
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,15 +50,23 @@ import com.example.kanjidb.ui.standaloneKanjiMeaning
 
 @Composable
 fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
-    onOpenKanji: (String) -> Unit, onReturnToOrigin: () -> Unit, modifier: Modifier = Modifier) {
+    onOpenKanji: (String) -> Unit, onReturnToOrigin: () -> Unit, modifier: Modifier = Modifier,
+    matchedGlossId: Long = -1, matchedMeaning: String = "") {
     val context = LocalContext.current
     val dictionary = remember(context) { DictionaryDatabase(context) }
-    var word by remember(entryId, written, sourceKanji) { mutableStateOf<DictionaryWordDetails?>(null) }
-    var loading by remember(entryId, written, sourceKanji) { mutableStateOf(true) }
-    var failed by remember(entryId, written, sourceKanji) { mutableStateOf(false) }
-    LaunchedEffect(dictionary, entryId, written, sourceKanji) {
+    var activeEntry by rememberSaveable(entryId,written) { mutableStateOf(entryId) }
+    var selectedWritten by rememberSaveable(entryId,written) { mutableStateOf(written) }
+    var alternativesExpanded by rememberSaveable(entryId,written) { mutableStateOf(false) }
+    var entriesExpanded by rememberSaveable(entryId,written) { mutableStateOf(false) }
+    var word by remember { mutableStateOf<DictionaryWordDetails?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(dictionary, activeEntry, selectedWritten) {
+        loading = true
+        failed = false
+        word = null
         try {
-            word = dictionary.getWord(entryId, written, sourceKanji)
+            word = dictionary.getWord(activeEntry, selectedWritten)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -77,6 +89,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
         } else {
             val compact = isCompactWord(details.written)
             val meanings = details.orderedMeanings
+            val highlighted = details.highlightedMeaning(entryId,matchedGlossId,matchedMeaning)?.takeIf { it != meanings.firstOrNull() }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomPadding),
@@ -97,12 +110,49 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                         }
                     } else WrittenBlock(details.written, Modifier.fillMaxWidth())
                 }
-                if (details.alternativeWrittenForms.isNotEmpty()) {
+                if (details.alternativeWrittenForms.isNotEmpty() || details.otherEntries.isNotEmpty()) {
                     item {
-                        // Keep existing alternative spellings separate from the displayed form's readings.
-                        DictionaryText(details.alternativeWrittenForms.joinToString(" ? "),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val controlWidth = if (compact) (maxWidth - 16.dp) / 2 else maxWidth
+                            Column(Modifier.width(controlWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (details.alternativeWrittenForms.isNotEmpty()) {
+                                    WordChoiceMenu(stringResource(R.string.word_alternative_writings),
+                                        alternativesExpanded, { alternativesExpanded = false }, {
+                                            entriesExpanded = false
+                                            alternativesExpanded = !alternativesExpanded
+                                        }) {
+                                        details.alternativeWrittenForms.forEach { alternative ->
+                                            DropdownMenuItem(text = { Text(alternative) }, onClick = {
+                                                if (activeEntry == details.entryId && selectedWritten == details.written) {
+                                                    selectedWritten = alternative
+                                                    alternativesExpanded = false
+                                                    entriesExpanded = false
+                                                }
+                                            })
+                                        }
+                                    }
+                                }
+                                if (details.otherEntries.isNotEmpty()) {
+                                    WordChoiceMenu(stringResource(R.string.word_other_entries),
+                                        entriesExpanded, { entriesExpanded = false }, {
+                                            alternativesExpanded = false
+                                            entriesExpanded = !entriesExpanded
+                                        }) {
+                                        details.otherEntries.forEach { other ->
+                                            DropdownMenuItem(text = {
+                                                Text("${other.reading} \u2014 ${other.meanings.firstOrNull().orEmpty()}")
+                                            }, onClick = {
+                                                if (activeEntry == details.entryId && selectedWritten == details.written) {
+                                                    activeEntry = other.entryId
+                                                    entriesExpanded = false
+                                                    alternativesExpanded = false
+                                                }
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 if (!compact) {
@@ -112,11 +162,20 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                             fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal))
                     }
                 }
-                if (meanings.size > 1) {
-                    item { Text(stringResource(R.string.details_meanings), style = MaterialTheme.typography.titleLarge) }
+                if (details.readingMeaningGroups.size > 1 && details.readingMeaningGroups.any { it.otherMeaningTexts(meanings.firstOrNull()).isNotEmpty() }) {
+                    item { Text(stringResource(R.string.word_other_meanings), style = MaterialTheme.typography.titleLarge) }
+                    items(details.readingMeaningGroups.filter { it.otherMeaningTexts(meanings.firstOrNull()).isNotEmpty() }) { group ->
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(group.readings.joinToString(" / "), style = MaterialTheme.typography.titleSmall)
+                            WordTextList(group.otherMeaningTexts(meanings.firstOrNull()),columns = false,highlighted = highlighted)
+                        }
+                    }
+                } else if (meanings.size > 1) {
+                    item { Text(stringResource(R.string.word_other_meanings), style = MaterialTheme.typography.titleLarge) }
                     if (compact) {
-                        item { WordTextList(meanings.drop(1), columns = true) }
-                    } else items(meanings.drop(1)) { DictionaryText(it) }
+                        item { WordTextList(meanings.drop(1), columns = true, highlighted = highlighted) }
+                    } else items(meanings.drop(1)) { DictionaryText(it, style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = if(it == highlighted) FontWeight.Bold else FontWeight.Normal)) }
                 }
                 item {
                     Text(stringResource(R.string.word_kanji), modifier = Modifier.fillMaxWidth(),
@@ -163,18 +222,30 @@ private fun WrittenBlock(written: String, modifier: Modifier, compact: Boolean =
 }
 
 @Composable
-private fun WordTextList(texts: List<String>, columns: Boolean, primaryBold: Boolean = false) {
+private fun WordTextList(texts: List<String>, columns: Boolean, primaryBold: Boolean = false, highlighted: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         texts.chunked(if (columns) 2 else 1).forEachIndexed { rowIndex, row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEachIndexed { columnIndex, text ->
                     DictionaryText(text, modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = if (primaryBold && rowIndex == 0 && columnIndex == 0)
+                            fontWeight = if (text == highlighted || (primaryBold && rowIndex == 0 && columnIndex == 0))
                                 FontWeight.Bold else FontWeight.Normal))
                 }
                 if (columns && row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
+    }
+}
+
+/** Menu lives in a popup; expanding it never contributes height to the details list. */
+@Composable
+private fun WordChoiceMenu(label: String, expanded: Boolean, onDismiss: () -> Unit,
+    onToggle: () -> Unit, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
+            Text(label, Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) { content() }
     }
 }

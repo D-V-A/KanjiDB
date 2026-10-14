@@ -10,6 +10,7 @@ import com.example.kanjidb.data.dictionary.KanjiSummary
 import com.example.kanjidb.data.dictionary.WordSearchPage
 import com.example.kanjidb.data.dictionary.WordSearchResult
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -51,6 +52,7 @@ class SearchStateTest {
         val returned = ViewModelProvider(store, factory)[SearchState::class.java]
         returned.search(emptyKanji, search)
         assertSame(state, returned)
+        assertEquals("sunday", returned.query)
         assertSame(page, returned.wordPage)
         assertSame(scroll, returned.listState)
         assertEquals(8, returned.listState.firstVisibleItemIndex)
@@ -62,7 +64,7 @@ class SearchStateTest {
         store.clear()
     }
 
-    @Test fun kanjiReturnIsCachedAndModeSwitchKeepsItsSession() = runBlocking {
+    @Test fun kanjiReturnIsCachedAndModeSwitchClearsItsSession() = runBlocking {
         val state = SearchState(SavedStateHandle())
         state.changeQuery("day")
         var calls = 0
@@ -84,15 +86,15 @@ class SearchStateTest {
         state.search(kanji, emptyWords)
         assertEquals(2, calls)
         state.switchMode()
-        assertEquals("", state.query)
+        assertEquals("sun", state.query)
         assertEquals(10, state.limit)
-        assertFalse(state.kanjiPage.kanji.isEmpty())
+        assertTrue(state.kanjiPage.kanji.isEmpty())
         state.search(kanji, emptyWords)
         assertEquals(2, calls)
         state.switchMode()
         assertEquals("sun", state.query)
         state.search(kanji, emptyWords)
-        assertEquals(2, calls)
+        assertEquals(3, calls)
     }
 
     @Test fun oldResultCannotOverwriteChangedQuery() = runBlocking {
@@ -151,125 +153,94 @@ class SearchStateTest {
         assertTrue(restored.wordMode)
     }
 
-    @Test fun bothSessionsRetainDifferentQueriesPaginationScrollAndPagesWithoutSqlOnSwitch() = runBlocking {
+    @Test fun modeSwitchPreservesSharedQueryAndSearchesEachNewMode() = runBlocking {
         val state = SearchState(SavedStateHandle())
-        var kanjiCalls = 0
-        var wordCalls = 0
-        val kanji: suspend (String, Int) -> KanjiSearchPage = { query, limit ->
-            assertEquals("day", query)
-            kanjiCalls++
-            KanjiSearchPage((1..limit).map { KanjiSummary("kanji$it", "day") }, true)
-        }
-        val words: suspend (String, Int) -> WordSearchPage = { query, limit ->
-            assertEquals("Sunday", query)
-            wordCalls++
-            WordSearchPage((1..limit).map {
-                WordSearchResult(DictionaryWord(it.toLong(), "word$it", "reading", listOf("Sunday")), "Sunday", "Sunday", null)
-            }, true)
-        }
         state.switchMode()
         state.changeQuery("Sunday")
-        state.search(kanji, words)
         state.showMore()
-        state.search(kanji, words)
-        state.listState.requestScrollToItem(8, 23)
-        val wordScroll = state.listState
-        val wordPage = state.wordPage
-
-        state.switchMode()
-        assertEquals("", state.query)
-        assertEquals(10, state.limit)
-        assertTrue(state.kanjiPage.kanji.isEmpty())
-        state.search(kanji, words)
-        assertEquals(0, kanjiCalls)
-        state.changeQuery("day")
-        state.search(kanji, words)
-        state.showMore()
-        state.showMore()
-        state.search(kanji, words)
-        state.listState.requestScrollToItem(12, 17)
-        val kanjiScroll = state.listState
-        val kanjiPage = state.kanjiPage
-
+        var wordCalls=0
+        var kanjiCalls=0
+        val words: suspend (String,Int)->WordSearchPage={ q,_ ->
+            assertEquals("Sunday",q);wordCalls++
+            WordSearchPage(listOf(WordSearchResult(DictionaryWord(1,"word","reading",listOf("Sunday")),"Sunday",null,null)),true)
+        }
+        val kanji: suspend (String,Int)->KanjiSearchPage={ q,_ ->
+            assertEquals("Sunday",q);kanjiCalls++
+            KanjiSearchPage(listOf(KanjiSummary("day","Sunday")),false)
+        }
+        state.search(kanji,words)
+        state.listState.requestScrollToItem(0,23)
         repeat(2) {
             state.switchMode()
-            state.search(kanji, words)
-            assertEquals("Sunday", state.query)
-            assertEquals(20, state.limit)
-            assertSame(wordPage, state.wordPage)
-            assertSame(wordScroll, state.listState)
-            assertEquals(8, state.listState.firstVisibleItemIndex)
-            assertEquals(23, state.listState.firstVisibleItemScrollOffset)
-            // Returning from Details in this mode also calls search without new SQL.
-            state.search(kanji, words)
-
-            state.switchMode()
-            state.search(kanji, words)
-            assertEquals("day", state.query)
-            assertEquals(30, state.limit)
-            assertSame(kanjiPage, state.kanjiPage)
-            assertSame(kanjiScroll, state.listState)
-            assertEquals(12, state.listState.firstVisibleItemIndex)
-            assertEquals(17, state.listState.firstVisibleItemScrollOffset)
-            state.search(kanji, words)
+            assertEquals("Sunday",state.query)
+            assertEquals(10,state.limit)
+            assertTrue(state.kanjiPage.kanji.isEmpty())
+            assertTrue(state.wordPage.words.isEmpty())
+            assertTrue(state.loading)
+            assertFalse(state.failed)
+            assertEquals(0,state.listState.firstVisibleItemScrollOffset)
+            state.search(kanji,words)
         }
-        assertEquals(2, kanjiCalls)
-        assertEquals(2, wordCalls)
-        state.changeQuery("")
-        state.switchMode()
-        assertEquals("Sunday", state.query)
-        assertSame(wordPage, state.wordPage)
-        assertSame(wordScroll, state.listState)
-        assertEquals(20, state.limit)
+        assertEquals(1,kanjiCalls)
+        assertEquals(2,wordCalls)
     }
 
-    @Test fun completionAfterModeSwitchUpdatesOnlyItsOriginalSession() = runBlocking {
-        val state = SearchState(SavedStateHandle())
-        state.changeQuery("old")
-        val entered = CompletableDeferred<Unit>()
-        val finish = CompletableDeferred<Unit>()
-        val pending = async {
+    @Test fun oldCompletionCannotRepopulateAfterModeRoundTripEvenWithSameQuery() = runBlocking {
+        val state=SearchState(SavedStateHandle())
+        state.changeQuery("day")
+        val entered=CompletableDeferred<Unit>()
+        val finish=CompletableDeferred<Unit>()
+        val pending=async {
             state.search({ _, _ ->
-                entered.complete(Unit)
-                finish.await()
-                KanjiSearchPage(listOf(KanjiSummary("old-kanji", "old")), true)
-            }, emptyWords)
+                entered.complete(Unit);finish.await()
+                KanjiSearchPage(listOf(KanjiSummary("old","old")),true)
+            },emptyWords)
         }
         entered.await()
         state.switchMode()
-        state.changeQuery("new word")
-        state.search(emptyKanji, emptyWords)
-        val wordPage = state.wordPage
-        finish.complete(Unit)
-        pending.await()
-        assertEquals("new word", state.query)
-        assertSame(wordPage, state.wordPage)
-        assertFalse(state.loading)
         state.switchMode()
-        assertEquals("old", state.query)
-        assertEquals("old-kanji", state.kanjiPage.kanji.single().character)
-        state.search({ _, _ -> fail("Completed Kanji search must stay cached"); emptyKanji("", 10) }, emptyWords)
+        state.changeQuery("day")
+        state.search({ _, _ -> KanjiSearchPage(listOf(KanjiSummary("new","new")),false) },emptyWords)
+        finish.complete(Unit);pending.await()
+        assertEquals("new",state.kanjiPage.kanji.single().character)
+        assertFalse(state.loading)
     }
 
-    @Test fun bothModeMetadataRestoreIndependentlyAndLegacyMetadataDoesNotLeak() {
-        val saved = SavedStateHandle(mapOf("query" to "Sunday", "wordMode" to true, "limit" to 20))
-        val first = SearchState(saved)
-        first.switchMode()
-        assertEquals("", first.query)
-        val legacyRestored = SearchState(saved)
-        assertEquals("", legacyRestored.query)
-        legacyRestored.switchMode()
-        assertEquals("Sunday", legacyRestored.query)
-        assertEquals(20, legacyRestored.limit)
-        legacyRestored.switchMode()
-        legacyRestored.changeQuery("day")
-        legacyRestored.showMore()
-        legacyRestored.showMore()
-        val restored = SearchState(saved)
-        assertEquals("day", restored.query)
-        assertEquals(30, restored.limit)
+    @Test fun modeSwitchStartsSearchWithoutTypingDebounce() = runBlocking {
+        val state=SearchState(SavedStateHandle())
+        state.changeQuery("day")
+        state.switchMode()
+        var called=false
+        val job=async(start=CoroutineStart.UNDISPATCHED) {
+            state.search(emptyKanji, { q,_ ->
+                assertEquals("day",q)
+                called=true
+                WordSearchPage(emptyList(),false)
+            })
+        }
+        assertTrue(called)
+        assertTrue(job.isCompleted)
+        job.await()
+    }
+
+    @Test fun restorationKeepsOneActiveQueryAndSwitchNeverResurrectsLegacyScopes() {
+        val saved=SavedStateHandle(mapOf("wordMode" to true,"wordsQuery" to "Sunday",
+            "wordsLimit" to 20,"kanjiQuery" to "day","kanjiLimit" to 30))
+        val first=SearchState(saved)
+        assertEquals("Sunday",first.query)
+        assertEquals(20,first.limit)
+        assertNull(saved.get<String>("wordsQuery"))
+        assertNull(saved.get<String>("kanjiQuery"))
+        val recreated=SearchState(saved)
+        assertEquals("Sunday",recreated.query)
+        assertTrue(recreated.wordMode)
+        recreated.switchMode()
+        val restored=SearchState(saved)
+        assertEquals("Sunday",restored.query)
+        assertFalse(restored.wordMode)
         restored.switchMode()
-        assertEquals("Sunday", restored.query)
-        assertEquals(20, restored.limit)
+        assertEquals("Sunday",restored.query)
+        restored.changeQuery("new")
+        assertEquals("new",SearchState(saved).query)
     }
 }

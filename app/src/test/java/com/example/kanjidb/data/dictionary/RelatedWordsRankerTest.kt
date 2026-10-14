@@ -67,20 +67,20 @@ class RelatedWordsRankerTest {
     }
 
     @Test
-    fun existingEquivalenceSelectsBetterSpellingButKeepsDifferentReadingsAndSenses() {
+    fun oneRepresentativePerEntryRegardlessOfReadingOrMeaning() {
         val low = candidate("ひと山", meanings = listOf("a", "b", "c"))
         val best = candidate("一山", common = true, meanings = listOf("a", "b", "c", "d"))
         val differentReading = candidate("壱山", reading = "different", meanings = listOf("a", "b", "c"))
         val differentSense = candidate("一やま", meanings = listOf("other"))
         val result = RelatedWordsRanker.rank(listOf(low, differentSense, best, differentReading), "山")
-        assertEquals(listOf(best.word, differentSense.word, differentReading.word), result)
+        assertEquals(listOf(best.word), result)
     }
 
     @Test
     fun deterministicTiesDoNotDependOnCandidateInputOrder() {
         val words = listOf(candidate("本語", id = 2), candidate("語本", id = 1),
             candidate("本本", id = 1, reading = "different"))
-        val expected = listOf(words[2].word, words[1].word, words[0].word)
+        val expected = listOf(words[2].word, words[0].word)
         assertEquals(expected, RelatedWordsRanker.rank(words, "本"))
         assertEquals(expected, RelatedWordsRanker.rank(words.reversed(), "本"))
     }

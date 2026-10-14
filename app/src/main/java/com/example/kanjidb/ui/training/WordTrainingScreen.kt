@@ -120,7 +120,7 @@ internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.
         if (TrainingState.wordResultsWords) {
             LazyColumn(Modifier.weight(1f), state = TrainingState.wordResultsWordsScroll,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(session.evaluatedWords, key = { "${it.word.entryId}:${it.word.written}" }) { candidate ->
+                items(session.evaluatedWords, key = { it.key }) { candidate ->
                     val word = candidate.word
                     val correct = session.lastResults[candidate.key] == TrainingResult.CORRECT
                     Card(onClick = { onOpenWord(word.entryId, word.written) },

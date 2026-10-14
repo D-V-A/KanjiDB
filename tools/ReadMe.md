@@ -18,6 +18,12 @@ keeping child stdout/stderr visible. The ordered stages are:
 6. Stamp SQLite `PRAGMA user_version` and generate the small version asset.
 7. Run the existing dictionary verifier, including version consistency checks.
 
+Dictionary v2 preserves source JMdict entries and unique exact writings in
+`dictionary_word_schema.sql`. Valid reading combinations and sense applicability
+retain `re_restr`, `stagk`, `stagr`, source order and common/priority metadata.
+The verifier compares all imported applicability and metadata against the local XML.
+No heuristic or transitive lexical merge is performed. Current release version: 2.
+
 Outputs are `app/src/main/assets/dictionary.db` and
 `app/src/main/assets/dictionary_version.txt`. Both are generated and Git-ignored,
 as are source inputs under `tools/data/`; a fresh clone needs a full build before

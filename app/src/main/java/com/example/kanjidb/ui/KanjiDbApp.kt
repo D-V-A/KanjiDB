@@ -48,7 +48,7 @@ private const val ABOUT = "about"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
-private const val WORD_DETAILS = "word/{entryId}/{written}?sourceKanji={sourceKanji}"
+private const val WORD_DETAILS = "word/{entryId}/{written}?sourceKanji={sourceKanji}&matchedGlossId={matchedGlossId}&matchedMeaning={matchedMeaning}"
 private const val DETAILS = "details/{$KANJI_ID}"
 
 private val topLevelDestinations = listOf(
@@ -163,6 +163,11 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                     openDetails(character)
                 }, onOpenDetails = openDetails, onOpenAbout = {
                     navController.navigate(ABOUT) { launchSingleTop = true }
+                }, onOpenSearchWord = { result ->
+                    val word = result.word
+                    val gloss = if(result.matchKind == com.example.kanjidb.data.dictionary.WordMatchKind.MEANING) result.matchedGlossId else -1
+                    val meaning = if(gloss >= 0) result.matchedMeaning.orEmpty() else ""
+                    navController.navigate("word/${word.entryId}/${Uri.encode(word.written)}?matchedGlossId=$gloss&matchedMeaning=${Uri.encode(meaning)}")
                 }, onOpenWord = { entryId, written ->
                     navController.navigate("word/$entryId/${Uri.encode(written)}")
                 })
@@ -184,7 +189,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 arguments = listOf(
                     navArgument("entryId") { type = NavType.LongType },
                     navArgument("written") { type = NavType.StringType },
-                    navArgument("sourceKanji") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("sourceKanji") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("matchedGlossId") { type = NavType.LongType; defaultValue = -1L },
+                    navArgument("matchedMeaning") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { entry ->
                 val arguments = requireNotNull(entry.arguments)
@@ -192,6 +199,8 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                     entryId = arguments.getLong("entryId"),
                     written = requireNotNull(arguments.getString("written")),
                     sourceKanji = requireNotNull(arguments.getString("sourceKanji")),
+                    matchedGlossId = arguments.getLong("matchedGlossId"),
+                    matchedMeaning = arguments.getString("matchedMeaning").orEmpty(),
                     onOpenKanji = openDetails,
                     onReturnToOrigin = returnToOrigin
                 )

@@ -35,7 +35,7 @@ internal data class WordTrainingSession private constructor(
     val questionOrder: List<WordTrainingCandidate>,
     val questionIndex: Int = 0,
     val revealed: Boolean = false,
-    val lastResults: Map<Pair<Long, String>, TrainingResult> = emptyMap(),
+    val lastResults: Map<Long, TrainingResult> = emptyMap(),
     val pending: Map<String, LearningState> = emptyMap()
 ) {
     val complete get() = questionIndex == questionOrder.size
@@ -121,7 +121,7 @@ internal data class WordTrainingSession private constructor(
 
     companion object {
         fun start(plan: WordTrainingPlan, random: Random = Random.Default): WordTrainingSession {
-            require(plan.words.isNotEmpty() && plan.words.map { it.word.written }.distinct().size == plan.words.size)
+            require(plan.words.isNotEmpty() && plan.words.map { it.key }.distinct().size == plan.words.size)
             return WordTrainingSession(plan, plan.words.shuffled(random))
         }
     }

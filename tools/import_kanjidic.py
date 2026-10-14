@@ -68,6 +68,15 @@ try:
     # --------------------------------------------------------
 
     cur.executescript("""
+    DROP TABLE IF EXISTS word_sense_form;
+    DROP TABLE IF EXISTS word_meaning;
+    DROP TABLE IF EXISTS word_sense;
+    DROP TABLE IF EXISTS word_entry_written_reading;
+    DROP TABLE IF EXISTS word_reading;
+    DROP TABLE IF EXISTS word_written_kanji;
+    DROP TABLE IF EXISTS word_entry_written;
+    DROP TABLE IF EXISTS word_written;
+    DROP TABLE IF EXISTS word_entry;
     DROP TABLE IF EXISTS word_kanji;
     DROP TABLE IF EXISTS word_meaning;
     DROP TABLE IF EXISTS word_form;

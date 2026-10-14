@@ -10,6 +10,8 @@ that feature is started unless explicitly fixed below.
 
 ## Completed milestones
 
+- [x] **Dictionary v2 / source-preserving words (v0.9.1):** unique exact writings, direct source-entry membership, lossless imported reading/sense applicability; Search entry representatives/exact-writing cards; independent Details entry/writing selectors; entry-level Word Training.
+
 -   [x] **My Kanji:** persist personal Known/Learning states in a
     separate Room database and connect the collection with Kanji
     Details, including multi-selection Move/Remove.
@@ -296,6 +298,11 @@ that feature is started unless explicitly fixed below.
 - [x] Tap every variant of a grouped result; each opens the correct entry/written form in Word Details. Check narrow screens, larger fonts and both themes.
 
 ## Dictionary deduplication / word variant model (future research)
+
+The v0.9.1 implementation preserves source entries; it does not attempt cross-entry lexical deduplication or transitive variant closure. The diagnostic Model C is not a production model.
+
+
+## Remaining variant research
 
 - [ ] Investigate duplicate dictionary entries with identical written forms (for example 五 or 男 with different readings/meanings).
 - [ ] Determine whether readings/meanings can safely be combined at import time or in the dictionary model, preserving their applicable restrictions and distinct senses.
