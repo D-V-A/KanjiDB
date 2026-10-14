@@ -1,10 +1,18 @@
 package com.example.kanjidb.ui
 
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMenuComponents
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -17,8 +25,12 @@ internal fun String.standaloneKanjiMeaning(): String {
     return replaceRange(index, index + 1, this[index].uppercaseChar().toString())
 }
 
+/** Opt-in for Details; other dictionary screens retain their standard context menus. */
+internal val LocalDismissUnfocusedTextMenus = staticCompositionLocalOf { false }
+
 /** Keep selection local to dictionary text, leaving surrounding card clicks and controls intact. */
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 internal fun DictionaryText(
     text: String,
     modifier: Modifier = Modifier,
@@ -29,7 +41,15 @@ internal fun DictionaryText(
     maxLines: Int = Int.MAX_VALUE,
     style: TextStyle = LocalTextStyle.current
 ) {
-    SelectionContainer(modifier = modifier) {
+    val dismissUnfocusedMenu=LocalDismissUnfocusedTextMenus.current
+    var focused by remember { mutableStateOf(false) }
+    // Each Details text has its own SelectionContainer. When selection moves to
+    // another text, the retiring container must not refresh its still-closing menu.
+    // Search/Training retain their existing menu behavior (the local defaults off).
+    val selectionModifier=if(dismissUnfocusedMenu) modifier
+        .onFocusChanged { focused=it.hasFocus }
+        .filterTextContextMenuComponents { focused } else modifier
+    SelectionContainer(modifier = selectionModifier) {
         Text(
             text = text,
             color = color,

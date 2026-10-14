@@ -3,6 +3,8 @@ package com.example.kanjidb.ui.details
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMenuComponents
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -56,11 +58,17 @@ internal fun DetailsCopyButton(text: String, label: String, onCopy: (String) -> 
  * SelectionContainer clears its selection/toolbar on focus loss. Buttons, selection
  * gestures, scrolling and popup windows retain their own pointer handling.
  */
+@OptIn(ExperimentalFoundationApi::class)
 internal fun Modifier.clearSelectionOnBackgroundTap(): Modifier = composed {
     val focus=LocalFocusManager.current
-    pointerInput(focus) {
+    var allowTextMenu by remember { mutableStateOf(true) }
+    // The outgoing platform toolbar can re-read its items before its hide job finishes.
+    // Suppress that final refresh before focus/selection are cleared, then re-enable
+    // on the next gesture so normal long-press/drag selection keeps its full menu.
+    Modifier.filterTextContextMenuComponents { allowTextMenu }.pointerInput(focus) {
         awaitEachGesture {
             val down=awaitFirstDown(requireUnconsumed=false,pass=PointerEventPass.Final)
+            allowTextMenu=true
             var handled=down.isConsumed
             var moved=false
             var event=awaitPointerEvent(PointerEventPass.Final)
@@ -71,7 +79,10 @@ internal fun Modifier.clearSelectionOnBackgroundTap(): Modifier = composed {
                 event=awaitPointerEvent(PointerEventPass.Final)
             } while(true)
             val elapsed=event.changes.maxOf { it.uptimeMillis }-down.uptimeMillis
-            if(!handled && !moved && elapsed<viewConfiguration.longPressTimeoutMillis) focus.clearFocus(force=true)
+            if(!handled && !moved && elapsed<viewConfiguration.longPressTimeoutMillis) {
+                allowTextMenu=false
+                focus.clearFocus(force=true)
+            }
         }
     }
 }

@@ -17,6 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.example.kanjidb.ui.LocalDismissUnfocusedTextMenus
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +84,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
     }
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
+    CompositionLocalProvider(LocalDismissUnfocusedTextMenus provides true) {
     Box(modifier.fillMaxSize().clearSelectionOnBackgroundTap()) {
         val details = word
         if (loading || failed || details == null) {
@@ -212,6 +215,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
         }
         SnackbarHost(snackbar,Modifier.align(Alignment.BottomCenter)
             .padding(bottom=with(LocalDensity.current) { panelHeight.toDp() }))
+    }
     }
 }
 

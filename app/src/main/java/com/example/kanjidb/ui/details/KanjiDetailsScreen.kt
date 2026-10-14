@@ -33,6 +33,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.example.kanjidb.ui.LocalDismissUnfocusedTextMenus
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -155,6 +157,7 @@ fun KanjiDetailsScreen(
     var panelHeight by remember { mutableIntStateOf(0) }
     val bottomPadding = with(LocalDensity.current) { panelHeight.toDp() } + 16.dp
 
+    CompositionLocalProvider(LocalDismissUnfocusedTextMenus provides true) {
     Box(modifier = modifier.fillMaxSize().clearSelectionOnBackgroundTap()) {
         LazyColumn(
             state = listState,
@@ -273,6 +276,7 @@ fun KanjiDetailsScreen(
         }
         SnackbarHost(snackbar,Modifier.align(Alignment.BottomCenter)
             .padding(bottom=with(LocalDensity.current) { panelHeight.toDp() }))
+    }
     }
 }
 

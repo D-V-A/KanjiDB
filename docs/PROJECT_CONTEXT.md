@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.9.2**, `versionCode = 53`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.9.2.1**, `versionCode = 55`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; Kanji Details supports optional animated KanjiVG stroke order.
 
@@ -397,3 +397,20 @@ no events and ignores handled clicks, drags and long presses; popup handling
 remains separate. This is focused-selection clearing, not a global selection
 registry. Stroke playback has one keyed LaunchedEffect loop; replay keys cancel
 the current playback/pause before restarting, and removing the view cancels it.
+
+## Details selection-menu experiment (versionCode 54)
+
+Details background-tap clearing temporarily filters text context-menu components
+before clearFocus, attempting to prevent the outgoing Compose/platform toolbar from updating
+to a select-all-only menu during dismissal. The next gesture restores all menu
+components. SelectionContainer is retained, controls are not wrapped and pointer
+events are not consumed. This local fix targets the reported flash; effectiveness
+on the affected phone was confirmed by the developer, together with the transfer guard below.
+
+## Details selection transfer guard (versionCode 55)
+
+Details opts its local DictionaryText containers into a focus-bound text-menu
+filter. A container that loses focus cannot refresh its retiring menu, including
+when selection moves directly to another text. The focused container retains all
+standard menu items. Search/Training default to the existing behavior. The prior
+background-tap guard remains. The developer confirmed this transfer fix on the phone; the selection-menu flash is considered resolved in v0.9.2.1.
