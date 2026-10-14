@@ -3,6 +3,7 @@ package com.example.kanjidb.ui.search
 import com.example.kanjidb.ui.DictionaryModeControl
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
+import com.example.kanjidb.ui.AdaptiveLabelTabs
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -28,8 +29,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -141,14 +140,12 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
             )
         }
         if (exploring) {
-            TabRow(selectedTabIndex = pagerState.currentPage) {
-                listOf(R.string.search_explore, R.string.search_recommended_kanji,
-                    R.string.search_explore_words).forEachIndexed { index, title ->
-                    Tab(selected = pagerState.currentPage == index,
-                        onClick = { pagerScope.launch { pagerState.animateScrollToPage(index) } },
-                        text = { Text(stringResource(title)) })
-                }
-            }
+            AdaptiveLabelTabs(
+                labels = listOf(stringResource(R.string.search_explore),
+                    stringResource(R.string.search_recommended_kanji), stringResource(R.string.search_explore_words)),
+                selectedIndex = pagerState.currentPage,
+                onSelect = { index -> pagerScope.launch { pagerState.animateScrollToPage(index) } }
+            )
         } else {
             Text(stringResource(R.string.search_results), style = MaterialTheme.typography.titleMedium)
         }

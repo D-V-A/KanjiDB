@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.example.kanjidb.ui.lists.KanjiCard
@@ -112,7 +113,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                             WrittenBlock(details.written, Modifier.weight(1f), copyText, compact = true)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(stringResource(R.string.word_readings), style = MaterialTheme.typography.titleSmall)
-                                WordTextList(details.readings, columns = true, primaryBold = true)
+                                WordTextList(details.readings, primaryBold = true)
                             }
                         }
                     } else WrittenBlock(details.written, Modifier.fillMaxWidth(), copyText)
@@ -164,25 +165,20 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                 }
                 if (!compact) {
                     item { Text(stringResource(R.string.word_readings), style = MaterialTheme.typography.titleLarge) }
-                    items(details.readings.size) { index ->
-                        DictionaryText(details.readings[index], style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal))
-                    }
+                    item { WordTextList(details.readings, primaryBold = true) }
                 }
                 if (details.readingMeaningGroups.size > 1 && details.readingMeaningGroups.any { it.otherMeaningTexts(meanings.firstOrNull()).isNotEmpty() }) {
                     item { Text(stringResource(R.string.word_other_meanings), style = MaterialTheme.typography.titleLarge) }
                     items(details.readingMeaningGroups.filter { it.otherMeaningTexts(meanings.firstOrNull()).isNotEmpty() }) { group ->
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(group.readings.joinToString(" / "), style = MaterialTheme.typography.titleSmall)
-                            WordTextList(group.otherMeaningTexts(meanings.firstOrNull()),columns = false,highlighted = highlighted)
+                            WordTextList(group.otherMeaningTexts(meanings.firstOrNull()),highlighted = highlighted,
+                                measurementTexts=details.readingMeaningGroups.flatMap { it.otherMeaningTexts(meanings.firstOrNull()) })
                         }
                     }
                 } else if (meanings.size > 1) {
                     item { Text(stringResource(R.string.word_other_meanings), style = MaterialTheme.typography.titleLarge) }
-                    if (compact) {
-                        item { WordTextList(meanings.drop(1), columns = true, highlighted = highlighted) }
-                    } else items(meanings.drop(1)) { DictionaryText(it, style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = if(it == highlighted) FontWeight.Bold else FontWeight.Normal)) }
+                    item { WordTextList(meanings.drop(1), highlighted = highlighted) }
                 }
                 item {
                     Text(stringResource(R.string.word_kanji), modifier = Modifier.fillMaxWidth(),
@@ -206,7 +202,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
         DetailActionPanel(onReturnToOrigin,
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                 .onSizeChanged { panelHeight = it.height }.padding(12.dp)) {
-            listOf(R.string.details_known, R.string.details_learning, R.string.custom_lists).forEach { label ->
+            listOf(R.string.details_known, R.string.details_learning, R.string.details_lists).forEach { label ->
                 OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
                     Text(stringResource(label))
@@ -235,17 +231,25 @@ private fun WrittenBlock(written: String, modifier: Modifier, onCopy: (String) -
 }
 
 @Composable
-private fun WordTextList(texts: List<String>, columns: Boolean, primaryBold: Boolean = false, highlighted: String? = null) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        texts.chunked(if (columns) 2 else 1).forEachIndexed { rowIndex, row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEachIndexed { columnIndex, text ->
-                    DictionaryText(text, modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = if (text == highlighted || (primaryBold && rowIndex == 0 && columnIndex == 0))
-                                FontWeight.Bold else FontWeight.Normal))
+private fun WordTextList(texts: List<String>, primaryBold: Boolean = false, highlighted: String? = null,
+    measurementTexts: List<String> = texts) {
+    val measurer=rememberTextMeasurer()
+    val bodyStyle=MaterialTheme.typography.bodyLarge
+    val styleFor: (Int,String) -> androidx.compose.ui.text.TextStyle = { index,text ->
+        bodyStyle.copy(fontWeight=if(text==highlighted || (primaryBold && index==0)) FontWeight.Bold else FontWeight.Normal)
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val gapPx=with(LocalDensity.current) { 12.dp.roundToPx() }
+        val columns=wordTextColumnCount(measurementTexts,constraints.maxWidth,gapPx,measurer,styleFor)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            texts.chunked(columns).forEachIndexed { rowIndex, row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEachIndexed { columnIndex, text ->
+                        DictionaryText(text, modifier = Modifier.weight(1f),
+                            style = styleFor(rowIndex*columns+columnIndex,text))
+                    }
+                    if (columns==2 && row.size == 1) Spacer(Modifier.weight(1f))
                 }
-                if (columns && row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }

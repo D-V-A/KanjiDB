@@ -111,7 +111,7 @@ fun KanjiDetailsScreen(
             }), Modifier.padding(16.dp))
             DetailActionPanel(onReturnToOrigin,
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)) {
-                listOf(R.string.details_known, R.string.details_learning, R.string.custom_lists).forEach { label ->
+                listOf(R.string.details_known, R.string.details_learning, R.string.details_lists).forEach { label ->
                     OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
                         Text(stringResource(label))
@@ -271,7 +271,7 @@ fun KanjiDetailsScreen(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text(stringResource(R.string.custom_lists))
+                Text(stringResource(R.string.details_lists))
             }
         }
         SnackbarHost(snackbar,Modifier.align(Alignment.BottomCenter)

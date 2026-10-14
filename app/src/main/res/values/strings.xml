@@ -79,7 +79,7 @@
     <string name="search_words_hint">Search words</string>
     <string name="search_mode_kanji">Switch to word search</string>
     <string name="search_mode_words">Switch to kanji search</string>
-    <string name="search_recommended_kanji">Recommended kanji</string>
+    <string name="search_recommended_kanji">Learn Next</string>
     <string name="search_explore_words">Explore words</string>
     <string name="search_new_kanji">Refresh kanji</string>
     <string name="search_new_words">Refresh words</string>
@@ -178,6 +178,7 @@
     <string name="my_kanji_drag_hint">To change the order, hold and drag a kanji.</string>
     <string name="my_lists_drag_hint">To change the order, hold and drag a kanji.\nKanji can only be reordered within the current list.</string>
     <string name="custom_lists">Custom Lists</string>
+    <string name="details_lists">Lists</string>
     <string name="selection_finish">Finish</string>
     <string name="search_help">Search input help</string>
     <string name="search_help_examples">Try any of these:</string>

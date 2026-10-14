@@ -4,7 +4,7 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.9.2.1**, `versionCode = 55`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.9.3**, `versionCode = 57`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
 
 Implemented in v0.3 alpha: bundled offline dictionary access, Search Kanji/Words, refreshable Explore Kanji/Words, linked Kanji/Word Details, ranked Related Words with written-form deduplication, About with version and basic source credits, and bottom navigation. My Kanji and Kanji Details share persistent Learning/Known states. My Kanji displays real user data from the separate Room user.db, with no mock collections. Kanji Groups supports dictionary browsing, rules and bulk state assignment. My Kanji / My Lists / Kanji Groups are enabled tabs in a shared swipe pager; My Lists implements persistent Custom Lists and single/bulk assignment. Kanji Training and Word Training support My Lists; Kanji Details supports optional animated KanjiVG stroke order.
 
@@ -414,3 +414,21 @@ filter. A container that loses focus cannot refresh its retiring menu, including
 when selection moves directly to another text. The focused container retains all
 standard menu items. Search/Training default to the existing behavior. The prior
 background-tap guard remains. The developer confirmed this transfer fix on the phone; the selection-menu flash is considered resolved in v0.9.2.1.
+
+## Word Details adaptive text columns (v0.9.3)
+
+Readings and Other Meanings share a small TextMeasurer policy: keep two columns
+only if every item fits its half-width without wrapping/overflow at the current
+density/fontScale and actual normal/bold style. Otherwise the entire block uses
+one column with natural wrapping, without ellipsis. Reading-specific meaning
+groups share the same decision across all their displayed meanings. Alternative
+writings labels/buttons and selection/clipboard behavior remain unchanged.
+Details action panels use Lists (other Custom Lists labels remain unchanged);
+Search recommendation tab uses Learn Next, with existing actions/navigation.
+
+Search discovery and My Kanji collection tabs share AdaptiveLabelTabs. The row
+measures all original labels using the existing tab typography and current
+density/fontScale, subtracting Material tab padding and (for My Kanji) icon/gap
+width. If any label exceeds its text slot, all labels use an explicit word-boundary
+newline and the same two-line height. Otherwise all use one line. Words are not
+split or ellipsized; pager actions, enabled state and icons are unchanged.
