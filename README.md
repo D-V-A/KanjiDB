@@ -166,7 +166,7 @@ Third-party attribution and licensing information is included with the applicati
 
 Pre-built Android APKs are available from the repository's **Releases** section.
 
-KanjiDB currently supports **Android 8.0 (API 26) and newer**.
+KanjiDB currently supports **Android 10 (API 29) and newer**.
 
 ## Development
 

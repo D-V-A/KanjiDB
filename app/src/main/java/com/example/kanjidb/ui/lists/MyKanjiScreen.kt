@@ -73,55 +73,65 @@ internal fun MyKanjiScreen(
             failed = true
         }
     }
-    Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
-        AdaptiveLabelTabs(
-            labels = listOf(stringResource(R.string.my_kanji_title), stringResource(R.string.my_lists_title),
-                stringResource(R.string.kanji_groups_title)),
-            selectedIndex = pager.currentPage, enabled = !saving,
-            icons = listOf(AppIcons.Notebook, AppIcons.ListLetters, AppIcons.ListSearch),
-            onSelect = { index -> scope.launch { pager.animateScrollToPage(index) } }
-        )
-        // Reset controls after a completed tab change, avoiding a jump on the outgoing page mid-swipe.
-        HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
-            modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
-            when (index) {
-                0 -> CollectionFiltersHeader(
-                    currentPage = pager.settledPage,
-                    activePage = pager.currentPage == 0,
-                    locked = state.collection.selecting, enabled = !saving && !myRulesOpen,
-                    resetLabel = "Reset filters", showReset = myOptions != KanjiGroupOptions.CollectionDefaults,
-                    onReset = { myOptions = KanjiGroupOptions.CollectionDefaults },
-                    modifier = Modifier.fillMaxSize(),
-                    controls = {
-                        KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
-                            { myRulesOpen = it }, myWriter.saving, personal = true)
+    val backupSnackbar = remember { SnackbarHostState() }
+    Box(modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f))
+                UserDataControl(backupSnackbar)
+            }
+            AdaptiveLabelTabs(
+                labels = listOf(stringResource(R.string.my_kanji_title), stringResource(R.string.my_lists_title),
+                    stringResource(R.string.kanji_groups_title)),
+                selectedIndex = pager.currentPage, enabled = !saving,
+                icons = listOf(AppIcons.Notebook, AppIcons.ListLetters, AppIcons.ListSearch),
+                onSelect = { index -> scope.launch { pager.animateScrollToPage(index) } }
+            )
+            // Reset controls after a completed tab change, avoiding a jump on the outgoing page mid-swipe.
+            HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
+                modifier = Modifier.weight(1f).fillMaxWidth()) { index ->
+                when (index) {
+                    0 -> CollectionFiltersHeader(
+                        currentPage = pager.settledPage,
+                        activePage = pager.currentPage == 0,
+                        locked = state.collection.selecting, enabled = !saving && !myRulesOpen,
+                        resetLabel = "Reset filters", showReset = myOptions != KanjiGroupOptions.CollectionDefaults,
+                        onReset = { myOptions = KanjiGroupOptions.CollectionDefaults },
+                        modifier = Modifier.fillMaxSize(),
+                        controls = {
+                            KanjiCollectionControls(myOptions, { myOptions = it }, myRulesOpen,
+                                { myRulesOpen = it }, myWriter.saving, personal = true)
+                        }
+                    ) {
+                        MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
+                            activePage = pager.currentPage == 0 && !myRulesOpen,
+                            onOpenDetails = onOpenDetails, options = myOptions, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                     }
-                ) {
-                    MyKanjiPage(state, entries, rows, failed, { retry++ }, myWriter, myGrid,
-                        activePage = pager.currentPage == 0 && !myRulesOpen,
-                        onOpenDetails = onOpenDetails, options = myOptions, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
-                }
-                1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
-                    activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining)
-                2 -> CollectionFiltersHeader(
-                    initiallyExpanded = true,
-                    currentPage = pager.settledPage,
-                    activePage = pager.currentPage == 2,
-                    locked = groupsState.selecting, enabled = !saving && !rulesOpen,
-                    resetLabel = "Reset rules", showReset = options.activeRules > 0,
-                    onReset = { options = options.resetRules() },
-                    modifier = Modifier.fillMaxSize(),
-                    controls = {
-                        KanjiCollectionControls(options, { options = it }, rulesOpen,
-                            { rulesOpen = it }, groupsWriter.saving)
+                    1 -> MyListsPage(customListsDao, userDao, entries, rows, failed, { retry++ },
+                        activePage = pager.currentPage == 1, currentPage = pager.settledPage, onOpenDetails = onOpenDetails, onOpenTraining = onOpenTraining)
+                    2 -> CollectionFiltersHeader(
+                        initiallyExpanded = true,
+                        currentPage = pager.settledPage,
+                        activePage = pager.currentPage == 2,
+                        locked = groupsState.selecting, enabled = !saving && !rulesOpen,
+                        resetLabel = "Reset rules", showReset = options.activeRules > 0,
+                        onReset = { options = options.resetRules() },
+                        modifier = Modifier.fillMaxSize(),
+                        controls = {
+                            KanjiCollectionControls(options, { options = it }, rulesOpen,
+                                { rulesOpen = it }, groupsWriter.saving)
+                        }
+                    ) {
+                        KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,
+                            activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
+                            options = options, rulesOpen = rulesOpen, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                     }
-                ) {
-                    KanjiGroupsPage(entries, rows, failed, { retry++ }, groupsState, groupsWriter, groupsGrid,
-                        activePage = pager.currentPage == 2, onOpenDetails = onOpenDetails,
-                        options = options, rulesOpen = rulesOpen, customListsDao = customListsDao, onOpenTraining = onOpenTraining)
                 }
             }
+        }
+        SnackbarHost(backupSnackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp)) { data ->
+            Snackbar { UserDataMessage(data.visuals.message) }
         }
     }
 }
@@ -147,7 +157,8 @@ private fun MyKanjiPage(
         }
     }
     val ready = result?.let { it.source === entries && it.rows == rows && it.options == options } == true
-    val sections = personalKanjiSections(result?.sections.orEmpty(), result?.options?.groupBy ?: options.groupBy)
+    val available = remember(result?.source) { result?.source.orEmpty().mapTo(hashSetOf()) { it.character } }
+    val sections = personalKanjiSections(result?.sections.orEmpty(), result?.options?.groupBy ?: options.groupBy, available)
     val learning = state.selectionSection == LearningState.LEARNING
     KanjiCollectionGrid(
         sections = sections, state = state.collection, onOpenDetails = onOpenDetails, customListsDao = customListsDao, onOpenTraining = onOpenTraining,

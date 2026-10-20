@@ -22,3 +22,5 @@ tools/__pycache__/
 tools/tests/__pycache__/
 .vs/
 /app/release/
+very_big_promt.txt
+/docs/test-data

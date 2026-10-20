@@ -32,7 +32,10 @@ import com.example.kanjidb.R
 import com.example.kanjidb.ui.FloatingActionPanel
 import kotlinx.coroutines.flow.first
 
-internal data class KanjiCardItem(val character: String, val reading: String?)
+internal data class KanjiCardItem(val character: String, val reading: String?, val dictionaryAvailable: Boolean = true)
+
+internal fun selectionTrainingEnabled(selected: Collection<String>, available: Set<String>): Boolean =
+    selected.isNotEmpty() && selected.all { it in available }
 internal data class KanjiSubgroup(
     val key: String, val title: String, val cards: List<KanjiCardItem>,
     val subgroups: List<KanjiSubgroup> = emptyList(), val selectable: Boolean = false
@@ -93,6 +96,10 @@ internal fun KanjiCollectionGrid(
     sectionControls: (@Composable (KanjiSection) -> Unit)? = null
 ) {
     var trainingPool by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var unavailable by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    if (unavailable) AlertDialog(onDismissRequest = { unavailable = false },
+        text = { Text("Sorry, this kanji is not available in the current dictionary version.") },
+        confirmButton = { TextButton(onClick = { unavailable = false }) { Text("Close") } })
     trainingPool?.let { pool ->
         com.example.kanjidb.ui.training.FixedPoolTrainingEntry(pool,
             onDismiss = { trainingPool = null },
@@ -144,6 +151,7 @@ internal fun KanjiCollectionGrid(
     val eligible = remember(shown) { shown.flatMap { it.cards }.mapTo(mutableSetOf()) { it.character } }
     LaunchedEffect(eligible, ready) { if (ready) state.retain(eligible) }
     val selected = state.selected.intersect(eligible)
+    val available = remember(shown) { shown.flatMap { it.cards }.filter { it.dictionaryAvailable }.mapTo(hashSetOf()) { it.character } }
     val interactionEnabled = ready && !busy && reorder.character == null && !reorder.saving && !reorder.awaitingCommit
     BackHandler(enabled = activePage && selecting) {
         if (reorder.character != null) reorder.cancel() else if (!busy && !reorder.saving && onSelectionBack?.invoke() != true) state.cancel()
@@ -314,11 +322,14 @@ internal fun KanjiCollectionGrid(
                                     alpha = if (reorder.section == section.key && reorder.character == card.character) 0f else 1f
                                 },
                                 character = card.character,
-                                reading = card.reading ?: stringResource(R.string.my_kanji_no_reading),
+                                reading = if (card.dictionaryAvailable) card.reading ?: stringResource(R.string.my_kanji_no_reading) else "—",
+                                dictionaryAvailable = card.dictionaryAvailable,
                                 selecting = selecting, selected = card.character in selected,
                                 enabled = interactionEnabled,
                                 onClick = {
-                                    if (selecting) state.toggle(card.character, section.key) else onOpenDetails(card.character)
+                                    if (selecting) state.toggle(card.character, section.key)
+                                    else if (card.dictionaryAvailable) onOpenDetails(card.character)
+                                    else unavailable = true
                                 },
                                 onLongClick = { state.begin(section.key, listOf(card.character), multiSection = multiSectionSelection) }
                             )
@@ -359,7 +370,8 @@ internal fun KanjiCollectionGrid(
         val dragged = sourceSection?.cards?.firstOrNull { it.character == reorder.character }
         if (dragged != null) {
             KanjiCard(
-                character = dragged.character, reading = dragged.reading ?: stringResource(R.string.my_kanji_no_reading),
+                character = dragged.character, reading = if (dragged.dictionaryAvailable) dragged.reading ?: stringResource(R.string.my_kanji_no_reading) else "—",
+                dictionaryAvailable = dragged.dictionaryAvailable,
                 selected = dragged.character in selected, selecting = true, enabled = false, dragging = true,
                 onClick = {}, onLongClick = {},
                 modifier = Modifier.offset { IntOffset(reorder.position.x.roundToInt(), reorder.position.y.roundToInt()) }
@@ -371,6 +383,7 @@ internal fun KanjiCollectionGrid(
             KanjiSelectionPanel(
                 selectedCount = selected.size,
                 onTrain = { trainingPool = selected.toList() },
+                trainingEnabled = selectionTrainingEnabled(selected, available),
                 actions = actions, selected = selected.toList(), enabled = interactionEnabled,
                 onCustomLists = if (customListsDao != null) ({ listSelection = selected.toList() }) else null,
                 onCancel = { reorder.cancel(); state.cancel() }, cancelEnabled = !busy && reorder.character == null && !reorder.saving,
@@ -421,7 +434,8 @@ private fun KanjiSubgroupHeader(
 @Composable
 private fun KanjiSelectionPanel(
     actions: List<KanjiSelectionAction>, selected: List<String>, enabled: Boolean,
-    selectedCount: Int, onTrain: () -> Unit, onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null
+    selectedCount: Int, onTrain: () -> Unit, onCancel: () -> Unit, cancelEnabled: Boolean, modifier: Modifier, onCustomLists: (() -> Unit)? = null,
+    trainingEnabled: Boolean = true
 ) {
     FloatingActionPanel(modifier, contentPadding = PaddingValues(8.dp), spacing = 4.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -438,7 +452,7 @@ private fun KanjiSelectionPanel(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedButton(onClick = onTrain, enabled = enabled && selected.isNotEmpty(), modifier = Modifier.weight(1f),
+                OutlinedButton(onClick = onTrain, enabled = enabled && trainingEnabled && selected.isNotEmpty(), modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(4.dp)) { Text(stringResource(R.string.train_selected), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center) }
                 OutlinedButton(onClick = { onCustomLists?.invoke() },
                     enabled = enabled && selected.isNotEmpty() && onCustomLists != null,
@@ -465,8 +479,10 @@ internal fun KanjiCard(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
     dragging: Boolean = false,
-    allowLongClick: Boolean = true
+    allowLongClick: Boolean = true,
+    dictionaryAvailable: Boolean = true
 ) {
+    val missingColors = com.example.kanjidb.ui.theme.missingKanjiColors(selected)
     Card(
         modifier = modifier.fillMaxWidth().aspectRatio(1f)
             .clip(MaterialTheme.shapes.medium)
@@ -480,12 +496,21 @@ internal fun KanjiCard(
             .semantics { this.selected = selected },
         colors = CardDefaults.cardColors(
             containerColor = when {
+                !dictionaryAvailable -> missingColors.first
                 dragging -> MaterialTheme.colorScheme.tertiaryContainer
                 selected -> MaterialTheme.colorScheme.secondaryContainer
                 else -> MaterialTheme.colorScheme.surfaceContainer
+            },
+            contentColor = when {
+                !dictionaryAvailable -> missingColors.second
+                dragging -> MaterialTheme.colorScheme.onTertiaryContainer
+                selected -> MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.colorScheme.onSurface
             }
         ),
         border = when {
+            !dictionaryAvailable && selected -> BorderStroke(2.dp, MaterialTheme.colorScheme.error)
+            !dictionaryAvailable -> null
             dragging -> BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary)
             selected -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
             else -> null

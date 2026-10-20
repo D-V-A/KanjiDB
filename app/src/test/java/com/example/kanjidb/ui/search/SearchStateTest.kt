@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28], manifest = Config.NONE)
+@Config(sdk = [29], manifest = Config.NONE)
 class SearchStateTest {
     private val emptyKanji: suspend (String, Int) -> KanjiSearchPage = { _, _ -> KanjiSearchPage(emptyList(), false) }
     private val emptyWords: suspend (String, Int) -> WordSearchPage = { _, _ -> WordSearchPage(emptyList(), false) }

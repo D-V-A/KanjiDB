@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28], manifest = Config.NONE)
+@Config(sdk = [29], manifest = Config.NONE)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AdaptiveLabelTabsTest {
     private val search = listOf("Explore kanji", "Learn Next", "Explore words")

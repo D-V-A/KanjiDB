@@ -152,13 +152,8 @@ that feature is started unless explicitly fixed below.
 -   [ ] **TTS / Japanese speech:** add pronunciation playback after the
     core training/handwriting work. Choose the implementation/backend
     when starting the feature rather than committing to one now.
--   [ ] **Post-release milestone — User data export/import:** add export 
-    and import of user-owned data so study progress can be moved between 
-	devices or transferred between users (for example, teacher → student). 
-	Scope should cover personal data such as Learning/Known states and 
-	Custom Lists, while keeping the bundled dictionary database separate. 
-	Define file format, merge/replace behavior, compatibility/versioning 
-	and validation when implementing the feature.
+-   [x] **User data export/import (v0.10.0):** full versioned .kdb JSON backup of user Room states, Custom Lists, memberships and manual orders; MediaStore Downloads export on API 29+, and validated, confirmed atomic replacement through SAF import. Missing dictionary kanji retain user data, collection selection/list operations and backup membership, with unavailable Details and filtered Training. Dev fixture: docs/test-data/KanjiDB_Test_Import_v1.kdb.
+-   [ ] Future backup scope: export/import individual Custom Lists; define merge semantics when implementing it.
 
 ## Recommendations, discovery and home screen
 

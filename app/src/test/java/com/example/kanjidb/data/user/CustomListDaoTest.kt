@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 
 /** Real generated Room DAO and SQLite migrations run on the JVM, without a device or emulator. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [29])
 class CustomListDaoTest {
     private lateinit var db: UserDatabase
     private lateinit var dao: CustomListDao

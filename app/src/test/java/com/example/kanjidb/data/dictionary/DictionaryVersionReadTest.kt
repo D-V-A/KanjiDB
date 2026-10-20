@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28], manifest = Config.NONE)
+@Config(sdk = [29], manifest = Config.NONE)
 class DictionaryVersionReadTest {
     @get:Rule val folder = TemporaryFolder()
 

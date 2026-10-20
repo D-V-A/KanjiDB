@@ -13,7 +13,7 @@ internal fun customListSection(
     }
     val organized = groupKanji(members, states, options.copy(groupBy = KanjiGroupBy.NONE),
         list.memberships.associate { it.character to it.manualIndex }).flatMap { it.kanji }
-    return KanjiSection(list.list.id.toString(), list.list.name, organized.cards())
+    return KanjiSection(list.list.id.toString(), list.list.name, organized.cards(metadata.keys))
 }
 
 /** A single tab-owned set of options applies equally to every list. */

@@ -17,6 +17,19 @@ import androidx.compose.ui.unit.dp
  * Stroke geometry is color-neutral; Material Icon applies the current content color.
  */
 internal object AppIcons {
+    val FileDatabase by lazy { strokeIcon("FileDatabase",
+        "M8 12.75a4 1.75 0 1 0 8 0a4 1.75 0 1 0 -8 0",
+        "M8 12.5v3.75c0 .966 1.79 1.75 4 1.75s4 -.784 4 -1.75v-3.75",
+        "M14 3v4a1 1 0 0 0 1 1h4",
+        "M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2") }
+    val DatabaseShare by lazy { strokeIcon("DatabaseShare",
+        "M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3",
+        "M4 6v6c0 1.657 3.582 3 8 3c.361 0 .716 -.009 1.065 -.026",
+        "M20 13v-7", "M4 12v6c0 1.657 3.582 3 8 3", "M16 22l5 -5", "M21 21.5v-4.5h-4.5") }
+    val DatabasePlus by lazy { strokeIcon("DatabasePlus",
+        "M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3",
+        "M4 6v6c0 1.657 3.582 3 8 3c1.075 0 2.1 -.08 3.037 -.224", "M20 12v-6",
+        "M4 12v6c0 1.657 3.582 3 8 3c.166 0 .331 -.002 .495 -.006", "M16 19h6", "M19 16v6") }
     val ClipboardCopy by lazy { strokeIcon("ClipboardCopy",
         "M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h3m9 -9v-5a2 2 0 0 0 -2 -2h-2",
         "M13 17v-1a1 1 0 0 1 1 -1h1m3 0h1a1 1 0 0 1 1 1v1m0 3v1a1 1 0 0 1 -1 1h-1m-3 0h-1a1 1 0 0 1 -1 -1v-1",

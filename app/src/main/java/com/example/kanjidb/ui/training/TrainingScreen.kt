@@ -137,7 +137,6 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
     val busy = starting || prepared != null
     val scope = rememberCoroutineScope()
     LaunchedEffect(dictionary, retry, fixedPool) {
-        if (fixedPool != null) return@LaunchedEffect
         failed = false
         try {
             dictionaryCharacters = dictionary.getKanjiGroups().map { it.character }.toSet()
@@ -147,17 +146,16 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
             failed = true
         }
     }
-    val source = fixedPool ?: when (mode) {
+    val source = availableTrainingPool(fixedPool ?: when (mode) {
         TrainingMode.NEW -> RecommendedState.candidateCharacters
         TrainingMode.MY_LISTS -> com.example.kanjidb.data.user.customListTrainingPool(lists.orEmpty(), selectedList)
-            .filter { it in dictionaryCharacters.orEmpty() }
         else -> rows.orEmpty().filter {
             it.state == if (mode == TrainingMode.REVIEW) LearningState.KNOWN else LearningState.LEARNING
-        }.map { it.character }.filter { it in dictionaryCharacters.orEmpty() }
-    }
-    val loading = if (fixedPool != null) rows == null else (if (mode == TrainingMode.NEW) RecommendedState.loading else rows == null || dictionaryCharacters == null || (mode == TrainingMode.MY_LISTS && lists == null)) ||
+        }.map { it.character }
+    }, dictionaryCharacters.orEmpty())
+    val loading = if (fixedPool != null) rows == null || dictionaryCharacters == null else (if (mode == TrainingMode.NEW) RecommendedState.loading || dictionaryCharacters == null else rows == null || dictionaryCharacters == null || (mode == TrainingMode.MY_LISTS && lists == null)) ||
         (wordMode && (rows == null || dictionaryCharacters == null))
-    val sourceFailed = fixedPool == null && ((if (mode == TrainingMode.NEW) RecommendedState.failed else failed) || (wordMode && failed))
+    val sourceFailed = failed || (fixedPool == null && mode == TrainingMode.NEW && RecommendedState.failed)
     val available = source.size
     var selectedSize by rememberSaveable { mutableIntStateOf(10) }
     var input by rememberSaveable { mutableStateOf("10") }
@@ -220,7 +218,7 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
             }
             loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
             available == 0 -> Text("No kanji available for this mode.")
-            fixedPool != null -> Text("Selected kanji: ${fixedPool.size}", style = MaterialTheme.typography.titleMedium)
+            fixedPool != null -> Text("Selected kanji: ${source.size}", style = MaterialTheme.typography.titleMedium)
             else -> {
                 Text("$available kanji available", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
@@ -268,7 +266,7 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
             onClick = {
                 focus.clearFocus()
                 input = count.toString()
-                val chosen = fixedPool ?: selectTrainingPool(source, count)
+                val chosen = if (fixedPool != null) source else selectTrainingPool(source, count)
                 val chosenMode = mode
                 val chosenSettings = wordSettings
                 val known = rows.orEmpty().filter { it.state == LearningState.KNOWN }.map { it.character }.toSet()
@@ -290,9 +288,10 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
                                 else { TrainingState.startWords(plan, summaries); onStarted() }
                             }
                         } else {
-                            val cards = chosen.map { character ->
-                                requireNotNull(dictionary.getKanji(character, includeWords = false))
+                            val cards = chosen.mapNotNull { character ->
+                                dictionary.getKanji(character, includeWords = false)
                             }
+                            if (cards.isEmpty()) { dictionaryCharacters = emptySet(); return@launch }
                             TrainingState.start(chosenMode, cards)
                             onStarted()
                         }

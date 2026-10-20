@@ -5,7 +5,7 @@
 - The dictionary is prebuilt, read-only SQLite. Keep user-owned persistent data in a separate Room database.
 - Do not change dictionary schema or import pipeline unless the task requires it.
 - Use Kotlin, Jetpack Compose and existing models/logic; do not duplicate them.
-- Keep architecture simple, preserve minimum SDK 26, and prefer AndroidX/Jetpack. Do not add DI frameworks unless explicitly requested.
+- Keep architecture simple, preserve minimum SDK 29, and prefer AndroidX/Jetpack. Do not add DI frameworks unless explicitly requested.
 - Preserve existing functionality; avoid unrelated changes, refactors, modules and abstractions.
 - Make changes in small, reviewable steps and explain significant architectural decisions.
 - After significant changes, run `./gradlew.bat :app:assembleDebug` on Windows (`./gradlew :app:assembleDebug` elsewhere); fix compilation errors before completion.
@@ -25,6 +25,7 @@
 
 ## Codex workflow
 
+- When the user says "прочитай и выполни промт" (read and execute the prompt), or refers to an updated prompt without specifying another file, use `very_big_promt.txt` in the KanjiDB project root. The user has already updated its contents: read the current file again for each such request instead of relying on an earlier version or asking the user to paste it.
 - Inspecting and reading project files does not require confirmation.
 - Before substantial code or architecture changes, present a concise implementation plan and wait for explicit approval.
 - After approval, proceed within the agreed scope without requesting additional confirmation for routine file reads, edits, builds, or tests.
