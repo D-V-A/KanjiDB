@@ -6,20 +6,51 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kanjidb.ui.AppIcons
+import com.example.kanjidb.ui.MultiStateSelector
+import com.example.kanjidb.ui.SelectorOption
+import com.example.kanjidb.ui.selectorWidth
 import com.example.kanjidb.ui.lists.UserDataControl
 import com.example.kanjidb.ui.lists.UserDataMessage
 
 /** Stable section identities allow a future optional target without adding navigation levels. */
 internal enum class SettingsSection { GENERAL, DATABASE }
+
+internal enum class SelectorRowLayout { FULL_LABEL, SHORT_LABEL, STACKED }
+
+internal fun selectorRowLayout(availableWidth: Int, fullLeadingWidth: Int, shortLeadingWidth: Int?,
+    controlWidth: Int, gap: Int): SelectorRowLayout = when {
+    fullLeadingWidth + gap + controlWidth <= availableWidth -> SelectorRowLayout.FULL_LABEL
+    shortLeadingWidth != null && shortLeadingWidth + gap + controlWidth <= availableWidth -> SelectorRowLayout.SHORT_LABEL
+    else -> SelectorRowLayout.STACKED
+}
+
+internal val themeSelectorOptions get() = ThemePreference.entries.map {
+    SelectorOption(when (it) {
+        ThemePreference.SYSTEM -> AppIcons.BrightnessAuto
+        ThemePreference.LIGHT -> AppIcons.Brightness2
+        ThemePreference.DARK -> AppIcons.Moon2
+    }, it.label)
+}
+
+internal val startupSelectorOptions get() = StartupScreen.entries.map {
+    SelectorOption(when (it) {
+        StartupScreen.AUTOMATIC -> AppIcons.ZeroConfig
+        StartupScreen.SEARCH -> AppIcons.Search
+        StartupScreen.MY_KANJI -> AppIcons.Vocabulary
+        StartupScreen.TRAINING -> AppIcons.PencilCheck
+    }, it.label)
+}
 
 @Composable
 internal fun SettingsScreen(preferences: AppPreferences, onBack: () -> Unit, onAbout: () -> Unit) {
@@ -34,40 +65,11 @@ internal fun SettingsScreen(preferences: AppPreferences, onBack: () -> Unit, onA
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
                 key(SettingsSection.GENERAL) {
                     SectionHeader("General")
-                    var themeMenu by rememberSaveable { mutableStateOf(false) }
-                    Box {
-                        SettingsRow(AppIcons.Paint, "Theme", settings.theme.label, onClick = { themeMenu = true })
-                        DropdownMenu(themeMenu, onDismissRequest = { themeMenu = false }) {
-                            ThemePreference.entries.forEach { theme ->
-                                DropdownMenuItem(text = { Text(theme.label) },
-                                    leadingIcon = { Icon(when (theme) {
-                                        ThemePreference.SYSTEM -> AppIcons.BrightnessAuto
-                                        ThemePreference.LIGHT -> AppIcons.Brightness2
-                                        ThemePreference.DARK -> AppIcons.Moon2
-                                    }, null) },
-                                    trailingIcon = { if (settings.theme == theme) Icon(AppIcons.Check, "Selected") },
-                                    onClick = { preferences.setTheme(theme); themeMenu = false })
-                            }
-                        }
+                    SelectorSettingsRow(AppIcons.Paint, "Theme", themeSelectorOptions, settings.theme.ordinal) {
+                        preferences.setTheme(ThemePreference.entries[it])
                     }
-                    var startupMenu by rememberSaveable { mutableStateOf(false) }
-                    Box {
-                        SettingsRow(AppIcons.DeviceTabletCog, "Startup screen", settings.startupScreen.label,
-                            onClick = { startupMenu = true })
-                        DropdownMenu(startupMenu, onDismissRequest = { startupMenu = false }) {
-                            StartupScreen.entries.forEach { screen ->
-                                DropdownMenuItem(text = { Text(screen.label) },
-                                    leadingIcon = { Icon(when (screen) {
-                                        StartupScreen.AUTOMATIC -> AppIcons.ZeroConfig
-                                        StartupScreen.SEARCH -> AppIcons.Search
-                                        StartupScreen.MY_KANJI -> AppIcons.Vocabulary
-                                        StartupScreen.TRAINING -> AppIcons.PencilCheck
-                                    }, null) },
-                                    trailingIcon = { if (settings.startupScreen == screen) Icon(AppIcons.Check, "Selected") },
-                                    onClick = { preferences.setStartupScreen(screen); startupMenu = false })
-                            }
-                        }
-                    }
+                    SelectorSettingsRow(AppIcons.DeviceTabletCog, "Startup screen", startupSelectorOptions,
+                        settings.startupScreen.ordinal, shortLabel = "Startup") { preferences.setStartupScreen(StartupScreen.entries[it]) }
                 }
                 key(SettingsSection.DATABASE) {
                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -83,6 +85,42 @@ internal fun SettingsScreen(preferences: AppPreferences, onBack: () -> Unit, onA
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp)) { data ->
             Snackbar { UserDataMessage(data.visuals.message) }
+        }
+    }
+}
+
+@Composable
+private fun SelectorSettingsRow(icon: ImageVector, label: String, options: List<SelectorOption>,
+    selectedIndex: Int, shortLabel: String? = null, onSelect: (Int) -> Unit) {
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.bodyLarge
+    val density = LocalDensity.current
+    val controlWidth = selectorWidth(options.size).dp
+    // Match the 56 dp single-line Database rows: keep the 52 dp control intact.
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
+        val iconAndGap = with(density) { 36.dp.roundToPx() }
+        fun leadingWidth(text: String) = iconAndGap +
+            measurer.measure(AnnotatedString(text), style, softWrap = false).size.width
+        val layout = selectorRowLayout(constraints.maxWidth, leadingWidth(label), shortLabel?.let(::leadingWidth),
+            with(density) { controlWidth.roundToPx() }, with(density) { 12.dp.roundToPx() })
+        val heading: @Composable () -> Unit = {
+            Row(Modifier.heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(icon, null, Modifier.size(24.dp))
+                Text(if (layout == SelectorRowLayout.SHORT_LABEL) requireNotNull(shortLabel) else label, style = style)
+            }
+        }
+        val selector: @Composable () -> Unit = {
+            MultiStateSelector(options, selectedIndex, onSelect, label, Modifier.width(controlWidth))
+        }
+        if (layout == SelectorRowLayout.STACKED) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                heading()
+                Box(Modifier.align(Alignment.End)) { selector() }
+            }
+        } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            heading()
+            selector()
         }
     }
 }

@@ -4,7 +4,61 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.10.1**, `versionCode = 61`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.10.2**, `versionCode = 64`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+
+## Settings multi-state selector (v0.10.2)
+
+Theme and Startup now use the shared MultiStateSelector instead of dropdowns.
+Its API accepts icon/label options, a selected index and a selection callback;
+the component has no preference or navigation dependency. It takes the existing
+Details TwoIconSelector's pill/round-thumb Material color treatment as its visual
+basis. Details' inactive-cover selector and its callers remain unchanged because
+the new control highlights the selected icon and adds multi-state drag behavior.
+
+As of versionCode 63, track width is 44 * optionCount dp (88/132/176 dp for
+2/3/4 options), with centers inset 22 dp and spaced 44 dp apart. The circular
+thumb remains 38 dp while moving in a 40 dp track and grows to 43 dp after
+settling. Movement uses a short 180 ms transition; lock growth and active-icon
+scale/tint use 120 ms transitions. Inactive icons are muted, and the active icon
+is enlarged by 10 percent.
+
+Each full-height slot directly selects its state; slot boundaries coincide with
+midpoints between snap centers. There is no cyclic tap action. Horizontal drag
+starts after touch slop without a long press, follows movement directly within
+the first/last centers, and previews the nearest option. Persistence happens only
+on completion, followed by a nearest-position snap. Native selectable slots
+provide selected-state radio-button semantics and keyboard/accessibility actions,
+with the setting name and preview value exposed by the group. Touch zones are
+44 x 52 dp, substantially larger than the icon strokes.
+
+Settings rows first try the full icon/title on the left and selector on the right.
+From versionCode 64 there is no permanent selected-value label or reserved space
+below the 52 dp control. Width measurement includes current font scale. If Startup
+screen does not fit, Startup is tried next; only then does the selector move to a
+separate row. Theme is never shortened. Exceptionally narrow parents can scroll
+the track rather than compress its icon spacing.
+
+Single-line selector rows use 2 dp top/bottom outer padding around the unchanged
+52 dp control, matching the 56 dp single-line Export/Import rows. The former
+12 dp top/bottom padding made these rows unnecessarily tall at 76 dp.
+
+Selected-value feedback lives inside the shared selector as one transient
+SelectorBubble, independent of Theme/Startup enums. Every direct tap, including
+the selected slot, shows its label. Drag start shows feedback immediately; nearest
+snap previews update the same bubble, and release retains the final label. One
+LaunchedEffect timer waits 1000 ms after tap/release; renewed interaction cancels
+it, and revision checks reject stale timeouts. No timeout runs during drag.
+The label/anchor are retained during the 100 ms fade-out.
+
+The bubble uses a Compose Popup with NOT_FOCUSABLE/NOT_TOUCHABLE flags, so it
+neither captures input nor affects row measurements or scrolling. Its compact
+Material inverseSurface/inverseOnSurface container has a matching Canvas triangle
+pointing down toward the active snap center. The position provider clamps the
+container inside window bounds with an 8 dp margin and offsets the tail to keep
+its target when the container shifts at an edge. It fades without recreating on
+preview changes. Bubble semantics are cleared; the selector group and native
+selectable slots remain the persistent accessible source of the current value.
+Theme/Startup semantics, local storage, Database/About and navigation are unchanged.
 
 ## Global Settings (v0.10.1)
 

@@ -4,7 +4,7 @@ Current implementation and limitations:
 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 Development conventions: [AGENTS.md](../AGENTS.md).
 
-Current application: **v0.10.1**, `versionCode = 61`, **Android 10 / API 29+**.
+Current application: **v0.10.2**, `versionCode = 64`, **Android 10 / API 29+**.
 
 Checked items describe implemented functionality. Existing placeholders do not
 count as completed milestones. Unchecked items are future product, engineering
@@ -87,6 +87,15 @@ unless explicitly fixed below.
   My Kanji tab. Fresh-root Automatic/Training uses dictionary-valid user kanji;
   an empty pool forces Kanji Groups over the remembered tab. Export/Import and
   About now open from Settings; subsequent Training screens retain their UI.
+
+- [x] **Settings selectors (v0.10.2):** shared circular-thumb multi-state control
+  replaces Theme/Startup dropdowns. Follow-up (versionCode 63) adds direct slot
+  taps, compact 44 dp spacing and a title/selector main row. VersionCode 64
+  replaces permanent selected-value text with a non-interactive overlay bubble:
+  tap/drag feedback, nearest-position tail, edge clamping, short fade and one
+  restartable hide timer. No space is reserved below the control. Measured
+  fallbacks try Startup before stacking the selector. Drag, nearest-option
+  preview/snap, settled enlargement, preferences and Details UI are unchanged.
 
 ## User data
 
