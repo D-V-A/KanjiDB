@@ -2,6 +2,7 @@ package com.example.kanjidb.ui.training
 
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
+import com.example.kanjidb.ui.MainScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,7 +48,8 @@ private data class PreparedWordTraining(
 )
 
 @Composable
-internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Unit, onOpenKanji: (String) -> Unit, onOpenWord: (Long, String) -> Unit, modifier: Modifier = Modifier) {
+internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Unit, onOpenKanji: (String) -> Unit, onOpenWord: (Long, String) -> Unit, modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {}) {
     var setup by rememberSaveable { mutableStateOf<TrainingKind?>(null) }
     val fixedPool = TrainingState.fixedWordPool
     val session = TrainingState.session
@@ -59,14 +61,15 @@ internal fun TrainingScreen(userDao: UserKanjiStateDao, onRequestExit: () -> Uni
         } else { setup = null; TrainingState.clearFixedPool() }
     }
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (session == null && wordSession == null && fixedPool == null && setup == null) {
+            MainScreenHeader(title = "Training", onOpenSettings = onOpenSettings)
+        } else Row(verticalAlignment = Alignment.CenterVertically) {
             Text(when {
                 complete -> "Results"
                 wordSession != null || fixedPool != null -> "Word Training"
                 session != null -> "Kanji Training"
                 else -> setup?.title ?: "Training"
-            },
-                Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
+            }, Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
             if (wordSession?.complete == true) {
                 com.example.kanjidb.ui.DictionaryModeControl(
                     wordMode = TrainingState.wordResultsWords,

@@ -4,11 +4,38 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.10.0**, `versionCode = 60`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.10.1**, `versionCode = 61`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+
+## Global Settings (v0.10.1)
+
+Search, My Kanji and Training's initial type-selection screen use the shared
+MainScreenHeader with Settings2 in the same right-hand position. Subsequent
+Training setup, question and Results headers retain their existing controls.
+Settings is pushed over its origin, has Back and no bottom navigation, and
+opens the existing About screen. The old Search Info and My Kanji User data
+entry points are replaced by the gear. Every gear opens Settings at the top;
+stable General/Database section keys provide a small future targeting extension
+point without active section links or additional navigation levels.
+
+AppPreferences uses the existing SharedPreferences mechanism, in the local
+settings file, with a single observable StateFlow. Theme (default System),
+Startup screen (default Automatic), and last My Kanji tab are independent of
+Room, dictionary assets and .kdb data. MainActivity observes the same theme state
+and applies System/forced Light/forced Dark immediately to the Compose tree,
+using the existing Material 3 palette infrastructure.
+
+Startup is resolved only for a fresh root, with the resolved route/tab saved
+alongside navigation state. Changing the preference never navigates immediately
+or overrides an Android-restored stack. Search opens Search; My Kanji opens its
+remembered tab (Groups when none exists). Automatic and explicit Training check
+the union of user state and Custom List membership against current dictionary
+availability through availableTrainingPool. A valid character opens Training;
+empty Room, empty lists and missing-only characters force My Kanji / Kanji Groups
+even when another tab was remembered. My Kanji persists its settled pager tab.
 
 ## User data backup and missing kanji (v0.10.0)
 
-My Kanji's User data button opens Export/Import even on an empty installation. Export availability observes all user Room tables, including empty Custom Lists. Minimum Android version is API 29. Export uses an IME-aware, scrollable Compose Save data file dialog with the default basename KanjiDB_Data_YYYY-MM-DD and a fixed .kdb suffix. Save to KanjiDB subfolder starts checked: MediaStore.Downloads writes to Download/KanjiDB/ when checked and Download/ otherwise, without system export screens, raw filesystem access or storage permissions. A bound query checks DISPLAY_NAME and the exact RELATIVE_PATH before insertion. The inserted row starts IS_PENDING=1; its actual name/path are checked to reject provider auto-renaming or a changed destination, the UTF-8 stream is written and closed, and only then IS_PENDING is set to zero. Errors return to the name dialog retaining the name/checkbox and attempt deletion of only the newly inserted row. Success reports the filename and Downloads destination. Filename validation trims whitespace, keeps exactly one .kdb suffix, and rejects empty/path-like names. Import continues to use OpenDocument with generic MIME; imports require a .kdb display-name extension and validate content independently of MIME. The human-readable UTF-8 JSON envelope uses formatVersion=1, backupType=full, appVersionName/appVersionCode metadata, exportedAt (ISO Instant) and data. Separate BackupState/BackupList/BackupMember DTOs preserve character Strings, states, IDs, exact names and every manual position. Version/type dispatch is independent of app versions and can later support another payload type; no list-only UI is included. Dictionary assets and preferences are excluded.
+Settings / Database exposes Export and Import even on an empty installation. Export availability observes all user Room tables, including empty Custom Lists. Minimum Android version is API 29. Export uses an IME-aware, scrollable Compose Save data file dialog with the default basename KanjiDB_Data_YYYY-MM-DD and a fixed .kdb suffix. Save to KanjiDB subfolder starts checked: MediaStore.Downloads writes to Download/KanjiDB/ when checked and Download/ otherwise, without system export screens, raw filesystem access or storage permissions. A bound query checks DISPLAY_NAME and the exact RELATIVE_PATH before insertion. The inserted row starts IS_PENDING=1; its actual name/path are checked to reject provider auto-renaming or a changed destination, the UTF-8 stream is written and closed, and only then IS_PENDING is set to zero. Errors return to the name dialog retaining the name/checkbox and attempt deletion of only the newly inserted row. Success reports the filename and Downloads destination. Filename validation trims whitespace, keeps exactly one .kdb suffix, and rejects empty/path-like names. Import continues to use OpenDocument with generic MIME; imports require a .kdb display-name extension and validate content independently of MIME. The human-readable UTF-8 JSON envelope uses formatVersion=1, backupType=full, appVersionName/appVersionCode metadata, exportedAt (ISO Instant) and data. Separate BackupState/BackupList/BackupMember DTOs preserve character Strings, states, IDs, exact names and every manual position. Version/type dispatch is independent of app versions and can later support another payload type; no list-only UI is included. Dictionary assets and preferences are excluded.
 
 UserBackupFormat checks strict JSON, duplicate keys, required fields/types, supported version/type, single Unicode scalar values (without OS Unicode-script version dependence), list names/IDs, unique records and ordering values before any database writes. Import reads the complete file and bounds JSON nesting. Generic validation errors say data file rather than backup; malformed structure and unsupported format versions have distinct messages. The malformed-data message prefers a sentence-boundary line break when it cannot fit on one line. Dictionary absence produces a warning with a separate scrollable missing-character dialog, without dropping records. Confirmation replaces all three user tables through UserBackupDao.replace in one Room transaction; failure rolls back deletes and inserts. Export reads a transactional snapshot. Existing Room observers refresh collections and ownership. IO/parsing/metadata lookup run off main; a small process-owned operation holder retains validated pending data and commits through Activity recreation, with no new database, repository, ViewModel or DI framework. Unfinished operations are not persisted across process death.
 
@@ -293,7 +320,7 @@ The 0.6.2 focused JVM checks cover temporary header suppression with saved expan
 
 Instrumented tests cover Room toggle/bulk/removal semantics, database reopening, and the existing My Kanji interactions using an isolated test database. JVM tests cover empty initial collections, toggling, shared selection/save-restore, filter/status semantics, group ordering (including grades 8/9/10), stable NULL-last sorting, Ranked/Unranked presentation, semantic direction labels, Rules summary/reset and idempotent bulk overwrite. Focused My Kanji organization tests additionally cover N/A determinism, section ownership, missing dictionary characters, independent group/sort options, arbitrary Grade values, per-group frequency splitting, filters without Status, header selection without reveal requests and nested clearance indices. Nested-scroll JVM tests cover user drag/fling versus programmatic clearance and horizontal swipe. Manual-order JVM tests cover DAO assignment/reorder, append-on-Move and same-state idempotency, stale/invalid drops, separate state positions, automatic sort/filter/group independence, reorder eligibility and post-drop selection preservation/entry-event semantics. Migration SQL has also been checked against an isolated SQLite v1 table and the exported v2 schema; this does not replace on-device upgrade testing. Device/UI tests require explicit permission and are not part of these JVM checks. Existing focused JVM tests also cover kanji search/normalization and common-word merge/grouping under `app/src/test/.../data/dictionary/`. The Python verifier checks the generated dictionary. Run the debug build after significant implementation changes as specified in [AGENTS.md](../AGENTS.md).
 
-Future work and unresolved checks are maintained only in [TODO.md](TODO.md). About names KANJIDIC2/JMdict and EDRDG, KanjiVG / Ulrich Apel / CC BY-SA 3.0 and Tabler Icons / MIT. KanjiVG attribution/license was verified for v0.9.2; the separate EDRDG attribution audit remains listed in TODO.
+Future product, engineering and research work is maintained in [TODO.md](TODO.md). About names KANJIDIC2/JMdict and EDRDG, KanjiVG / Ulrich Apel / CC BY-SA 3.0 and Tabler Icons / MIT. KanjiVG attribution/license was verified for v0.9.2; the separate EDRDG attribution audit remains listed in TODO.
 
 ## Results/panel UI update (v0.7.4-alpha)
 
@@ -329,7 +356,7 @@ RefreshMain (refresh-main) uses the final supplied 57-degree arrowhead bisector 
 
 ## Search relevance verification (v0.8.6-alpha)
 
-Seven focused JVM checks passed for actual search SQLite queries, primary/secondary and exact/whole-word/parenthetical/substring order, best matched gloss, valid reading restrictions and unchanged earliest reading, pairwise grouping without transitive bridges, Unicode subsequences and persistent help opt-out. Dictionary schema/importer and Room are unchanged. Search evaluates the complete candidate set before pagination; very broad queries (especially a single English letter) can be slower and require phone performance review. Desktop SQLite timings are diagnostic only. See TODO for manual popup/layout/navigation checks.
+Seven focused JVM checks passed for actual search SQLite queries, primary/secondary and exact/whole-word/parenthetical/substring order, best matched gloss, valid reading restrictions and unchanged earliest reading, pairwise grouping without transitive bridges, Unicode subsequences and persistent help opt-out. Dictionary schema/importer and Room are unchanged. Search evaluates the complete candidate set before pagination; very broad queries (especially a single English letter) can be slower and require phone performance review. Desktop SQLite timings are diagnostic only.
 
 ## Search UI/state follow-ups (versionCodes 37-38)
 
@@ -337,15 +364,15 @@ SearchState belongs to the existing Search navigation entry's ViewModelStore thr
 
 SavedStateHandle stores the active mode and separate kanjiQuery/kanjiLimit and wordsQuery/wordsLimit metadata for process restoration. The previous single-session query/limit keys are transferred only to their original active mode and removed, so they cannot leak into the other mode on a later restoration. Result pages and scroll stay in memory on the navigation entry rather than being serialized into a large saved-state Bundle; a new process fetches the restored query/limit again. English result meanings reuse standaloneKanjiMeaning at display time for primary and matched secondary glosses; dictionary text and Word Details are unchanged. Ranking and pairwise grouping membership rules are unchanged. Obsolete Search-only ic_close and the Search help Close string are removed; About retains its shared InfoSquareRounded vector.
 
-The original 13 targeted JVM checks in versionCode 37 passed for entry-store reuse, cached results/pagination/scroll, query/mode reset, stale-response rejection, explicit retry/process metadata, unchanged relevance/grouping, persistent help preference and SVG parsing. No emulator/device/UI automation was run; manual checks remain in TODO.
+The original 13 targeted JVM checks in versionCode 37 passed for entry-store reuse, cached results/pagination/scroll, query/mode reset, stale-response rejection, explicit retry/process metadata, unchanged relevance/grouping, persistent help preference and SVG parsing. No emulator/device/UI automation was run.
 
 ## Search independent sessions and blob width (versionCode 38)
 
 The existing SearchState ViewModel now holds two small mode states, without new dependencies, global storage or navigation changes. Completed responses, pagination, scroll, errors and retry belong to their own mode. An in-flight response is applied only to the captured session if its request still matches; it cannot replace another mode's results or a changed query. Composition cancellation still causes an unfinished request to restart when needed. Query clearing resets only that mode. Result pages and scroll remain in memory for mode switches, Details/Back and Activity recreation; process restoration retains each mode's query/limit but fetches its results again.
 
-Grouped blobs fill the weighted left column, matching the right meaning column's weight. Both written form and reading are left-aligned, single-line and ellipsized within their padded blob. The shared meaning remains multiline and vertically centered on the right. Outline, colors, order, individual click targets, capitalization, ranking/group membership and help behavior are unchanged. The developer reported the other versionCode 37 behavior as manually verified after the second phone pass; the new width/session checks remain in TODO.
+Grouped blobs fill the weighted left column, matching the right meaning column's weight. Both written form and reading are left-aligned, single-line and ellipsized within their padded blob. The shared meaning remains multiline and vertically centered on the right. Outline, colors, order, individual click targets, capitalization, ranking/group membership and help behavior are unchanged. The developer reported the other versionCode 37 behavior as manually verified after the second phone pass.
 
-All eight SearchState JVM tests passed for independent mode queries/pages/pagination/scroll, completed-request caching, Details-style entry reuse, stale-response protection and separate process-restored metadata. The new layout still requires the manual phone checks in TODO; no emulator/device/UI automation was run.
+All eight SearchState JVM tests passed for independent mode queries/pages/pagination/scroll, completed-request caching, Details-style entry reuse, stale-response protection and separate process-restored metadata. No emulator/device/UI automation was run.
 
 ## Word Training Results (v0.8.7-alpha)
 

@@ -7,6 +7,8 @@ class AppIconsTest {
     @Test fun everyLazySvgDefinitionParsesWithoutRuntimeErrors() {
         // The build does not instantiate lazy vectors; parse every approved SVG here.
         val icons = listOf(
+            AppIcons.Settings2, AppIcons.Paint, AppIcons.BrightnessAuto, AppIcons.Brightness2,
+            AppIcons.Moon2, AppIcons.DeviceTabletCog, AppIcons.ZeroConfig,
             AppIcons.FileDatabase, AppIcons.DatabaseShare, AppIcons.DatabasePlus,
             AppIcons.ClipboardCopy, AppIcons.TextQuestion, AppIcons.Backspace, AppIcons.Search, AppIcons.Vocabulary, AppIcons.PencilCheck, AppIcons.Eye,
             AppIcons.Brush, AppIcons.Notebook, AppIcons.ListLetters, AppIcons.ListSearch,

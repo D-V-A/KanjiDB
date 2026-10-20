@@ -4,6 +4,7 @@ import com.example.kanjidb.ui.DictionaryModeControl
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
 import com.example.kanjidb.ui.AdaptiveLabelTabs
+import com.example.kanjidb.ui.MainScreenHeader
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -62,7 +63,7 @@ import com.example.kanjidb.data.dictionary.KanjiSummary
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenSearchWord: (WordSearchResult) -> Unit, onOpenAbout: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
+fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenSearchWord: (WordSearchResult) -> Unit, onOpenSettings: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
     val query = state.query
     val wordMode = state.wordMode
     val context = LocalContext.current
@@ -87,14 +88,7 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
         modifier = modifier.fillMaxSize().imePadding().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.search_title), modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineMedium)
-            IconButton(onClick = onOpenAbout) {
-                Icon(AppIcons.InfoSquareRounded,
-                    contentDescription = stringResource(R.string.about_open))
-            }
-        }
+        MainScreenHeader(stringResource(R.string.search_title), onOpenSettings)
         Box(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {

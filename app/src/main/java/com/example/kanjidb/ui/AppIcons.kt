@@ -17,6 +17,25 @@ import androidx.compose.ui.unit.dp
  * Stroke geometry is color-neutral; Material Icon applies the current content color.
  */
 internal object AppIcons {
+    val Settings2 by lazy { strokeIcon("Settings2",
+        "M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033",
+        "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0") }
+    val Paint by lazy { strokeIcon("Paint",
+        "M5 5a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2l0 -2",
+        "M19 6h1a2 2 0 0 1 2 2a5 5 0 0 1 -5 5l-5 0v2",
+        "M10 16a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -4") }
+    private const val brightnessPath = "M6 6h3.5l2.5 -2.5l2.5 2.5h3.5v3.5l2.5 2.5l-2.5 2.5v3.5h-3.5l-2.5 2.5l-2.5 -2.5h-3.5v-3.5l-2.5 -2.5l2.5 -2.5l0 -3.5"
+    val BrightnessAuto by lazy { strokeIcon("BrightnessAuto", brightnessPath,
+        "M10 14.5v-3.5a2 2 0 1 1 4 0v3.5", "M10 13h4") }
+    val Brightness2 by lazy { strokeIcon("Brightness2", "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", brightnessPath) }
+    val Moon2 by lazy { strokeIcon("Moon2", "M16.418 4.157a8 8 0 0 0 0 15.686",
+        "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0") }
+    val DeviceTabletCog by lazy { strokeIcon("DeviceTabletCog",
+        "M12 21h-6a1 1 0 0 1 -1 -1v-16a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v7.5",
+        "M12 16a1 1 0 0 0 0 2", "M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",
+        "M19.001 15.5v1.5", "M19.001 21v1.5", "M22.032 17.25l-1.299 .75",
+        "M17.27 20l-1.3 .75", "M15.97 17.25l1.3 .75", "M20.733 20l1.3 .75") }
+    val ZeroConfig by lazy { strokeIcon("ZeroConfig", "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0", "M3 21l18 -18") }
     val FileDatabase by lazy { strokeIcon("FileDatabase",
         "M8 12.75a4 1.75 0 1 0 8 0a4 1.75 0 1 0 -8 0",
         "M8 12.5v3.75c0 .966 1.79 1.75 4 1.75s4 -.784 4 -1.75v-3.75",

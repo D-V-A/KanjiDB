@@ -2,6 +2,8 @@ package com.example.kanjidb.ui.lists
 
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.AdaptiveLabelTabs
+import com.example.kanjidb.ui.MainScreenHeader
+import com.example.kanjidb.ui.settings.MyKanjiTab
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -33,6 +35,9 @@ internal fun MyKanjiScreen(
     onOpenDetails: (String) -> Unit,
     userDao: UserKanjiStateDao,
     onOpenTraining: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    initialTab: MyKanjiTab = MyKanjiTab.MY_KANJI,
+    onTabChanged: (MyKanjiTab) -> Unit = {},
     state: MyKanjiState = rememberSaveable(saver = MyKanjiState.Saver) { MyKanjiState() },
     modifier: Modifier = Modifier
 ) {
@@ -50,7 +55,11 @@ internal fun MyKanjiScreen(
     // Separate saveable list states owned by the destination, not ephemeral pager content.
     val myGrid = rememberLazyGridState()
     val groupsGrid = rememberLazyGridState()
-    val pager = rememberPagerState(pageCount = { 3 })
+    val pager = rememberPagerState(initialPage = initialTab.page, pageCount = { 3 })
+    val tabChanged by rememberUpdatedState(onTabChanged)
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect { page -> tabChanged(MyKanjiTab.entries.first { it.page == page }) }
+    }
     val scope = rememberCoroutineScope()
     var options by rememberSaveable(stateSaver = KanjiGroupOptions.Saver) { mutableStateOf(KanjiGroupOptions()) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
@@ -73,14 +82,9 @@ internal fun MyKanjiScreen(
             failed = true
         }
     }
-    val backupSnackbar = remember { SnackbarHostState() }
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.weight(1f))
-                UserDataControl(backupSnackbar)
-            }
+            MainScreenHeader(stringResource(R.string.my_kanji_title), onOpenSettings, enabled = !saving)
             AdaptiveLabelTabs(
                 labels = listOf(stringResource(R.string.my_kanji_title), stringResource(R.string.my_lists_title),
                     stringResource(R.string.kanji_groups_title)),
@@ -129,9 +133,6 @@ internal fun MyKanjiScreen(
                     }
                 }
             }
-        }
-        SnackbarHost(backupSnackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp)) { data ->
-            Snackbar { UserDataMessage(data.visuals.message) }
         }
     }
 }

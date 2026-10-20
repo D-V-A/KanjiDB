@@ -24,8 +24,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.kanjidb.data.dictionary.DictionaryDatabase
 import com.example.kanjidb.data.user.*
-import com.example.kanjidb.ui.AppIcons
-import com.example.kanjidb.ui.IconLabel
 import kotlinx.coroutines.*
 import java.time.Instant
 import java.time.LocalDate
@@ -124,11 +122,11 @@ private object UserDataOperations {
 }
 
 @Composable
-internal fun UserDataControl(snackbar: SnackbarHostState) {
+internal fun UserDataControl(snackbar: SnackbarHostState,
+    content: @Composable (Boolean, Boolean, () -> Unit, () -> Unit) -> Unit) {
     val context = LocalContext.current.applicationContext
     val dao = remember(context) { UserDatabase.getInstance(context).backup() }
     val hasData by remember(dao) { dao.observeHasData() }.collectAsStateWithLifecycle(false)
-    var menu by rememberSaveable { mutableStateOf(false) }
     var showMissing by rememberSaveable { mutableStateOf(false) }
     val busy = UserDataOperations.busy
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
@@ -142,18 +140,7 @@ internal fun UserDataControl(snackbar: SnackbarHostState) {
             if (UserDataOperations.message == message) UserDataOperations.message = null
         }
     }
-    IconButton(onClick = { menu = true }) { Icon(AppIcons.FileDatabase, "User data") }
-    if (menu) com.example.kanjidb.ui.ActionMenuDialog("User data", { menu = false }, dismissEnabled = !busy) {
-        OutlinedButton(onClick = {
-            menu = false
-            UserDataOperations.beginExport()
-        }, enabled = hasData && !busy, modifier = Modifier.fillMaxWidth()) {
-            IconLabel(AppIcons.DatabaseShare) { Text("Export") }
-        }
-        OutlinedButton(onClick = { menu = false; importLauncher.launch(arrayOf("*/*")) },
-            enabled = !busy, modifier = Modifier.fillMaxWidth()) { IconLabel(AppIcons.DatabasePlus) { Text("Import") } }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-    }
+    content(hasData && !busy, !busy, { UserDataOperations.beginExport() }, { importLauncher.launch(arrayOf("*/*")) })
     if (UserDataOperations.namingExport) SaveDataFileDialog(
         basename = UserDataOperations.exportBasename,
         error = UserDataOperations.exportError,
@@ -166,7 +153,7 @@ internal fun UserDataControl(snackbar: SnackbarHostState) {
                 UserDataOperations.export(context)
             }
         })
-    if (busy && !menu && UserDataOperations.pending == null) AlertDialog(
+    if (busy && UserDataOperations.pending == null) AlertDialog(
         onDismissRequest = {}, title = { Text("User data") },
         text = { Column { Text("Please wait…"); LinearProgressIndicator(Modifier.fillMaxWidth()) } },
         confirmButton = {})
