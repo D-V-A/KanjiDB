@@ -1,10 +1,21 @@
 package com.example.kanjidb.ui.details
 
 import com.example.kanjidb.data.dictionary.DictionaryWordDetails
+import com.example.kanjidb.data.dictionary.ReadingMeaningGroup
+import com.example.kanjidb.data.dictionary.WordGloss
 import org.junit.Assert.*
 import org.junit.Test
 
 class WordDetailsPresentationTest {
+    @Test fun readingSpecificOtherMeaningsExcludeHeaderWithoutLosingSecondary() {
+        val group=ReadingMeaningGroup(listOf("r"),listOf(
+            WordGloss(1,1,"en","son",listOf("r")),
+            WordGloss(2,2,"en","penis",listOf("r")),
+            WordGloss(3,3,"en","son",listOf("r"))))
+        assertEquals(listOf("penis"),group.otherMeaningTexts("son"))
+        assertTrue(group.copy(glosses=group.glosses.take(1)).otherMeaningTexts("son").isEmpty())
+        assertEquals(listOf("son","penis"),group.otherMeaningTexts(null))
+    }
     @Test
     fun layoutThresholdCountsSupplementaryCharactersOnce() {
         assertTrue(isCompactWord("一二三四五"))

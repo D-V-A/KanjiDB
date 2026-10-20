@@ -91,8 +91,7 @@ internal const val DISCOVERY_KANJI_GATE = """
 EXISTS (SELECT 1 FROM kanji_meaning m WHERE m.kanji_id = k.id AND m.language = 'en')
       AND EXISTS (SELECT 1 FROM kanji_reading r WHERE r.kanji_id = k.id AND r.type IN ('on', 'kun'))
       AND (k.joyo = 1 OR k.frequency IS NOT NULL OR EXISTS (
-          SELECT 1 FROM word_kanji wk
-          JOIN word_form f ON f.id = wk.word_form_id
+          SELECT 1 FROM word_written_kanji wk
           WHERE wk.kanji_id = k.id
       ))
 """

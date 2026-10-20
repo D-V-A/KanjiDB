@@ -3,6 +3,7 @@ package com.example.kanjidb.ui.search
 import com.example.kanjidb.ui.DictionaryModeControl
 import com.example.kanjidb.ui.AppIcons
 import com.example.kanjidb.ui.IconLabel
+import com.example.kanjidb.ui.AdaptiveLabelTabs
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -28,8 +29,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -63,7 +62,7 @@ import com.example.kanjidb.data.dictionary.KanjiSummary
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenAbout: () -> Unit, onOpenFeedback: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
+fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord: (Long, String) -> Unit, onOpenSearchWord: (WordSearchResult) -> Unit, onOpenAbout: () -> Unit, onOpenFeedback: () -> Unit, onOpenRecommended: (String) -> Unit, modifier: Modifier = Modifier) {
     val query = state.query
     val wordMode = state.wordMode
     val context = LocalContext.current
@@ -144,14 +143,12 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
             )
         }
         if (exploring) {
-            TabRow(selectedTabIndex = pagerState.currentPage) {
-                listOf(R.string.search_explore, R.string.search_recommended_kanji,
-                    R.string.search_explore_words).forEachIndexed { index, title ->
-                    Tab(selected = pagerState.currentPage == index,
-                        onClick = { pagerScope.launch { pagerState.animateScrollToPage(index) } },
-                        text = { Text(stringResource(title)) })
-                }
-            }
+            AdaptiveLabelTabs(
+                labels = listOf(stringResource(R.string.search_explore),
+                    stringResource(R.string.search_recommended_kanji), stringResource(R.string.search_explore_words)),
+                selectedIndex = pagerState.currentPage,
+                onSelect = { index -> pagerScope.launch { pagerState.animateScrollToPage(index) } }
+            )
         } else {
             Text(stringResource(R.string.search_results), style = MaterialTheme.typography.titleMedium)
         }
@@ -166,7 +163,7 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
                         onRetry = { RecommendedState.initialize(dictionary,
                             com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()) },
                         onRefresh = { RecommendedState.refresh() }, onShowMore = {},
-                        onOpenDetails = onOpenRecommended, onOpenWord = onOpenWord,
+                        onOpenDetails = onOpenRecommended, onOpenWord = onOpenWord, onOpenSearchWord = onOpenSearchWord,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -180,7 +177,7 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
                         loading = if (words) ExploreState.wordsLoading else ExploreState.kanjiLoading,
                         failed = if (words) ExploreState.wordsFailed else ExploreState.kanjiFailed,
                         hasMore = false, onRetry = refresh, onRefresh = refresh, onShowMore = {},
-                        onOpenDetails = onOpenDetails, onOpenWord = onOpenWord,
+                        onOpenDetails = onOpenDetails, onOpenWord = onOpenWord, onOpenSearchWord = onOpenSearchWord,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -192,7 +189,7 @@ fun SearchScreen(state: SearchState, onOpenDetails: (String) -> Unit, onOpenWord
                 loading = state.loading, failed = state.failed,
                 hasMore = if (wordMode) state.wordPage.hasMore else state.kanjiPage.hasMore,
                 onRetry = state::retrySearch, onRefresh = {}, onShowMore = state::showMore,
-                onOpenDetails = onOpenDetails, onOpenWord = onOpenWord,
+                onOpenDetails = onOpenDetails, onOpenWord = onOpenWord, onOpenSearchWord = onOpenSearchWord,
                 modifier = Modifier.weight(1f), listState = state.listState
             )
         }
@@ -214,6 +211,7 @@ private fun SearchList(
     onShowMore: () -> Unit,
     onOpenDetails: (String) -> Unit,
     onOpenWord: (Long, String) -> Unit,
+    onOpenSearchWord: (WordSearchResult) -> Unit,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState()
 ) {
@@ -226,17 +224,17 @@ private fun SearchList(
         verticalArrangement = Arrangement.spacedBy(if (exploring) 12.dp else 4.dp)
     ) {
         if (showingWords && !exploring) {
-            items(groups, key = { group -> group.minOf { "${it.word.entryId}:${it.word.written}" } }) { group ->
+            items(groups, key = { group -> group.minOf { it.word.written } }) { group ->
                 if (group.size > 1) {
-                    GroupedSearchWordRow(group) { word ->
+                    GroupedSearchWordRow(group) { result ->
                         keyboardController?.hide()
-                        onOpenWord(word.entryId, word.written)
+                        onOpenSearchWord(result)
                     }
                 } else {
                     val result = group.single()
                     SearchWordRow(result.word, Modifier.fillMaxWidth().clickable {
                         keyboardController?.hide()
-                        onOpenWord(result.word.entryId, result.word.written)
+                        onOpenSearchWord(result)
                     }, meaning = result.displayMeaning.standaloneKanjiMeaning())
                 }
             }
@@ -332,19 +330,18 @@ private fun SearchWordRow(word: DictionaryWord, modifier: Modifier = Modifier, m
     }
 }
 
-/** The outline links variants; only the individual filled spelling surfaces are actions. */
+/** Each member keeps its own entry/writing and matched gloss; the frame is not an action. */
 @Composable
-private fun GroupedSearchWordRow(group: List<WordSearchResult>, onOpen: (DictionaryWord) -> Unit) {
+private fun GroupedSearchWordRow(group: List<WordSearchResult>, onOpen: (WordSearchResult) -> Unit) {
     Row(Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant,
         MaterialTheme.shapes.medium).padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             group.forEach { result ->
-                Surface(onClick = { onOpen(result.word) }, modifier = Modifier.fillMaxWidth(),
+                Surface(onClick = { onOpen(result) }, modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.Start) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                         DictionaryText(result.word.written, modifier = Modifier.fillMaxWidth(),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.titleLarge)

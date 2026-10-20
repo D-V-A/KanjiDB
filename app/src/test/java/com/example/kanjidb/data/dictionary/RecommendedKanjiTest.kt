@@ -183,6 +183,6 @@ class RecommendedKanjiTest {
         assertTrue(DISCOVERY_KANJI_GATE.contains("m.language = 'en'"))
         assertTrue(DISCOVERY_KANJI_GATE.contains("r.type IN ('on', 'kun')"))
         assertTrue(DISCOVERY_KANJI_GATE.contains("k.joyo = 1 OR k.frequency IS NOT NULL"))
-        assertTrue(DISCOVERY_KANJI_GATE.contains("JOIN word_form"))
+        assertTrue(DISCOVERY_KANJI_GATE.contains("word_written_kanji"))
     }
 }

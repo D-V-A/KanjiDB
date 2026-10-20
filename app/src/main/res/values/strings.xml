@@ -63,6 +63,11 @@
     <string name="about_open">About KanjiDB</string>
     <string name="about_back">Back</string>
     <string name="about_version">Version %1$s</string>
+    <string name="word_alternative_writings">Alternative writings</string>
+    <string name="word_other_meanings">Other Meanings</string>
+    <string name="word_other_entries">Can also mean</string>
+    <string name="about_database_version">Database v%1$d</string>
+    <string name="about_database_version_unknown">Database version unknown</string>
     <string name="about_developer">Developer D_V_A</string>
     <string name="about_credits">Credits</string>
     <string name="about_tabler_icons">Tabler Icons / MIT License</string>
@@ -74,7 +79,7 @@
     <string name="search_words_hint">Search words</string>
     <string name="search_mode_kanji">Switch to word search</string>
     <string name="search_mode_words">Switch to kanji search</string>
-    <string name="search_recommended_kanji">Recommended kanji</string>
+    <string name="search_recommended_kanji">Learn Next</string>
     <string name="search_explore_words">Explore words</string>
     <string name="search_new_kanji">Refresh kanji</string>
     <string name="search_new_words">Refresh words</string>
@@ -109,7 +114,12 @@
     <string name="details_kun">Kun</string>
     <string name="details_glyph">Glyph</string>
     <string name="details_strokes">Strokes</string>
-    <string name="details_stroke_placeholder">Stroke order coming soon</string>
+    <string name="details_stroke_replay">Replay stroke order</string>
+    <string name="details_copy_word">Copy word</string>
+    <string name="details_copy_kanji">Copy kanji</string>
+    <string name="details_copied">Copied to clipboard</string>
+    <string name="details_stroke_progress">%1$d / %2$d</string>
+    <string name="about_kanjivg">KanjiVG / Ulrich Apel / CC BY-SA 3.0</string>
     <string name="details_recommended">Common words</string>
     <string name="details_other">Other words</string>
     <string name="details_learning">Learning</string>
@@ -168,6 +178,7 @@
     <string name="my_kanji_drag_hint">To change the order, hold and drag a kanji.</string>
     <string name="my_lists_drag_hint">To change the order, hold and drag a kanji.\nKanji can only be reordered within the current list.</string>
     <string name="custom_lists">Custom Lists</string>
+    <string name="details_lists">Lists</string>
     <string name="selection_finish">Finish</string>
     <string name="search_help">Search input help</string>
     <string name="search_help_examples">Try any of these:</string>

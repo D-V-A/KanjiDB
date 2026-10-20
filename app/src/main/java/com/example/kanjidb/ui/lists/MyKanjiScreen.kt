@@ -1,7 +1,7 @@
 package com.example.kanjidb.ui.lists
 
 import com.example.kanjidb.ui.AppIcons
-import com.example.kanjidb.ui.IconLabel
+import com.example.kanjidb.ui.AdaptiveLabelTabs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -75,18 +75,13 @@ internal fun MyKanjiScreen(
     }
     Column(modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(R.string.my_kanji_title), style = MaterialTheme.typography.headlineMedium)
-        TabRow(selectedTabIndex = pager.currentPage) {
-            listOf(R.string.my_kanji_title, R.string.my_lists_title, R.string.kanji_groups_title)
-                .forEachIndexed { index, title ->
-                    Tab(selected = pager.currentPage == index, enabled = !saving,
-                        onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        text = { IconLabel(when (index) {
-                            0 -> AppIcons.Notebook
-                            1 -> AppIcons.ListLetters
-                            else -> AppIcons.ListSearch
-                        }) { Text(stringResource(title)) } })
-                }
-        }
+        AdaptiveLabelTabs(
+            labels = listOf(stringResource(R.string.my_kanji_title), stringResource(R.string.my_lists_title),
+                stringResource(R.string.kanji_groups_title)),
+            selectedIndex = pager.currentPage, enabled = !saving,
+            icons = listOf(AppIcons.Notebook, AppIcons.ListLetters, AppIcons.ListSearch),
+            onSelect = { index -> scope.launch { pager.animateScrollToPage(index) } }
+        )
         // Reset controls after a completed tab change, avoiding a jump on the outgoing page mid-swipe.
         HorizontalPager(state = pager, key = { it }, userScrollEnabled = !saving, beyondViewportPageCount = 2,
             modifier = Modifier.weight(1f).fillMaxWidth()) { index ->

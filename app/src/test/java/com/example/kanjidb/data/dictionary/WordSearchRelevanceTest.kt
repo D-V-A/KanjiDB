@@ -27,15 +27,10 @@ class WordSearchRelevanceTest {
 
     @Test fun sqlAndRankingKeepBestGlossReadingRestrictionsAndQualityBeforePriority() = runBlocking {
         SQLiteDatabase.create(null).use { db ->
-            db.execSQL("CREATE TABLE word_form (id INTEGER PRIMARY KEY, entry_id INTEGER, written TEXT, reading TEXT, common INTEGER, reading_priority INTEGER, reading_order INTEGER)")
-            db.execSQL("CREATE TABLE word_meaning (id INTEGER PRIMARY KEY, word_form_id INTEGER, language TEXT, meaning TEXT, sense_index INTEGER)")
+            val fixture = WordDatabaseFixture(db)
             fun word(id: Int, written: String, meanings: List<String>, priority: Int = 0) {
-                db.execSQL("INSERT INTO word_form VALUES (?, ?, ?, 'にちようび', ?, ?, 0)",
-                    arrayOf<Any>(id, id, written, if (priority > 0) 1 else 0, priority))
-                meanings.forEachIndexed { index, meaning ->
-                    db.execSQL("INSERT INTO word_meaning VALUES (?, ?, 'en', ?, ?)",
-                        arrayOf<Any>(id * 10 + index, id, meaning, index))
-                }
+                fixture.form(id,id.toLong(),written,"\u306b\u3061\u3088\u3046\u3073",common=priority>0,priority=priority)
+                meanings.forEachIndexed { index,meaning -> fixture.meaning(id,index,meaning) }
             }
             word(1, "日曜日", listOf("Sunday"))
             word(2, "日曜", listOf("holiday", "Sunday"), 4000)
@@ -44,8 +39,9 @@ class WordSearchRelevanceTest {
             word(5, "五旬節", listOf("Shavuot", "Whitsunday"), 4000)
             word(6, "別", listOf("Whitsunday", "one's Sunday best", "Sunday"))
             // A later reading has its own valid gloss; primary reading must remain unchanged.
-            db.execSQL("INSERT INTO word_form VALUES (100, 7, '限定', 'はやい', 0, 0, 0), (101, 7, '限定', 'おそい', 1, 5000, 1)")
-            db.execSQL("INSERT INTO word_meaning VALUES (1000, 100, 'en', 'restricted', 0), (1001, 101, 'en', 'Sunday', 1)")
+            fixture.form(100,7,"\u9650\u5b9a","\u306f\u3084\u3044")
+            fixture.form(101,7,"\u9650\u5b9a","\u304a\u305d\u3044",order=1,common=true,priority=5000)
+            fixture.meaning(100,0,"restricted"); fixture.meaning(101,1,"Sunday")
             val results = searchWordResults(db, "sunday", "")
             assertEquals(listOf(1L, 7L, 2L, 6L, 3L, 4L, 5L), results.map { it.word.entryId })
             assertEquals("Sunday", results.first { it.word.entryId == 6L }.displayMeaning)

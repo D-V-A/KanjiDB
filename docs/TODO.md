@@ -10,6 +10,8 @@ that feature is started unless explicitly fixed below.
 
 ## Completed milestones
 
+- [x] **Dictionary v2 / source-preserving words (v0.9.1):** unique exact writings, direct source-entry membership, lossless imported reading/sense applicability; Search entry representatives/exact-writing cards; independent Details entry/writing selectors; entry-level Word Training.
+
 -   [x] **My Kanji:** persist personal Known/Learning states in a
     separate Room database and connect the collection with Kanji
     Details, including multi-selection Move/Remove.
@@ -142,8 +144,7 @@ that feature is started unless explicitly fixed below.
       selection restores the preceding filters.
     - My Kanji, My Lists and multi-group Kanji Groups header/subgroup toggles
       affect only their context, preserving other selected groups.
--   [ ] **Stroke Order / KanjiVG:** integrate stroke-path/order data
-    after attribution/license verification.
+-   [x] **Stroke Order / KanjiVG (v0.9.2):** canonical source cache, dictionary enrichment and animated Kanji Details; attribution/license verified.
 -   [ ] **Handwriting Training:** build handwriting practice after
     stroke-order data is available. Exact recognition/validation UX
     should be designed at implementation time; preserve the possibility
@@ -203,11 +204,11 @@ that feature is started unless explicitly fixed below.
 -   [ ] Correct the JLPT source mapping for 分 (expected N5) if the
     current source still omits it; keep source/import/verifier behavior
     coherent.
--   [ ] Define and implement a `dictionary.db` asset version/update
+-   [x] Define and implement a `dictionary.db` asset version/update
     mechanism so an APK update can replace the copied `noBackupFilesDir`
     dictionary when required.
 -   [ ] Verify EDRDG attribution and licenses.
--   [ ] Verify KanjiVG attribution/license before integration.
+-   [x] Verify KanjiVG attribution/license: Ulrich Apel / CC BY-SA 3.0; notice packaged and About credit added.
 -   [ ] Do not persist dictionary-internal SQLite IDs in user-owned
     data; continue using stable character text/codepoints where
     appropriate.
@@ -232,7 +233,7 @@ that feature is started unless explicitly fixed below.
 
 ## Release / feedback direction
 
--   [x] Add open-alpha-only first-launch notice and Search Feedback page with Google Forms / GitHub links on `open-alpha`.
+-   [x] Preserve the first-launch notice and Search Feedback page with Google Forms / GitHub links on `release` (formerly `open-alpha`), including updates incorporated from `main`.
 -   [ ] Manually verify clean-data notice, Close and subsequent process launches; Feedback left of working Info; Feedback page and both external URLs; Back preserving Search state; small-screen dialog scrolling and accessible Close.
 -   [ ] After Custom Lists and Train Selected are stable, prepare a
     build suitable for broader external feedback (for example Reddit)
@@ -298,6 +299,11 @@ that feature is started unless explicitly fixed below.
 - [x] Tap every variant of a grouped result; each opens the correct entry/written form in Word Details. Check narrow screens, larger fonts and both themes.
 
 ## Dictionary deduplication / word variant model (future research)
+
+The v0.9.1 implementation preserves source entries; it does not attempt cross-entry lexical deduplication or transitive variant closure. The diagnostic Model C is not a production model.
+
+
+## Remaining variant research
 
 - [ ] Investigate duplicate dictionary entries with identical written forms (for example 五 or 男 with different readings/meanings).
 - [ ] Determine whether readings/meanings can safely be combined at import time or in the dictionary model, preserving their applicable restrictions and distinct senses.

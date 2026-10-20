@@ -3,6 +3,7 @@ package com.example.kanjidb.data.dictionary
 import java.util.Locale
 
 data class MeaningMatch(val quality: Int, val secondary: Boolean)
+enum class WordMatchKind { WRITTEN, READING, MEANING }
 
 /** Search-only metadata; shared dictionary summaries and Details keep their own glosses. */
 data class WordSearchResult(
@@ -12,7 +13,13 @@ data class WordSearchResult(
     val meaningMatch: MeaningMatch?,
     val formRank: Int = 9,
     val common: Int = 0,
-    val priority: Int = 0
+    val priority: Int = 0,
+    val matchKind: WordMatchKind = WordMatchKind.WRITTEN,
+    val matchedGlossId: Long = -1,
+    val matchedSenseId: Long = -1,
+    val matchedReading: String? = null,
+    val writtenOrder: Int = 0,
+    val readingOrder: Int = 0
 ) {
     val displayMeaning get() = matchedMeaning ?: primaryMeaning.orEmpty()
     internal val rank get() = minOf(formRank, meaningMatch?.let { it.quality + 1 } ?: 9)
@@ -49,6 +56,8 @@ internal val wordSearchOrder = compareBy<WordSearchResult> { it.rank }
     .thenBy { it.meaningMatch?.secondary ?: false }
     .thenByDescending { it.common }
     .thenByDescending { it.priority }
+    .thenBy { it.writtenOrder }
+    .thenBy { it.readingOrder }
     .thenBy { it.word.written }
     .thenBy { it.word.entryId }
 

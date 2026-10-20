@@ -1,112 +1,94 @@
 package com.example.kanjidb.data.dictionary
 
 import android.database.sqlite.SQLiteDatabase
-import org.junit.Assert.assertEquals
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28], manifest = Config.NONE)
+@Config(sdk=[28],manifest=Config.NONE)
 class WordReadingOrderTest {
-    @Test
-    fun allWordQueriesUseEarliestValidReadingEvenWhenAnotherReadingIsCommon() {
+    @Test fun restrictionsAndReadingOrderSurviveWithoutCrossEntryOrAlternativeContamination() = runBlocking {
         SQLiteDatabase.create(null).use { db ->
-            db.execSQL("CREATE TABLE word_form (id INTEGER PRIMARY KEY, entry_id INTEGER, written TEXT, reading TEXT, common INTEGER, reading_priority INTEGER, reading_order INTEGER)")
-            db.execSQL("CREATE TABLE word_meaning (id INTEGER PRIMARY KEY, word_form_id INTEGER, language TEXT, meaning TEXT, sense_index INTEGER)")
-            db.execSQL("CREATE TABLE word_kanji (word_form_id INTEGER, kanji_id INTEGER, position INTEGER)")
-            db.execSQL("CREATE TABLE kanji (id INTEGER PRIMARY KEY, character TEXT)")
-            db.execSQL("CREATE TABLE kanji_meaning (id INTEGER PRIMARY KEY, kanji_id INTEGER, language TEXT, meaning TEXT)")
-            listOf("\u304d\u3087\u3046", "\u3053\u3093\u306b\u3061", "\u3053\u3093\u3061", "\u3053\u3093\u3058\u3064").forEachIndexed { index, reading ->
-                db.execSQL("INSERT INTO word_form VALUES (?, 1, '\u4eca\u65e5', ?, ?, ?, ?)",
-                    arrayOf<Any>(index + 1, reading, if (index == 1) 1 else 0,
-                        listOf(1000, 2380, 0, 0)[index], index))
-                db.execSQL("INSERT INTO word_kanji VALUES (?, 1, 0)", arrayOf(index + 1))
+            val f=WordDatabaseFixture(db)
+            f.form(1,1,"今日","きょう",priority=1000)
+            f.form(2,1,"今日","こんにち",order=1,common=true,priority=2380)
+            f.form(3,1,"別","べつ",order=2,writtenOrder=1)
+            f.form(4,2,"今日","ひ",common=true)
+            f.meaning(1,1,"today"); f.meaning(2,1,"today")
+            val secondary=f.meaning(2,2,"these days")
+            f.meaning(3,3,"other spelling only"); f.meaning(4,0,"different source")
+            val kid=f.kanji("今日","今",0); f.kanji("今日","日",1)
+            val details=loadWordDetails(db,1,"今日")!!
+            assertEquals(listOf("きょう","こんにち"),details.readings)
+            assertEquals(listOf("today","these days"),details.meaningGroups["en"])
+            assertEquals(listOf("別"),details.alternativeWrittenForms)
+            assertEquals(listOf(2L),details.otherEntries.map { it.entryId })
+            assertEquals(2,details.readingMeaningGroups.size)
+            assertEquals(listOf("こんにち"),details.glosses.first { it.glossId==secondary }.readings)
+            assertEquals("these days",details.highlightedMeaning(1,secondary))
+            assertEquals("these days",details.highlightedMeaning(1,secondary,"these days"))
+            assertNull(details.highlightedMeaning(1,secondary,"unrelated restored gloss"))
+            assertNull(details.highlightedMeaning(2,secondary))
+            assertNull(loadWordDetails(db,1,"別")!!.highlightedMeaning(1,secondary))
+            db.rawQuery(candidateFeaturesSql(WORDS_SQL),arrayOf(kid.toString(),"0")).use { c ->
+                assertTrue(c.moveToFirst()); assertEquals("きょう",c.getString(3))
+                assertEquals(2380,c.getInt(5)); assertEquals(0,c.getInt(6))
             }
-            // An alternative spelling's earlier reading must not enter today's readings.
-            db.execSQL("INSERT INTO word_form VALUES (5, 1, '\u5225', '\u4eca\u65e5', 0, 9999, -1)")
-            db.rawQuery(DictionaryDatabase.WORD_READINGS_SQL, arrayOf("1", "\u4eca\u65e5")).use { cursor ->
-                val readings = buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
-                assertEquals(listOf("\u304d\u3087\u3046", "\u3053\u3093\u306b\u3061", "\u3053\u3093\u3061", "\u3053\u3093\u3058\u3064"), readings)
+            val direct=searchWordResults(db,"今日","")
+            assertEquals(1,direct.size) // exact written collapse, without physically merging sources
+            val meaning=searchWordResults(db,"these days","").single()
+            assertEquals(1L,meaning.word.entryId); assertEquals(secondary,meaning.matchedGlossId)
+            val reading=searchWordResults(db,"こんにち","こんにち").single()
+            assertEquals("こんにち",reading.word.reading)
+            assertEquals(WordMatchKind.READING,reading.matchKind)
+        }
+    }
+
+    @Test fun alternativesStayInsideActiveEntryEvenWhenWrittenLinksAnotherEntry() {
+        SQLiteDatabase.create(null).use { db ->
+            val f=WordDatabaseFixture(db)
+            f.form(1,1,"男","お"); f.form(2,1,"夫","お",writtenOrder=1)
+            f.form(3,2,"夫","つま"); f.form(4,2,"妻","つま",writtenOrder=1)
+            f.form(5,3,"妻","め"); f.form(6,3,"女","め",writtenOrder=1)
+            (1..6).forEach { f.meaning(it,0,"source") }
+            assertEquals(listOf("夫"),loadWordDetails(db,1,"男")!!.alternativeWrittenForms)
+            val husband=loadWordDetails(db,1,"夫")!!
+            assertEquals(listOf("男"),husband.alternativeWrittenForms)
+            assertEquals(listOf(2L),husband.otherEntries.map { it.entryId })
+            assertEquals(listOf("妻"),loadWordDetails(db,2,"夫")!!.alternativeWrittenForms)
+            assertFalse(loadWordDetails(db,1,"男")!!.alternativeWrittenForms.contains("女"))
+        }
+    }
+
+    @Test fun poolQueriesUseActualWrittenKanjiAndExploreRetainsEntryIdentity() {
+        SQLiteDatabase.create(null).use { db ->
+            val f=WordDatabaseFixture(db)
+            f.form(1,1,"今時","いまどき",common=true)
+            f.form(2,1,"今どき","いまどき",common=true,writtenOrder=1)
+            f.form(3,2,"日","ひ",common=true)
+            f.meaning(1,0,"nowadays"); f.meaning(2,0,"nowadays"); f.meaning(3,0,"day")
+            f.kanji("今時","今",0); f.kanji("今時","時",1); f.kanji("今どき","今",0); f.kanji("日","日",0)
+            db.rawQuery(wordTrainingFormsSql(1),arrayOf("時")).use { c ->
+                assertEquals(1,c.count); c.moveToFirst(); assertEquals("今時",c.getString(3))
             }
-            listOf(
-                SEARCH_WORDS_SQL to arrayOf("\u4eca\u65e5", "", ""),
-                EXPLORE_WORDS_SQL to emptyArray(),
-                DictionaryDatabase.WORDS_SQL to arrayOf("1", "1"),
-                DictionaryDatabase.WORDS_SQL to arrayOf("1", "0")
-            ).forEach { (sql, args) ->
-                db.rawQuery(sql, args).use { cursor ->
-                    cursor.moveToFirst()
-                    val column = if (sql == DictionaryDatabase.WORDS_SQL) 3 else 2
-                    assertEquals("\u304d\u3087\u3046", cursor.getString(column))
-                }
-            }
-            db.execSQL("INSERT INTO kanji VALUES (1, '\u4eca'), (2, '\u65e5')")
-            db.execSQL("INSERT INTO kanji_meaning VALUES (1, 1, 'en', 'now'), (2, 2, 'en', 'day')")
-            db.execSQL("INSERT INTO word_kanji VALUES (1, 2, 1), (1, 1, 2)")
-            db.rawQuery(DictionaryDatabase.WORD_KANJI_SQL, arrayOf("1", "\u4eca\u65e5")).use { cursor ->
-                val cards = buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
-                assertEquals(listOf("\u4eca" to "now", "\u65e5" to "day"), cards)
-            }
-            // Meanings remain scoped to the displayed spelling, including reading-specific glosses.
-            db.execSQL("INSERT INTO word_meaning VALUES (1, 1, 'en', 'today', 1), (2, 2, 'en', 'today', 1), (3, 2, 'en', 'these days', 2), (4, 5, 'en', 'other', 1)")
-            db.rawQuery(DictionaryDatabase.WORD_MEANINGS_SQL, arrayOf("1", "\u4eca\u65e5")).use { cursor ->
-                val meanings = buildList { while (cursor.moveToNext()) add(cursor.getString(1)) }
-                assertEquals(listOf("today", "these days"), meanings)
-            }
-            val relatedArgs = arrayOf("1", "0")
-            db.rawQuery(DictionaryDatabase.RELATED_WORD_FEATURES_SQL, relatedArgs).use { cursor ->
-                assertEquals(1, cursor.count)
-                cursor.moveToFirst()
-                assertEquals("\u304d\u3087\u3046", cursor.getString(3))
-                assertEquals(1, cursor.getInt(4)) // A later valid reading is common.
-                assertEquals(2380, cursor.getInt(5)) // Its priority informs ranking, not reading selection.
-                assertEquals(0, cursor.getInt(6))
-                assertEquals(0, cursor.getInt(7))
-            }
-            db.rawQuery(DictionaryDatabase.RELATED_WORD_MEANINGS_SQL, relatedArgs).use { cursor ->
-                val meanings = buildList { while (cursor.moveToNext()) add(cursor.getString(1)) }
-                assertEquals(listOf("today"), meanings) // Later-reading and other-spelling glosses stay excluded.
-            }
-            db.execSQL("ALTER TABLE kanji ADD COLUMN frequency INTEGER")
-            db.execSQL("UPDATE kanji SET frequency = 1 WHERE id = 1")
-            db.rawQuery(DictionaryDatabase.relatedWordKanjiSql(false), relatedArgs).use { cursor ->
-                assertEquals(2, cursor.count) // Repeated occurrences become one feature per kanji.
-                cursor.moveToFirst()
-                assertEquals(1, cursor.getInt(2))
-                assertEquals(true, cursor.isNull(3)) // Older dictionaries without JLPT still work.
-            }
-            db.execSQL("CREATE TABLE jlpt_kanji (kanji_id INTEGER PRIMARY KEY, level INTEGER)")
-            db.execSQL("INSERT INTO jlpt_kanji VALUES (1, 5)")
-            db.rawQuery(DictionaryDatabase.relatedWordKanjiSql(true), relatedArgs).use { cursor ->
-                cursor.moveToFirst()
-                assertEquals(5, cursor.getInt(3))
-            }
-            db.execSQL("INSERT INTO word_form VALUES (6, 2, '日語', 'にちご', 0, 0, 0)")
-            db.execSQL("INSERT INTO kanji VALUES (3, '語', 5)")
-            db.execSQL("INSERT INTO word_kanji VALUES (6, 2, 0), (6, 3, 1)")
-            val onePoolSql = DictionaryDatabase.wordTrainingFormsSql(1)
-            db.rawQuery(onePoolSql, arrayOf("今")).use { cursor ->
-                assertEquals(1, cursor.count)
-                cursor.moveToFirst()
-                assertEquals("きょう", cursor.getString(3))
-            }
-            // A second pool target includes its word, but never duplicates a word covering both targets.
-            db.rawQuery(DictionaryDatabase.wordTrainingFormsSql(2), arrayOf("今", "日")).use { cursor ->
-                assertEquals(2, cursor.count)
-            }
-            // The primary translation is the same first applicable gloss as Word Details,
-            // including senses restricted to a later valid reading; priority still cannot choose the reading.
-            db.execSQL("INSERT INTO word_meaning VALUES (5, 2, 'en', 'present day', 0)")
-            val detailsMeanings = db.rawQuery(DictionaryDatabase.WORD_MEANINGS_SQL, arrayOf("1", "今日")).use { cursor ->
-                buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
-            }
-            db.rawQuery(DictionaryDatabase.wordTrainingMeaningsSql(onePoolSql), arrayOf("今")).use { cursor ->
-                val trainingMeanings = buildList { while (cursor.moveToNext()) add(cursor.getString(2) to cursor.getString(3)) }
-                assertEquals(detailsMeanings, trainingMeanings)
-                assertEquals("present day", orderedWordMeanings(trainingMeanings.groupBy({ it.first }, { it.second })).first())
-            }
+            db.rawQuery(EXPLORE_WORDS_SQL,null).use { c -> assertEquals(2,c.count) }
+        }
+    }
+
+    @Test fun schemaRejectsCrossEntryReadingAndSenseApplicability() {
+        SQLiteDatabase.create(null).use { db ->
+            val f=WordDatabaseFixture(db)
+            f.form(1,1,"男","お"); f.form(2,2,"女","め")
+            f.meaning(1,0,"male"); f.meaning(2,0,"female")
+            val wid=db.rawQuery("SELECT written_id FROM word_entry_written_reading WHERE id=1",null).use { it.moveToFirst();it.getLong(0) }
+            val rid=db.rawQuery("SELECT reading_id FROM word_entry_written_reading WHERE id=2",null).use { it.moveToFirst();it.getLong(0) }
+            assertTrue(runCatching { db.execSQL("INSERT INTO word_entry_written_reading VALUES (99,1,?,?)",arrayOf<Any>(wid,rid)) }.isFailure)
+            val sid=db.rawQuery("SELECT id FROM word_sense WHERE entry_id=2",null).use { it.moveToFirst();it.getLong(0) }
+            assertTrue(runCatching { db.execSQL("INSERT INTO word_sense_form VALUES (1,?,1)",arrayOf(sid)) }.isFailure)
         }
     }
 }
