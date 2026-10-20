@@ -2,87 +2,81 @@
 
 **KanjiDB** is an offline-first Android application for studying Japanese kanji and vocabulary.
 
-It combines a Japanese dictionary, personal kanji collections and recall-based training in one app.  
+It combines a Japanese dictionary, kanji study collections, recommendations and recall-based training in a single app.
 No account, backend or permanent internet connection is required.
 
-KanjiDB is currently in **open alpha**. The application is already fully usable for everyday study, but some features and UI may still change as development continues.
+> **Status: Pre-release**
+>
+> KanjiDB has entered the pre-release stage.
+> The core features are implemented and usable, while development is now focused on polish, bug fixes, data quality and preparation for the first stable release.
 
-## Features
+## Main features
 
-### Search and explore
+- Offline kanji and Japanese vocabulary dictionary
+- Search by kanji, kana, romaji and English meaning
+- Detailed kanji pages with readings, meanings, frequency data, related vocabulary and animated stroke order
+- Detailed word pages with writings, readings and meanings
+- Personal kanji collection with Learning and Known states
+- Custom study lists
+- "Learn Next" recommendations based on your current progress
+- Kanji groups by JLPT level, school grade, frequency and stroke count
+- Two Training modes for practicing kanji: Kanji Training and Word Training
+- Training result review and mistake repetition
+- Fully offline normal use
 
-The built-in dictionary includes:
+## Dictionary and search
 
-- More than **13,000 kanji**;
-- More than **150,000 words** with almost 250,000 readings.
+KanjiDB includes more than **13,000 kanji** and more than **150,000 Japanese vocabulary entries**.
 
-You can search by:
+Search supports:
 
-- Kana;
-- Romaji;
-- Kanji;
-- English meaning.
+- kanji;
+- kana;
+- romaji;
+- English meanings.
 
-You can also browse random kanji and words, or use **Recommended Kanji** to discover characters based on your current progress. 
-*Recommendations currently use a JLPT-based algorithm that takes your **Learning** and **Known** kanji into account.*
+Kanji and word results are connected, so you can move between a kanji and vocabulary containing it without losing your place.
 
-Everything is available offline.
+## Kanji Details
 
-### Kanji and word details
-
-Kanji pages include useful dictionary information such as:
+Kanji pages include:
 
 - English meanings;
 - on'yomi and kun'yomi readings;
 - stroke count;
 - JLPT level;
-- school grade and Jōyō status where available;
+- school grade and Jōyō information when applicable;
 - frequency information;
-- related vocabulary.
+- related vocabulary;
+- animated stroke order where KanjiVG data is available.
 
-Word pages show:
+Stroke animations show individual strokes in writing order and replay automatically for convenient study.
 
-- written form;
-- readings;
-- meanings;
-- the kanji used in the word, with quick navigation back to their detail pages.
+## Word Details
 
-Kanji and word pages can be followed freely in both directions, making it easy to explore vocabulary and unfamiliar characters without losing your starting point.
+Word pages include the written form, applicable readings and meanings, alternative writings where available, and the kanji used by the word.
 
-### My Kanji
+Kanji inside a word can be opened directly, and navigation between kanji and words can continue recursively without losing the original screen state.
 
-Keep track of the kanji you are studying with two simple states:
+## My Kanji and Lists
 
-- **Learning**
-- **Known**
+Kanji can be saved as either **Learning** or **Known**.
 
-Your collection can be sorted, grouped and filtered in different ways, and manually reordered when appropriate.
+Your collection can be sorted, grouped and filtered, and multiple kanji can be selected for bulk actions or training.
 
-Multiple kanji can be selected at once for bulk actions or immediate training.
+You can also create your own lists, add kanji to multiple lists, reorder their contents and start training directly from a list.
 
-### Custom Lists
+## Learn Next
 
-Create your own kanji lists for anything you want to study separately.
+KanjiDB can suggest kanji to learn next based on your current progress.
 
-You can:
+The current recommendation system uses JLPT-oriented data together with your Learning and Known kanji.
 
-- create, rename and delete lists;
-- add kanji to multiple lists;
-- manage multiple selected kanji at once;
-- sort and filter list contents;
-- reorder kanji manually;
-- start training directly from a list.
+## Kanji Groups
 
-### Kanji Groups
+The dictionary can be explored using groups based on properties such as JLPT level, school grade, frequency and stroke count.
 
-Browse the dictionary as structured groups using properties such as:
-
-- JLPT level;
-- school grade;
-- frequency;
-- stroke count.
-
-Rules can be combined to narrow down the set you are interested in, and selected kanji can be added to your study collection or used for training.
+Rules can be combined to narrow the result set, after which kanji can be saved or used directly for training.
 
 ## Training
 
@@ -90,111 +84,74 @@ KanjiDB currently includes two training modes.
 
 ### Kanji Training
 
-Practice recalling individual kanji using their:
+Practice recalling kanji meanings, on'yomi readings and kun'yomi readings.
 
-- meanings;
-- on'yomi readings;
-- kun'yomi readings.
+The answer is revealed when you are ready, and you mark the result yourself.
 
-The answer is revealed when you are ready, and you mark your own result as correct or incorrect.
-*On-screen drawing is planned, but for now it's only **you-drawing** — on a good old sheet of paper.*
-
-Training can use your saved kanji, recommended kanji, Custom Lists, or a manually selected group.
+On-screen drawing is planned; for now it's still **you-drawing** — on a good old sheet of paper.
 
 ### Word Training
 
-Practice kanji in the context of real Japanese words.
+Practice kanji in the context of real Japanese vocabulary.
 
-Sessions can focus on:
+Sessions can test:
 
 - translation;
 - reading;
 - both translation and reading.
 
-Word selection takes your chosen kanji into account and tries to build a useful session around them rather than simply picking random vocabulary.
+Word selection is based on the kanji being trained rather than simply choosing random vocabulary.
 
-Kanji you already know can appear as context, while unfamiliar characters remain visible so you are not expected to guess material outside the selected pool.
-
-### Results and repetition
-
-After training you can review the results, update kanji states, and practice again using:
-
-- the entire session;
-- mistakes only;
-- the current iteration.
-
-Word Training results also show which kanji appeared in words you had difficulty with, as a study guide rather than a definitive assessment.
+After a session, results can be reviewed and you can repeat the entire session or focus on mistakes.
 
 ## Offline-first
 
 KanjiDB is designed to work without an account or online service.
 
-The main Japanese dictionary is bundled with the application, while your personal data — including Learning/Known states and Custom Lists — is stored locally on your device.
+The Japanese dictionary is bundled with the application. Personal data such as Learning/Known states and lists is stored locally on the device.
 
-Normal dictionary use, browsing and training do not require an internet connection.
+Dictionary search, browsing, stroke order and training do not require an internet connection.
 
-The application uses about **220 MB of storage** after the first launch and may increase slightly as user data is added.
+## Pre-release status
 
-## Open alpha
+The 0.9.x series represents the current pre-release stage of KanjiDB.
 
-KanjiDB is currently under active development.
+The main functionality is already available for normal use, but bugs, UI changes and smaller behavioral changes may still occur before the first stable release.
 
-Open-alpha builds are intended for real-world testing, so you may encounter:
-
-- bugs;
-- incomplete features;
-- UI changes;
-- behavior that changes between versions.
-
-Feedback is very welcome and helps decide what should be improved next.
-
-The open-alpha version includes an in-app feedback link to the project's feedback form and GitHub page.
-
-## Dictionary sources
-
-KanjiDB uses data derived from:
-
-- **KANJIDIC2** for kanji information;
-- **JMdict** for Japanese vocabulary;
-- additional JLPT mapping data.
-
-The application also uses icons from **Tabler Icons**, distributed under the MIT License.
-
-Third-party attribution and licensing information is included with the application and will continue to be expanded as the project develops.
+Feedback and bug reports are very welcome. The application includes links to the project's feedback form and GitHub repository.
 
 ## Download
 
 Pre-built Android APKs are available from the repository's **Releases** section.
 
-KanjiDB currently supports **Android 10 (API 29) and newer**.
+KanjiDB supports **Android 8.0 (API 26) and newer**.
+
+Application takes 300 MB of device's memory after first launch.
+
+## Dictionary and third-party sources
+
+KanjiDB uses data derived from:
+
+- **KANJIDIC2** for kanji information;
+- **JMdict** for Japanese vocabulary;
+- **KanjiVG** for kanji stroke-order data;
+- additional JLPT mapping data.
+
+The application also uses **Tabler Icons**, distributed under the MIT License.
+
+Third-party attribution and licensing information is included with the application.
 
 ## Development
 
-KanjiDB is an Android application built with:
-
-- Kotlin;
-- Jetpack Compose;
-- Material 3;
-- Room;
-- SQLite.
+KanjiDB is built with Kotlin, Jetpack Compose, Material 3, Room and SQLite.
 
 The project is developed publicly on GitHub.
 
-## Current status
+Development is currently focused on stabilizing the existing feature set and preparing for the first stable release.
 
-Current development is focused on improving the existing dictionary and training experience based on open-alpha feedback.
+Future ideas include personal word collections, recommended vocabulary, handwriting practice, deeper component/radical data, pronunciation/TTS, Kanji of the Day and additional study options.
 
-Future ideas include:
-
-- personal word collections;
-- recommended vocabulary;
-- handwriting practice;
-- deeper kanji component/radical data;
-- pronunciation / TTS;
-- Kanji of the Day;
-- additional study and recommendation options.
-
-The exact roadmap may change based on testing and feedback.
+The roadmap may change based on testing and feedback.
 
 ## License
 
