@@ -11,6 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 abstract class UserDatabase : RoomDatabase() {
     abstract fun kanjiStates(): UserKanjiStateDao
     abstract fun customLists(): CustomListDao
+    abstract fun backup(): UserBackupDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {

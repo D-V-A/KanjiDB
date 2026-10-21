@@ -44,10 +44,19 @@ import com.example.kanjidb.ui.search.SearchScreen
 import com.example.kanjidb.ui.search.SearchState
 import androidx.lifecycle.ViewModelProvider
 import com.example.kanjidb.ui.training.TrainingScreen
+import com.example.kanjidb.ui.settings.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val SEARCH = "search"
 private const val ABOUT = "about"
 private const val FEEDBACK = "open_alpha_feedback"
+private const val SETTINGS = "settings"
 private const val MY_KANJI = "my_kanji"
 private const val TRAINING = "training"
 private const val KANJI_ID = "kanjiId"
@@ -65,14 +74,54 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
     OpenAlphaNotice()
+    val preferences = remember(context) { AppPreferences.getInstance(context) }
+    // Resolved once per fresh root and saved alongside NavController state. Preference
+    // changes and Android restoration must never replace an existing navigation stack.
+    var initialRoute by rememberSaveable { mutableStateOf<String?>(null) }
+    var initialTab by rememberSaveable { mutableStateOf(MyKanjiTab.KANJI_GROUPS) }
+    var initialTabPending by rememberSaveable { mutableStateOf(true) }
+    var startupFailed by remember { mutableStateOf(false) }
+    var startupRetry by remember { mutableStateOf(0) }
     val userDao = remember(context) {
         com.example.kanjidb.data.user.UserDatabase.getInstance(context).kanjiStates()
     }
     LaunchedEffect(userDao) { RecommendedState.initialize(DictionaryDatabase(context), userDao) }
+    LaunchedEffect(startupRetry) {
+        if (initialRoute != null) return@LaunchedEffect
+        startupFailed = false
+        val settings = preferences.state.value
+        try {
+            val target = if (settings.startupScreen in listOf(StartupScreen.AUTOMATIC, StartupScreen.TRAINING)) {
+                withContext(Dispatchers.IO) {
+                    val characters = com.example.kanjidb.data.user.UserDatabase.getInstance(context).backup().snapshot().characters
+                    val available = if (characters.isEmpty()) emptySet() else
+                        DictionaryDatabase(context).getKanjiGroups().mapTo(hashSetOf()) { it.character }
+                    resolveStartup(settings.startupScreen, characters, available, settings.lastMyKanjiTab)
+                }
+            } else resolveStartup(settings.startupScreen, emptyList(), emptySet(), settings.lastMyKanjiTab)
+            initialTab = target.myKanjiTab
+            initialRoute = target.route
+        } catch (error: CancellationException) { throw error }
+        catch (error: Exception) {
+            android.util.Log.e("Startup", "Could not resolve startup destination", error)
+            startupFailed = true
+        }
+    }
+    if (initialRoute == null) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (startupFailed) {
+                    Text("Could not prepare the startup screen.")
+                    TextButton(onClick = { startupRetry++ }) { Text("Retry") }
+                } else CircularProgressIndicator()
+            }
+        }
+        return
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     LaunchedEffect(currentRoute) {
-        if (currentRoute != null && currentRoute != TRAINING) TrainingState.clearFixedPool()
+        if (currentRoute != null && currentRoute !in listOf(TRAINING, SETTINGS, ABOUT)) TrainingState.clearFixedPool()
     }
     var exitTrainingTo by rememberSaveable { mutableStateOf<String?>(null) }
     // A restored exit dialog must not outlive the process-only session after process death.
@@ -105,6 +154,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     val openDetails: (String) -> Unit = { kanjiId ->
         navController.navigate("details/${Uri.encode(kanjiId)}")
     }
+    val openSettings: () -> Unit = { navController.navigate(SETTINGS) { launchSingleTop = true } }
 
     // Detail navigation always pushes. The first non-detail entry below the chain is its origin.
     // Keeping that entry on the stack preserves its saved state and internal tabs/filters.
@@ -144,7 +194,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = SEARCH,
+            startDestination = requireNotNull(initialRoute),
             modifier = Modifier.padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .fillMaxSize()
@@ -165,9 +215,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
                 SearchScreen(state = searchState, onOpenRecommended = { character ->
                     entry.savedStateHandle["recommendedDetails"] = character
                     openDetails(character)
-                }, onOpenDetails = openDetails, onOpenAbout = {
-                    navController.navigate(ABOUT) { launchSingleTop = true }
-                }, onOpenFeedback = {
+                }, onOpenDetails = openDetails, onOpenSettings = openSettings, onOpenFeedback = {
                     navController.navigate(FEEDBACK) { launchSingleTop = true }
                 }, onOpenSearchWord = { result ->
                     val word = result.word
@@ -184,11 +232,20 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             composable(FEEDBACK) {
                 FeedbackScreen(onBack = { navController.popBackStack() })
             }
-            composable(MY_KANJI) {
-                MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao, onOpenTraining = { navigateTopLevel(TRAINING) })
+            composable(SETTINGS) {
+                SettingsScreen(preferences, onBack = { navController.popBackStack() },
+                    onAbout = { navController.navigate(ABOUT) { launchSingleTop = true } })
+            }
+            composable(MY_KANJI) { entry ->
+                val tab = remember(entry) {
+                    if (initialTabPending && initialRoute == MY_KANJI) initialTab else preferences.state.value.lastMyKanjiTab
+                }
+                LaunchedEffect(entry) { initialTabPending = false }
+                MyKanjiScreen(onOpenDetails = openDetails, userDao = userDao, onOpenTraining = { navigateTopLevel(TRAINING) },
+                    onOpenSettings = openSettings, initialTab = tab, onTabChanged = preferences::setLastMyKanjiTab)
             }
             composable(TRAINING) {
-                TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING },
+                TrainingScreen(userDao = userDao, onRequestExit = { exitTrainingTo = TRAINING }, onOpenSettings = openSettings,
                     onOpenKanji = openDetails, onOpenWord = { entryId, written ->
                         navController.navigate("word/$entryId/${Uri.encode(written)}")
                     })

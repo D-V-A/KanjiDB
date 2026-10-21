@@ -12,10 +12,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.kanjidb"
-        minSdk = 26
+        minSdk = 29
         targetSdk = 37
-        versionCode = 57
-        versionName = "v0.9.3-open"
+        versionCode = 64
+        versionName = "v0.10.2-open"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

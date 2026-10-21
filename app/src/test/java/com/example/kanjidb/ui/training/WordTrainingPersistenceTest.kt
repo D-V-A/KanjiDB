@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLooper
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [29])
 class WordTrainingPersistenceTest {
     private fun database() = Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), UserDatabase::class.java)
         .allowMainThreadQueries().build()
