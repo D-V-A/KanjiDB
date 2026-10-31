@@ -50,7 +50,7 @@ internal fun FeedbackScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
             Text("Feedback", style = MaterialTheme.typography.headlineMedium)
         }
-        Text("Thank you for taking part in testing KanjiDB.\n\nTo provide feedback, you can use Google Forms or visit the project's GitHub page.\n\nAny feedback is greatly appreciated.")
+        Text("Thank you for participating in application testing.\n\nTo provide feedback, you can use Google Forms or visit the project's GitHub page.\n\nAny feedback is greatly appreciated.")
         TextButton(onClick = { openLink(GOOGLE_FORMS_URL) }) { Text("Google Forms") }
         TextButton(onClick = { openLink(GITHUB_URL) }) { Text("GitHub project") }
     }

@@ -25,7 +25,12 @@ internal enum class MyKanjiTab(val page: Int) {
 internal data class AppSettings(
     val theme: ThemePreference = ThemePreference.SYSTEM,
     val startupScreen: StartupScreen = StartupScreen.AUTOMATIC,
-    val lastMyKanjiTab: MyKanjiTab = MyKanjiTab.KANJI_GROUPS
+    val lastMyKanjiTab: MyKanjiTab = MyKanjiTab.KANJI_GROUPS,
+    val reminderEnabled: Boolean = false,
+    val reminderMinute: Int = 19 * 60,
+    val reminderOffered: Boolean = false,
+    val trainingStrokes: Boolean = false,
+    val lastReminderDate: String? = null
 )
 
 /** Local configuration, independent of both databases and the external .kdb format. */
@@ -40,9 +45,26 @@ internal class AppPreferences(context: Context) {
     private fun read() = AppSettings(
         enumValue(preferences.getString("theme", null), ThemePreference.SYSTEM),
         enumValue(preferences.getString("startupScreen", null), StartupScreen.AUTOMATIC),
-        enumValue(preferences.getString("lastMyKanjiTab", null), MyKanjiTab.KANJI_GROUPS)
+        enumValue(preferences.getString("lastMyKanjiTab", null), MyKanjiTab.KANJI_GROUPS),
+        preferences.getBoolean("reminderEnabled", false),
+        preferences.getInt("reminderMinute", 19 * 60).coerceIn(0, 1439),
+        preferences.getBoolean("reminderOffered", false),
+        preferences.getBoolean("trainingStrokes", false),
+        preferences.getString("lastReminderDate", null)
     )
 
+    fun setReminderEnabled(enabled: Boolean) = update { putBoolean("reminderEnabled", enabled) }
+    fun setReminderMinute(minute: Int) {
+        require(minute in 0..1439)
+        update { putInt("reminderMinute", minute) }
+    }
+    fun markReminderOffered() = update { putBoolean("reminderOffered", true) }
+    fun setTrainingStrokes(strokes: Boolean) = update { putBoolean("trainingStrokes", strokes) }
+    fun setLastReminderDate(date: String) = update { putString("lastReminderDate", date) }
+    private fun update(change: SharedPreferences.Editor.() -> Unit) {
+        preferences.edit().apply(change).apply()
+        current.value = read()
+    }
     fun setTheme(theme: ThemePreference) = put("theme", theme.name)
     fun setStartupScreen(screen: StartupScreen) = put("startupScreen", screen.name)
     fun setLastMyKanjiTab(tab: MyKanjiTab) = put("lastMyKanjiTab", tab.name)

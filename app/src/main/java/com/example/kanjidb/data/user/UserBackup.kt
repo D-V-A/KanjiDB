@@ -12,9 +12,11 @@ import java.time.Instant
 data class BackupState(val character: String, val state: String, val manualPosition: Long)
 data class BackupMember(val character: String, val manualIndex: Long)
 data class BackupList(val id: Long, val name: String, val manualIndex: Long, val members: List<BackupMember>)
-data class FullBackupData(val states: List<BackupState>, val lists: List<BackupList>) {
-    val hasData get() = states.isNotEmpty() || lists.isNotEmpty()
-    val characters get() = (states.map { it.character } + lists.flatMap { it.members.map { m -> m.character } }).distinct()
+data class BackupMeaning(val character: String, val preferred: String?, val custom: String?)
+data class FullBackupData(val states: List<BackupState>, val lists: List<BackupList>, val meanings: List<BackupMeaning> = emptyList()) {
+    val hasData get() = states.isNotEmpty() || lists.isNotEmpty() || meanings.isNotEmpty()
+    val collectionCharacters get() = (states.map { it.character } + lists.flatMap { it.members.map { m -> m.character } }).distinct()
+    val characters get() = (states.map { it.character } + lists.flatMap { it.members.map { m -> m.character } } + meanings.map { it.character }).distinct()
     fun missingCharacters(available: Set<String>) = characters.filter { it !in available }
 }
 data class UserBackup(val appVersionName: String, val appVersionCode: Long, val exportedAt: String,
@@ -22,7 +24,7 @@ data class UserBackup(val appVersionName: String, val appVersionCode: Long, val 
 
 class BackupException(message: String) : Exception(message)
 
-/** Only full/v1 is supported today; version/type dispatch stays independent of app versions. */
+/** Writes full/v2 and reads full/v1/v2; version/type dispatch stays independent of app versions. */
 object UserBackupFormat {
     const val INVALID_DATA_FILE = "This data file seems corrupted or invalid. Please check its internal structure."
     const val UNSUPPORTED_FORMAT_VERSION = "This data file uses an unsupported format version."
@@ -41,7 +43,11 @@ object UserBackupFormat {
                     list.members.forEach { put(JSONObject().put("character", it.character).put("manualIndex", it.manualIndex)) }
                 })) }
         })
-        return JSONObject().put("formatVersion", 1).put("backupType", "full")
+        data.put("meanings", JSONArray().apply { backup.data.meanings.forEach {
+            put(JSONObject().put("character", it.character).put("preferred", it.preferred ?: JSONObject.NULL)
+                .put("custom", it.custom ?: JSONObject.NULL))
+        } })
+        return JSONObject().put("formatVersion", 2).put("backupType", "full")
             .put("appVersionName", backup.appVersionName).put("appVersionCode", backup.appVersionCode)
             .put("exportedAt", backup.exportedAt).put("data", data).toString(2)
     }
@@ -57,7 +63,7 @@ object UserBackupFormat {
             }
             val root = JSONObject(text)
             when (root.integer("formatVersion")) {
-                1L -> Unit
+                1L, 2L -> Unit
                 else -> throw BackupException(UNSUPPORTED_FORMAT_VERSION)
             }
             when (root.string("backupType")) {
@@ -87,7 +93,16 @@ object UserBackupFormat {
                 BackupList(id, name, list.integer("manualIndex").also { require(it >= 0 && it < Long.MAX_VALUE) }, members)
             }
             require(lists.map { it.id }.distinct().size == lists.size)
-            return UserBackup(versionName, versionCode, date, FullBackupData(states, lists))
+            val meanings = if (root.integer("formatVersion") == 1L) emptyList() else
+                payload.getJSONArray("meanings").objects().map {
+                    fun optional(key: String): String? = if (it.get(key) == JSONObject.NULL) null else
+                        it.string(key).also { text -> require(text.isNotBlank() && text == text.trim()) }
+                    BackupMeaning(it.character(), optional("preferred"), optional("custom")).also { row ->
+                        require(row.preferred != null || row.custom != null)
+                    }
+                }
+            require(meanings.map { it.character }.distinct().size == meanings.size)
+            return UserBackup(versionName, versionCode, date, FullBackupData(states, lists, meanings))
         } catch (error: BackupException) {
             throw error
         } catch (_: Exception) {

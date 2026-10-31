@@ -4,7 +4,7 @@ Current implementation and limitations:
 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
 Development conventions: [AGENTS.md](../AGENTS.md).
 
-Current application on `release`: **v0.10.2-open**, `versionCode = 64`, **Android 10 / API 29+**.
+Current application on `release`: **v0.10.3-open**, `versionCode = 67`, **Android 10 / API 29+**.
 
 Checked items describe implemented functionality. Existing placeholders do not
 count as completed milestones. Unchecked items are future product, engineering
@@ -97,6 +97,17 @@ unless explicitly fixed below.
   fallbacks try Startup before stacking the selector. Drag, nearest-option
   preview/snap, settled enlargement, preferences and Details UI are unchanged.
 
+- [x] **Personal kanji meanings (v0.10.3):** preferred dictionary gloss and one
+  editable/deletable custom meaning in Room with non-destructive migration;
+  shared reactive primary-meaning resolution, abbreviation fallback and full
+  `.kdb` format v2 with v1 import compatibility.
+- [x] **Daily practice reminder (v0.10.3):** one-time offer after successful
+  Training Finish, notification opt-in, Settings enable/time and offline local
+  calendar scheduling restored after reboot/timezone changes. No streak logic.
+- [x] **Kanji Training answers (v0.10.3):** shared Glyph/Strokes selector and
+  animation after Reveal, persisted preferred view and missing-strokes fallback;
+  whole Results cards open Details while preserving pending choices.
+
 ## User data
 
 - [ ] Add export/import of individual Custom Lists; define payload scope,
@@ -130,7 +141,7 @@ Word Training handles words/readings/context.
   Order / Correct outcomes.
 - [ ] Add **TTS / Japanese speech**; choose the implementation when this feature
   is started.
-- [ ] Add stroke order and components/radical hints to Kanji Training.
+- [ ] Add components/radical hints to Kanji Training; stroke order after Reveal is implemented.
 - [ ] Profile and optimize Word Training for large pools; tune the counter
   whitelist/usefulness floor when supported by concrete performance or quality
   issues.
@@ -175,8 +186,8 @@ closure; diagnostic Model C is not a production model.
 
 ## Release / feedback direction
 
-- [x] Integrate current `main` into `release` as v0.10.2-open, preserving
+- [x] Integrate current `main` into `release` as v0.10.3-open, preserving
   branch-specific Feedback/first-launch notice and inheriting `main`'s
-  versionCode 64. Search retains Feedback next to the new Settings action.
+  versionCode 67. Search retains Feedback next to the new Settings action.
 - [ ] Collect broader external feedback and use it to prioritize subsequent
   product milestones.

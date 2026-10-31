@@ -3,6 +3,9 @@ package com.example.kanjidb.data.dictionary
 import java.text.Normalizer
 import java.util.Locale
 
+// Prefer a full gloss over short, single-token abbreviations, preserving dictionary order.
+internal const val KANJI_PRIMARY_MEANING_ORDER = "CASE WHEN LENGTH(TRIM(meaning)) <= 9 AND TRIM(meaning) LIKE '%.' AND INSTR(TRIM(meaning), ' ') = 0 THEN 1 ELSE 0 END, id"
+
 data class KanjiSummary(val character: String, val primaryMeaning: String)
 data class KanjiSearchPage(val kanji: List<KanjiSummary>, val hasMore: Boolean)
 
@@ -99,7 +102,7 @@ EXISTS (SELECT 1 FROM kanji_meaning m WHERE m.kanji_id = k.id AND m.language = '
 internal const val EXPLORE_KANJI_SQL = """
     SELECT k.character,
         COALESCE((SELECT meaning FROM kanji_meaning
-                  WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
+                  WHERE kanji_id = k.id AND language = 'en' ORDER BY $KANJI_PRIMARY_MEANING_ORDER LIMIT 1), '')
     FROM kanji k
     WHERE $DISCOVERY_KANJI_GATE
     ORDER BY RANDOM() LIMIT 5
@@ -131,7 +134,7 @@ internal const val SEARCH_KANJI_SQL = """
     )
     SELECT k.character,
         COALESCE((SELECT meaning FROM kanji_meaning
-                  WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
+                  WHERE kanji_id = k.id AND language = 'en' ORDER BY $KANJI_PRIMARY_MEANING_ORDER LIMIT 1), '')
     FROM matches k
     ORDER BY k.match_rank, k.frequency IS NULL, k.frequency, k.id
     LIMIT ?

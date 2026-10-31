@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.kanjidb.ui.search.RecommendedState
@@ -93,7 +94,7 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
         try {
             val target = if (settings.startupScreen in listOf(StartupScreen.AUTOMATIC, StartupScreen.TRAINING)) {
                 withContext(Dispatchers.IO) {
-                    val characters = com.example.kanjidb.data.user.UserDatabase.getInstance(context).backup().snapshot().characters
+                    val characters = com.example.kanjidb.data.user.UserDatabase.getInstance(context).backup().snapshot().collectionCharacters
                     val available = if (characters.isEmpty()) emptySet() else
                         DictionaryDatabase(context).getKanjiGroups().mapTo(hashSetOf()) { it.character }
                     resolveStartup(settings.startupScreen, characters, available, settings.lastMyKanjiTab)
@@ -117,6 +118,23 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             }
         }
         return
+    }
+    ReminderOffer(preferences)
+    val reminderSettings by preferences.state.collectAsStateWithLifecycle()
+    LaunchedEffect(reminderSettings.reminderEnabled, reminderSettings.reminderMinute) {
+        PracticeReminder.reconcile(context, reminderSettings)
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (preferences.state.value.reminderEnabled && !PracticeReminder.allowed(context))
+                    preferences.setReminderEnabled(false)
+                PracticeReminder.reconcile(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -164,6 +182,9 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
         }
     }
 
+    val meanings = remember(context) { com.example.kanjidb.data.user.UserDatabase.getInstance(context).meanings().observeAll() }
+    val meaningRows by meanings.collectAsStateWithLifecycle(emptyList())
+    androidx.compose.runtime.CompositionLocalProvider(LocalUserMeanings provides meaningRows.associateBy { it.character }) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
@@ -287,4 +308,5 @@ fun KanjiDbApp(modifier: Modifier = Modifier) {
             }
         }
     }
+}
 }

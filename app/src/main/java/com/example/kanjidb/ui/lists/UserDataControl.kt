@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,12 +27,16 @@ import kotlinx.coroutines.*
 import java.time.Instant
 import java.time.LocalDate
 
+private data class PendingUserDataImport(val backup: UserBackup, val uri: Uri)
+
 /** Process lifetime, like TrainingState: recreation cannot cancel an in-flight replacement. */
 private object UserDataOperations {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     var busy by mutableStateOf(false)
         private set
-    var pending by mutableStateOf<UserBackup?>(null)
+    var pending by mutableStateOf<PendingUserDataImport?>(null)
+    var importedFile by mutableStateOf<Uri?>(null)
+        private set
     var missing by mutableStateOf(emptyList<String>())
         private set
     var message by mutableStateOf<String?>(null)
@@ -94,6 +97,7 @@ private object UserDataOperations {
 
     fun inspect(context: Context, uri: Uri) = run("Could not open the data file. Please try again.") {
         pending = null
+        importedFile = null
         val result = withContext(Dispatchers.IO) {
             val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
@@ -108,17 +112,38 @@ private object UserDataOperations {
             backup to backup.data.missingCharacters(available)
         }
         missing = result.second
-        pending = result.first
+        pending = PendingUserDataImport(result.first, uri)
     }
 
     fun restore(context: Context) {
-        val backup = pending ?: return
+        val selected = pending ?: return
         run("Could not import the data file. Your current user data has been preserved.") {
-            withContext(Dispatchers.IO) { UserDatabase.getInstance(context).backup().replace(backup.data) }
+            withContext(Dispatchers.IO) { UserDatabase.getInstance(context).backup().replace(selected.backup.data) }
             pending = null
-            message = "Data file imported."
+            importedFile = selected.uri
+            message = null
         }
     }
+
+    fun keepImportedFile() {
+        if (!busy) importedFile = null
+    }
+
+    fun deleteImportedFile(context: Context) {
+        val uri = importedFile ?: return
+        run("Could not delete the backup file.") {
+            val deleted = withContext(Dispatchers.IO) { deleteImportedBackupFile(context.contentResolver, uri) }
+            importedFile = null
+            message = if (deleted) "Backup file deleted." else "Could not delete the backup file."
+        }
+    }
+}
+
+/** SAF deletes only the exact selected document; refusal never changes imported Room data. */
+internal fun deleteImportedBackupFile(resolver: android.content.ContentResolver, uri: Uri): Boolean = try {
+    android.provider.DocumentsContract.deleteDocument(resolver, uri)
+} catch (_: Exception) {
+    false
 }
 
 @Composable
@@ -129,7 +154,7 @@ internal fun UserDataControl(snackbar: SnackbarHostState,
     val hasData by remember(dao) { dao.observeHasData() }.collectAsStateWithLifecycle(false)
     var showMissing by rememberSaveable { mutableStateOf(false) }
     val busy = UserDataOperations.busy
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
+    val importLauncher = rememberLauncherForActivityResult(UserDataOpenDocument()) {
         if (it != null) UserDataOperations.inspect(context, it)
     }
     val message = UserDataOperations.message
@@ -153,7 +178,7 @@ internal fun UserDataControl(snackbar: SnackbarHostState,
                 UserDataOperations.export(context)
             }
         })
-    if (busy && UserDataOperations.pending == null) AlertDialog(
+    if (busy && UserDataOperations.pending == null && UserDataOperations.importedFile == null) AlertDialog(
         onDismissRequest = {}, title = { Text("User data") },
         text = { Column { Text("Please wait…"); LinearProgressIndicator(Modifier.fillMaxWidth()) } },
         confirmButton = {})
@@ -174,6 +199,17 @@ internal fun UserDataControl(snackbar: SnackbarHostState,
         },
         dismissButton = { TextButton(enabled = !busy, onClick = { UserDataOperations.pending = null }) { Text("Cancel") } },
         confirmButton = { TextButton(enabled = !busy, onClick = { UserDataOperations.restore(context) }) { Text("Import") } })
+    if (UserDataOperations.importedFile != null) AlertDialog(
+        onDismissRequest = { UserDataOperations.keepImportedFile() },
+        title = { Text("Import completed") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Import completed successfully. Delete the imported backup file?")
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = { UserDataOperations.keepImportedFile() }) { Text("Keep file") } },
+        confirmButton = { Button(enabled = !busy, onClick = { UserDataOperations.deleteImportedFile(context) }) { Text("Delete file") } })
     if (showMissing && UserDataOperations.pending != null) AlertDialog(
         onDismissRequest = { showMissing = false }, title = { Text("Missing kanji") },
         text = { Text(UserDataOperations.missing.joinToString(", "),

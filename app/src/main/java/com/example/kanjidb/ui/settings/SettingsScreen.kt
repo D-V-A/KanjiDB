@@ -79,6 +79,7 @@ internal fun SettingsScreen(preferences: AppPreferences, onBack: () -> Unit, onA
                         SettingsRow(AppIcons.DatabasePlus, "Import", enabled = importEnabled, onClick = onImport)
                     }
                 }
+                ReminderSettings(preferences)
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 SettingsRow(AppIcons.InfoSquareRounded, "About", onClick = onAbout)
             }
@@ -132,7 +133,7 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun SettingsRow(icon: ImageVector, label: String, value: String? = null,
+internal fun SettingsRow(icon: ImageVector, label: String, value: String? = null,
     enabled: Boolean = true, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(label) },

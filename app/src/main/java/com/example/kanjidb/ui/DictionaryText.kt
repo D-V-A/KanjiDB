@@ -62,6 +62,12 @@ internal fun DictionaryText(
     }
 }
 
-// The first English gloss, shared by the Details heading and Training prompts/results.
+internal val LocalUserMeanings = staticCompositionLocalOf<Map<String, com.example.kanjidb.data.user.UserMeaning>> { emptyMap() }
+
+@Composable
+internal fun kanjiMeaning(character: String, automatic: String?): String? =
+    com.example.kanjidb.data.user.resolveMeaning(automatic, LocalUserMeanings.current[character])?.standaloneKanjiMeaning()
+
+// All primary kanji labels use the same reactive resolver.
 internal val com.example.kanjidb.data.dictionary.DictionaryKanji.primaryMeaning: String?
-    get() = meanings.firstOrNull()?.standaloneKanjiMeaning()
+    @Composable get() = kanjiMeaning(character, com.example.kanjidb.data.user.automaticMeaning(meanings))

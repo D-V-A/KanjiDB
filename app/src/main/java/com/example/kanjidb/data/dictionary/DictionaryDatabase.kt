@@ -57,7 +57,7 @@ class DictionaryDatabase(context: Context) {
                 SELECT k.character, j.level, k.frequency,
                     CASE WHEN $DISCOVERY_KANJI_GATE THEN 1 ELSE 0 END,
                     COALESCE((SELECT meaning FROM kanji_meaning
-                        WHERE kanji_id = k.id AND language = 'en' ORDER BY id LIMIT 1), '')
+                        WHERE kanji_id = k.id AND language = 'en' ORDER BY $KANJI_PRIMARY_MEANING_ORDER LIMIT 1), '')
                 FROM kanji k JOIN jlpt_kanji j ON j.kanji_id = k.id
                 WHERE j.level BETWEEN 1 AND 5 ORDER BY k.character
             """.trimIndent(), null).use { cursor ->
@@ -275,7 +275,7 @@ class DictionaryDatabase(context: Context) {
                     val placeholders = chunk.joinToString(",") { "?" }
                     db.rawQuery("""
                         SELECT k.character, (SELECT meaning FROM kanji_meaning
-                            WHERE kanji_id=k.id AND language='en' ORDER BY id LIMIT 1)
+                            WHERE kanji_id=k.id AND language='en' ORDER BY $KANJI_PRIMARY_MEANING_ORDER LIMIT 1)
                         FROM kanji k WHERE k.character IN ($placeholders)
                     """.trimIndent(), chunk.toTypedArray()).use { cursor ->
                         while (cursor.moveToNext()) {

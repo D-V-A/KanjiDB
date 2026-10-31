@@ -46,7 +46,7 @@ internal fun OpenAlphaNotice() {
             append("You can provide feedback about the application by tapping the ")
             appendInlineContent("feedback", "feedback icon")
             append(" on the main screen. Any feedback is greatly appreciated.\n\n")
-            append("Thank you for taking part in testing the alpha version.\n\n")
+            append("Thank you for participating in application testing.\n\n")
             append("This message will not be shown again.")
         }
     }

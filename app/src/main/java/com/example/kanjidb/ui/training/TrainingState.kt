@@ -11,6 +11,8 @@ import kotlinx.coroutines.*
 /** Process lifetime only, like Explore/Recommended. Holds no Activity, navigation or UI callbacks. */
 internal object TrainingState {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    var finishedCount by mutableStateOf(0)
+        private set
     var session by mutableStateOf<TrainingSession?>(null)
         private set
     var wordSession by mutableStateOf<WordTrainingSession?>(null)
@@ -122,6 +124,7 @@ internal object TrainingState {
         scope.launch {
             try {
                 dao.applyStates(assignments)
+                finishedCount++
                 session = null
                 wordSession = null
                 resetWordResultsPresentation()

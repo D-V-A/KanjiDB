@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 /** Consistent export snapshot and atomic replacement of all user-owned tables. */
 @Dao
 abstract class UserBackupDao {
-    @Query("SELECT EXISTS(SELECT 1 FROM kanji_state) OR EXISTS(SELECT 1 FROM custom_list) OR EXISTS(SELECT 1 FROM custom_list_kanji)")
+    @Query("SELECT EXISTS(SELECT 1 FROM kanji_state) OR EXISTS(SELECT 1 FROM custom_list) OR EXISTS(SELECT 1 FROM custom_list_kanji) OR EXISTS(SELECT 1 FROM kanji_meaning_override)")
     abstract fun observeHasData(): Flow<Boolean>
 
     @Query("SELECT * FROM kanji_state ORDER BY manualPosition, character")
@@ -25,6 +25,12 @@ abstract class UserBackupDao {
     @Insert protected abstract suspend fun insertLists(rows: List<CustomListEntity>)
     @Insert protected abstract suspend fun insertMembers(rows: List<CustomListKanjiEntity>)
 
+    @Query("SELECT * FROM kanji_meaning_override ORDER BY character")
+    protected abstract suspend fun meanings(): List<UserMeaning>
+    @Query("DELETE FROM kanji_meaning_override")
+    protected abstract suspend fun clearMeanings()
+    @Insert protected abstract suspend fun insertMeanings(rows: List<UserMeaning>)
+
     @Transaction
     open suspend fun snapshot(): FullBackupData {
         val states = states()
@@ -32,11 +38,14 @@ abstract class UserBackupDao {
         val members = members().groupBy { it.listId }
         return FullBackupData(states.map { BackupState(it.character, it.state.name, it.manualPosition) },
             lists.map { list -> BackupList(list.id, list.name, list.manualIndex,
-                members[list.id].orEmpty().map { BackupMember(it.character, it.manualIndex) }) })
+                members[list.id].orEmpty().map { BackupMember(it.character, it.manualIndex) }) },
+            meanings().map { BackupMeaning(it.character, it.preferred, it.custom) })
     }
 
     @Transaction
     open suspend fun replace(data: FullBackupData) {
+        clearMeanings()
+        insertMeanings(data.meanings.map { UserMeaning(it.character, it.preferred, it.custom) })
         clearMembers()
         clearLists()
         clearStates()

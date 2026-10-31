@@ -7,13 +7,20 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [UserKanjiStateEntity::class, CustomListEntity::class, CustomListKanjiEntity::class], version = 3, exportSchema = true)
+@Database(entities = [UserKanjiStateEntity::class, CustomListEntity::class, CustomListKanjiEntity::class, UserMeaning::class], version = 4, exportSchema = true)
 abstract class UserDatabase : RoomDatabase() {
     abstract fun kanjiStates(): UserKanjiStateDao
     abstract fun customLists(): CustomListDao
     abstract fun backup(): UserBackupDao
+    abstract fun meanings(): UserMeaningDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS kanji_meaning_override (character TEXT NOT NULL PRIMARY KEY, preferred TEXT, custom TEXT)")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE kanji_state ADD COLUMN manualPosition INTEGER NOT NULL DEFAULT 0")
@@ -40,7 +47,7 @@ abstract class UserDatabase : RoomDatabase() {
         fun getInstance(context: Context): UserDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, UserDatabase::class.java, "user.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { instance = it }
         }
     }
 }

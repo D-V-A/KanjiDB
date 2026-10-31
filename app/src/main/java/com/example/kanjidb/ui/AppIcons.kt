@@ -19,8 +19,19 @@ import androidx.compose.ui.unit.dp
 internal object AppIcons {
     val MessageReply by lazy { strokeIcon("MessageReply",
         "M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12",
-        "M11 8l-3 3l3 3",
-        "M16 11h-8") }
+        "M11 8l-3 3l3 3", "M16 11h-8") }
+
+    val BellRinging2 by lazy { strokeIcon("BellRinging2",
+        "M19.364 4.636a2 2 0 0 1 0 2.828a7 7 0 0 1 -1.414 7.072l-2.122 2.12a4 4 0 0 0 -.707 3.536l-11.313 -11.312a4 4 0 0 0 3.535 -.707l2.121 -2.123a7 7 0 0 1 7.072 -1.414a2 2 0 0 1 2.828 0",
+        "M7.343 12.414l-.707 .707a3 3 0 0 0 4.243 4.243l.707 -.707") }
+    val Clock by lazy { strokeIcon("Clock", "M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0", "M12 7v5l3 3") }
+    val HeartPlus by lazy { strokeIcon("HeartPlus",
+        "M12 20l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.96 6.053", "M16 19h6", "M19 16v6") }
+    val Heart by lazy { strokeIcon("Heart", "M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572", filled = true) }
+    val HeartCog by lazy { strokeIcon("HeartCog",
+        "M12 20l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 0 1 8.21 5.697",
+        "M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0", "M19.001 15.5v1.5", "M19.001 21v1.5",
+        "M22.032 17.25l-1.299 .75", "M17.27 20l-1.3 .75", "M15.97 17.25l1.3 .75", "M20.733 20l1.3 .75") }
 
     val Settings2 by lazy { strokeIcon("Settings2",
         "M19.875 6.27a2.225 2.225 0 0 1 1.125 1.948v7.284c0 .809 -.443 1.555 -1.158 1.948l-6.75 4.27a2.269 2.269 0 0 1 -2.184 0l-6.75 -4.27a2.225 2.225 0 0 1 -1.158 -1.948v-7.285c0 -.809 .443 -1.554 1.158 -1.947l6.75 -3.98a2.33 2.33 0 0 1 2.25 0l6.75 3.98h-.033",
@@ -214,10 +225,10 @@ internal object AppIcons {
         "M19 5v6a3 3 0 0 1 -3 3h-7",
         "M13 10l-4 4l4 4m-5 -8l-4 4l4 4") }
 
-    private fun strokeIcon(name: String, vararg paths: String): ImageVector =
+    private fun strokeIcon(name: String, vararg paths: String, filled: Boolean = false): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
             paths.forEach { data ->
-                addPath(PathParser().parsePathString(data).toNodes(), fill = null,
+                addPath(PathParser().parsePathString(data).toNodes(), fill = if (filled) SolidColor(Color.Black) else null,
                     stroke = SolidColor(Color.Black), strokeLineWidth = 2f,
                     strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round)
             }
