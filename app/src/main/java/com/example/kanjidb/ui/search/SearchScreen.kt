@@ -302,7 +302,7 @@ private fun KanjiRow(kanji: KanjiSummary, compact: Boolean, modifier: Modifier =
             style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displaySmall
         )
         DictionaryText(
-            kanji.primaryMeaning.standaloneKanjiMeaning(), modifier = Modifier.weight(1f),
+            com.example.kanjidb.ui.kanjiMeaning(kanji.character, kanji.primaryMeaning).orEmpty(), modifier = Modifier.weight(1f),
             style = if (compact) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium
         )
     }

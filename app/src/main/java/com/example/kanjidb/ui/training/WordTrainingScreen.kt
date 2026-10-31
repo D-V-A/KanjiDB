@@ -175,8 +175,8 @@ internal fun WordTrainingResults(session: WordTrainingSession, dao: com.example.
                     WordKanjiStatus.FAILURE -> TrainingResultStatus.FAILURE
                     null -> TrainingResultStatus.NOT_TESTED
                 }
-                val meaning = TrainingState.wordCards[character]?.primaryMeaning?.takeIf { it.isNotBlank() }
-                    ?.standaloneKanjiMeaning() ?: "No English meaning"
+                val meaning = com.example.kanjidb.ui.kanjiMeaning(character,
+                    TrainingState.wordCards[character]?.primaryMeaning)?.takeIf { it.isNotBlank() } ?: "No English meaning"
                 TrainingResultCard(character, meaning, status, session.participated(character),
                     detail = "Shown: ${tally.shownCount}",
                     actions = session.allowedActions(character), pending = session.pending[character],

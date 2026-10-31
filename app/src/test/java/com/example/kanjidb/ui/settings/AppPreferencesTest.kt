@@ -21,6 +21,29 @@ class AppPreferencesTest {
     @Before fun clear() { context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().clear().commit() }
     @After fun close() { instances.forEach { it.close() } }
 
+    @Test fun reminderAndTrainingAnswerPreferencesPersistIndependently() {
+        val first = preferences()
+        assertFalse(first.state.value.reminderEnabled)
+        assertFalse(first.state.value.reminderOffered)
+        assertFalse(first.state.value.trainingStrokes)
+        assertEquals(19 * 60, first.state.value.reminderMinute)
+        first.setReminderMinute(8 * 60 + 15)
+        first.setReminderEnabled(true)
+        first.markReminderOffered()
+        first.setTrainingStrokes(true)
+        val restored = preferences().state.value
+        assertTrue(restored.reminderEnabled)
+        assertTrue(restored.reminderOffered)
+        assertTrue(restored.trainingStrokes)
+        assertEquals(495, restored.reminderMinute)
+        first.setReminderEnabled(false)
+        assertFalse(preferences().state.value.reminderEnabled)
+        assertEquals(495, preferences().state.value.reminderMinute)
+        assertTrue(preferences().state.value.trainingStrokes)
+        first.setTrainingStrokes(false)
+        assertFalse(preferences().state.value.trainingStrokes)
+        assertThrows(IllegalArgumentException::class.java) { first.setReminderMinute(1440) }
+    }
     @Test fun defaultsAreSystemAutomaticAndGroups() {
         assertEquals(AppSettings(ThemePreference.SYSTEM, StartupScreen.AUTOMATIC, MyKanjiTab.KANJI_GROUPS), preferences().state.value)
     }

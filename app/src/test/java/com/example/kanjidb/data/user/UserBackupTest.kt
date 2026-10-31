@@ -38,14 +38,14 @@ class UserBackupTest {
         val root = JSONObject(json()).put("appVersionName", "other-app-version").put("appVersionCode", 999)
         assertEquals(backup().data, UserBackupFormat.decode(root.toString()).data)
     }
-    @Test fun unsupportedVersionRejected() = rejected(JSONObject(json()).put("formatVersion", 2).toString())
+    @Test fun unsupportedVersionRejected() = rejected(JSONObject(json()).put("formatVersion", 999).toString())
     @Test fun importCopyDistinguishesInvalidStructureFromUnsupportedFormat() {
         for (text in listOf("{", "{}", JSONObject(json()).put("data", JSONObject()).toString())) {
             val error = assertThrows(BackupException::class.java) { UserBackupFormat.decode(text) }
             assertEquals("This data file seems corrupted or invalid. Please check its internal structure.", error.message)
         }
         val error = assertThrows(BackupException::class.java) {
-            UserBackupFormat.decode(JSONObject(json()).put("formatVersion", 2).toString())
+            UserBackupFormat.decode(JSONObject(json()).put("formatVersion", 999).toString())
         }
         assertEquals("This data file uses an unsupported format version.", error.message)
     }
@@ -64,7 +64,7 @@ class UserBackupTest {
     }
     @Test fun emptyAndMalformedJsonRejected() {
         listOf("", " ", "{", "null", "[]", "{foo:1}", json() + "{}",
-            json().replaceFirst("\"formatVersion\": 1", "\"formatVersion\": 1, \"formatVersion\": 1"))
+            json().replaceFirst("\"formatVersion\": 2", "\"formatVersion\": 2, \"formatVersion\": 2"))
             .forEach(::rejected)
     }
     @Test fun invalidTypesAndPayloadRejected() {

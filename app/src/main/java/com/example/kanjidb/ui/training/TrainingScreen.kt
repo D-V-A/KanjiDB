@@ -320,13 +320,17 @@ private fun TrainingSetup(dao: UserKanjiStateDao, wordMode: Boolean, onStarted: 
     }
 }
 
+internal fun trainingShowsStrokes(preferred: Boolean, hasStrokes: Boolean) = preferred && hasStrokes
+
 private enum class AnswerDisplay { GLYPH, STROKES }
 
 @Composable
 private fun TrainingQuestion(session: TrainingSession) {
     val kanji = TrainingState.cards.getValue(requireNotNull(session.currentCharacter))
-    // Future Glyph/Strokes switch stays hidden; no stroke data or renderer in this version.
-    val answerDisplay by rememberSaveable { mutableStateOf(AnswerDisplay.GLYPH) }
+    val preferences = com.example.kanjidb.ui.settings.AppPreferences.getInstance(LocalContext.current)
+    val settings by preferences.state.collectAsStateWithLifecycle()
+    val showStrokes = trainingShowsStrokes(settings.trainingStrokes, kanji.strokes.isNotEmpty())
+    val answerDisplay = if (showStrokes) AnswerDisplay.STROKES else AnswerDisplay.GLYPH
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -341,6 +345,11 @@ private fun TrainingQuestion(session: TrainingSession) {
                 TrainingReadingsColumn("On", kanji.onReadings, Modifier.weight(1f))
                 TrainingReadingsColumn("Kun", kanji.kunReadings, Modifier.weight(1f))
             }
+        }
+        if (session.revealed) {
+            if (kanji.strokes.isNotEmpty()) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                com.example.kanjidb.ui.details.GlyphStrokesSelector(showStrokes, preferences::setTrainingStrokes)
+            } else if (settings.trainingStrokes) Text("Stroke order unavailable; showing glyph.", style = MaterialTheme.typography.bodySmall)
         }
         TrainingQuestionControls(session.revealed,
             onReveal = { TrainingState.update { it.reveal() } },
@@ -366,7 +375,7 @@ private fun TrainingAnswerArea(kanji: DictionaryKanji, revealed: Boolean, displa
         if (revealed) {
             when (display) {
                 AnswerDisplay.GLYPH -> Text(kanji.character, fontSize = 112.sp, lineHeight = 128.sp)
-                AnswerDisplay.STROKES -> Unit // Reserved; switch and rendering are intentionally absent.
+                AnswerDisplay.STROKES -> com.example.kanjidb.ui.details.StrokeOrderView(kanji.strokes, Modifier.fillMaxSize(), startWithFullGlyph = true)
             }
         }
     }

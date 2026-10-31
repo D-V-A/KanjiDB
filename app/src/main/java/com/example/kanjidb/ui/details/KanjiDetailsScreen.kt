@@ -328,9 +328,7 @@ private fun KanjiOverview(
             modifier = Modifier.weight(0.56f).padding(top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(stringResource(R.string.details_meanings),
-                style = MaterialTheme.typography.titleSmall)
-            kanji.meanings.forEach { DictionaryText(it.standaloneKanjiMeaning()) }
+            KanjiMeanings(kanji)
             Row(
                 modifier = Modifier.padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

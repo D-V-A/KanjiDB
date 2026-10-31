@@ -252,14 +252,14 @@ class CustomListDaoTest {
         helper.writableDatabase
         helper.close()
         val migrated = Room.databaseBuilder(context, UserDatabase::class.java, name)
-            .allowMainThreadQueries().addMigrations(UserDatabase.MIGRATION_1_2, UserDatabase.MIGRATION_2_3).build()
+            .allowMainThreadQueries().addMigrations(UserDatabase.MIGRATION_1_2, UserDatabase.MIGRATION_2_3, UserDatabase.MIGRATION_3_4).build()
         try {
             val old = migrated.kanjiStates().getAll().associateBy { it.character }
             assertEquals(LearningState.LEARNING, old.getValue("日").state)
             assertEquals(LearningState.KNOWN, old.getValue("月").state)
             assertEquals(if (version == 2) 7L else 0L, old.getValue("日").manualPosition)
             assertEquals(if (version == 2) 4L else 0L, old.getValue("月").manualPosition)
-            assertEquals(3, migrated.openHelper.writableDatabase.version)
+            assertEquals(4, migrated.openHelper.writableDatabase.version)
             val lists = migrated.customLists()
             val id = lists.create("Migrated list")
             lists.setMembership(id, listOf("日", "月"), true)

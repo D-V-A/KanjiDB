@@ -45,16 +45,21 @@ internal class StrokeGeometry(pathData: String) {
     }
 }
 
+internal const val STROKE_REPEAT_PAUSE_MS = 2_000L
+
 @Composable
-internal fun StrokeOrderView(strokes: List<KanjiStroke>, modifier: Modifier = Modifier) {
+internal fun StrokeOrderView(strokes: List<KanjiStroke>, modifier: Modifier = Modifier,
+    startWithFullGlyph: Boolean = false) {
     val paths=remember(strokes) { strokes.map { StrokeGeometry(it.pathData) } }
-    val progress=remember(strokes) { Animatable(0f) }
-    var replay by remember(strokes) { mutableIntStateOf(0) }
-    LaunchedEffect(strokes,replay) {
+    // Initialize at the completed progress, so even the first drawn frame is full.
+    val progress=remember(strokes,startWithFullGlyph) { Animatable(if (startWithFullGlyph) paths.size.toFloat() else 0f) }
+    var replay by remember(strokes,startWithFullGlyph) { mutableIntStateOf(0) }
+    LaunchedEffect(strokes,replay,startWithFullGlyph) {
+        if (startWithFullGlyph && replay == 0) delay(STROKE_REPEAT_PAUSE_MS)
         while (currentCoroutineContext().isActive) {
             progress.snapTo(0f)
             progress.animateTo(paths.size.toFloat(),tween(paths.size*550,easing=LinearEasing))
-            delay(2_000)
+            delay(STROKE_REPEAT_PAUSE_MS)
         }
     }
     val colors=MaterialTheme.colorScheme

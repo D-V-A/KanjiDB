@@ -4,7 +4,98 @@
 
 KanjiDB is an offline-first Android kanji reference and training app, with no backend or account required for MVP. Training is intended to use answers written on paper.
 
-Current version: **v0.10.2**, `versionCode = 64`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+Current version: **v0.10.3**, `versionCode = 67`. Both values are set manually in [app/build.gradle.kts](../app/build.gradle.kts); there is no automatic derivation from Git or build date. About reads the installed package's versionName through PackageManager. versionName is the display version; versionCode is the Android update sequence and should increase for subsequent distributed updates. Dictionary release versioning is independent of both values.
+
+## Import source-file cleanup (versionCode 67)
+
+A fully committed import now offers Keep file (left) / Delete file (right).
+The validated backup and selected SAF URI are retained together through the
+existing process-owned operation holder; the deletion prompt is set only after
+the Room replacement succeeds. Cancelled/failed imports never offer deletion.
+Keep or dismissal only clears the prompt. Delete calls DocumentsContract on that
+exact URI on IO, without path lookup or broader file operations. Provider refusal,
+lost permission or unsupported deletion reports Could not delete the backup file;
+the committed import remains successful. Activity recreation retains the prompt
+and in-flight deletion; process death retains neither prompt nor a deletion job.
+
+## Follow-up polish (v0.10.3 / versionCode 66)
+
+Settings sections now follow General, Database, Training, then the existing
+About/Info action. Contents are unchanged. Import retains OpenDocument, generic
+MIME and existing validation, adding only SAF EXTRA_INITIAL_URI for the standard
+primary-storage Download/KanjiDB document. It is a best-effort hint: if the folder
+or provider is unavailable or the picker ignores it, the system chooses its normal
+location. Users can still browse any accessible folder; there are no storage
+permissions, raw filesystem checks, forced picker packages or directory grants.
+
+Kanji Training opts into StrokeOrderView's startWithFullGlyph parameter. Initial
+animation progress is the full stroke count, so the first frame is complete.
+It pauses for the same shared 2000 ms constant used after every animation, then
+enters the existing loop. Canvas taps still restart immediately. Kanji Details
+keeps its original animation start behavior.
+
+Meanings controls use compact 18 dp clickable icons with a 6 dp gap, preserving
+the surrounding 8 dp spacing and the text's natural line height. Preferred icons
+precede text; HeartCog sits directly beside the section title. Selected Heart
+uses fill plus its original stroke through the existing vector builder; other
+icons remain outlined. Meaning persistence and editor behavior are unchanged.
+
+## Personal meanings, practice reminder and Training answers (v0.10.3)
+
+Room `user.db` is now schema version 4. Migration 3 to 4 adds only
+`kanji_meaning_override`, keyed by the Unicode character, with independent nullable
+preferred dictionary gloss and custom text. Existing states, lists, memberships
+and orders are retained. A local user-meaning flow is provided above navigation;
+the shared resolver uses custom > preferred > automatic and updates existing
+Search, Details and both Training Results presentations without rebuilding their
+sessions. Collection grids still display their existing readings, not primary
+meanings. Personal meaning data alone does not enter the Training/startup pool.
+
+Kanji Details uses the supplied Tabler HeartPlus / Heart controls to select or
+clear the preferred dictionary gloss. While selected, other gloss controls are
+hidden until it is cleared. HeartCog opens one personal-meaning editor, including
+Delete; custom text takes priority without clearing the saved dictionary choice.
+Dictionary glosses remain visible and unchanged. Automatic primary selection
+preserves source ordering except that short (up to nine characters), single-token
+glosses ending in a period lose to full alternatives. Summary SQL shares one
+ordering constant; full Details uses the equivalent resolver rule. Dictionary
+schema, assets, Search matching and import pipeline are unchanged.
+
+Full `.kdb` exports now write independent formatVersion=2 with a `meanings` array.
+The reader accepts original v1 files with no overrides and validates v2 records,
+including Unicode identity, nullable nonblank text and duplicate characters.
+Transactional snapshot/replacement covers all four Room tables. Restoring a v1
+file clears current meaning overrides as part of full replacement. Missing-kanji
+warnings also include symbols present only in overrides. Preferences remain out
+of the file format.
+
+AppPreferences retains daily-reminder enable/time (default off / 19:00), whether
+the first successful Training Finish offer has been shown, the last delivered
+reminder date and Kanji Training's preferred answer view (default Glyph).
+Both Training modes emit the offer only after Finish commits successfully;
+Cancel and Repeat do not trigger it. Notification permission is requested only
+after Enable, including opt-in from Settings / Training. Denial leaves reminder
+off with a link to Android notification settings. Settings time is disabled
+while the reminder is off; enabling, disabling and time changes reconcile the
+single scheduled alarm. Android notification/channel blocking is checked again
+on resume.
+
+The local AlarmManager alarm uses setAndAllowWhileIdle and a stable explicit
+PendingIntent, without network, service, external library or exact-alarm access.
+It recalculates the next local calendar occurrence after delivery and on boot,
+clock/timezone change or package replacement. Inexact scheduling can be delayed
+by Android power management; exact wall-clock delivery is not promised. A saved
+local date prevents multiple deliveries on that date, independently of practice
+history. Disabling cancels the alarm and visible reminder. Notification taps open
+the app. Settings are not included in `.kdb`.
+
+Kanji Training reuses Details' GlyphStrokesSelector and StrokeOrderView after
+Reveal, placing the selector immediately above Incorrect/Correct. The last mode
+persists across questions, sessions and app restarts. Missing stroke data shows
+the glyph and an explanatory fallback without changing the stored preference.
+The selector/answer remain hidden before Reveal. Entire Kanji Results cards now
+open Details; embedded action chips consume their own clicks and pending actions,
+scroll retention and Finish transactions are preserved.
 
 ## Settings multi-state selector (v0.10.2)
 
@@ -89,9 +180,9 @@ even when another tab was remembered. My Kanji persists its settled pager tab.
 
 ## User data backup and missing kanji (v0.10.0)
 
-Settings / Database exposes Export and Import even on an empty installation. Export availability observes all user Room tables, including empty Custom Lists. Minimum Android version is API 29. Export uses an IME-aware, scrollable Compose Save data file dialog with the default basename KanjiDB_Data_YYYY-MM-DD and a fixed .kdb suffix. Save to KanjiDB subfolder starts checked: MediaStore.Downloads writes to Download/KanjiDB/ when checked and Download/ otherwise, without system export screens, raw filesystem access or storage permissions. A bound query checks DISPLAY_NAME and the exact RELATIVE_PATH before insertion. The inserted row starts IS_PENDING=1; its actual name/path are checked to reject provider auto-renaming or a changed destination, the UTF-8 stream is written and closed, and only then IS_PENDING is set to zero. Errors return to the name dialog retaining the name/checkbox and attempt deletion of only the newly inserted row. Success reports the filename and Downloads destination. Filename validation trims whitespace, keeps exactly one .kdb suffix, and rejects empty/path-like names. Import continues to use OpenDocument with generic MIME; imports require a .kdb display-name extension and validate content independently of MIME. The human-readable UTF-8 JSON envelope uses formatVersion=1, backupType=full, appVersionName/appVersionCode metadata, exportedAt (ISO Instant) and data. Separate BackupState/BackupList/BackupMember DTOs preserve character Strings, states, IDs, exact names and every manual position. Version/type dispatch is independent of app versions and can later support another payload type; no list-only UI is included. Dictionary assets and preferences are excluded.
+Settings / Database exposes Export and Import even on an empty installation. Export availability observes all user Room tables, including empty Custom Lists. Minimum Android version is API 29. Export uses an IME-aware, scrollable Compose Save data file dialog with the default basename KanjiDB_Data_YYYY-MM-DD and a fixed .kdb suffix. Save to KanjiDB subfolder starts checked: MediaStore.Downloads writes to Download/KanjiDB/ when checked and Download/ otherwise, without system export screens, raw filesystem access or storage permissions. A bound query checks DISPLAY_NAME and the exact RELATIVE_PATH before insertion. The inserted row starts IS_PENDING=1; its actual name/path are checked to reject provider auto-renaming or a changed destination, the UTF-8 stream is written and closed, and only then IS_PENDING is set to zero. Errors return to the name dialog retaining the name/checkbox and attempt deletion of only the newly inserted row. Success reports the filename and Downloads destination. Filename validation trims whitespace, keeps exactly one .kdb suffix, and rejects empty/path-like names. Import continues to use OpenDocument with generic MIME; imports require a .kdb display-name extension and validate content independently of MIME. The human-readable UTF-8 JSON envelope uses formatVersion=2 (reading v1 is still supported), backupType=full, appVersionName/appVersionCode metadata, exportedAt (ISO Instant) and data. Separate BackupState/BackupList/BackupMember/BackupMeaning DTOs preserve character Strings, states, IDs, exact names and every manual position. Version/type dispatch is independent of app versions and can later support another payload type; no list-only UI is included. Dictionary assets and preferences are excluded.
 
-UserBackupFormat checks strict JSON, duplicate keys, required fields/types, supported version/type, single Unicode scalar values (without OS Unicode-script version dependence), list names/IDs, unique records and ordering values before any database writes. Import reads the complete file and bounds JSON nesting. Generic validation errors say data file rather than backup; malformed structure and unsupported format versions have distinct messages. The malformed-data message prefers a sentence-boundary line break when it cannot fit on one line. Dictionary absence produces a warning with a separate scrollable missing-character dialog, without dropping records. Confirmation replaces all three user tables through UserBackupDao.replace in one Room transaction; failure rolls back deletes and inserts. Export reads a transactional snapshot. Existing Room observers refresh collections and ownership. IO/parsing/metadata lookup run off main; a small process-owned operation holder retains validated pending data and commits through Activity recreation, with no new database, repository, ViewModel or DI framework. Unfinished operations are not persisted across process death.
+UserBackupFormat checks strict JSON, duplicate keys, required fields/types, supported version/type, single Unicode scalar values (without OS Unicode-script version dependence), list names/IDs, unique records and ordering values before any database writes. Import reads the complete file and bounds JSON nesting. Generic validation errors say data file rather than backup; malformed structure and unsupported format versions have distinct messages. The malformed-data message prefers a sentence-boundary line break when it cannot fit on one line. Dictionary absence produces a warning with a separate scrollable missing-character dialog, without dropping records. Confirmation replaces all four user tables through UserBackupDao.replace in one Room transaction; failure rolls back deletes and inserts. Export reads a transactional snapshot. Existing Room observers refresh collections and ownership. IO/parsing/metadata lookup run off main; a small process-owned operation holder retains validated pending data and commits through Activity recreation, with no new database, repository, ViewModel or DI framework. Unfinished operations are not persisted across process death.
 
 User-only kanji remain in Learning/Known and Custom Lists, with their original order. Collection card availability is a transient presentation flag derived from current dictionary metadata, never a persisted missing status or a fake dictionary row. Missing tiles show the full symbol and a dash, use red without selection and orange with the standard-width error-red selection outline when selected, and open an unavailable warning instead of Details. User-list/state actions remain enabled. Selected-pool Training is disabled if any selected character is missing. All training sources, including saved-list and fixed-word pools, defensively filter against current dictionary availability and handle empty pools. Saved-list training remains available for mixed lists; the type-selection dialog reports the number of unique missing kanji excluded from its pool. Dictionary Groups stay dictionary-only. A later dictionary restores ordinary behavior automatically. The normal Import fixture and its data description are in [test-data/README.md](test-data/README.md).
 
@@ -114,8 +205,8 @@ table with `(kanji_id,stroke_index)` primary key, FK to kanji and one validated
 canonical path_data per stroke. Unicode filename/source IDs establish identity;
 component labels are not used. Geometry stays in checked 109x109 coordinates.
 No XML/SVG document is parsed at runtime. Missing canonical files leave kanji
-valid without strokes. No components/radicals, variants, handwriting or Training
-integration is included.
+valid without strokes. No components/radicals, variants or handwriting is included. Training
+integration was added in v0.10.3 using the existing stroke data and renderer.
 
 `download_kanjivg.py` selects an official main release, recording tag/URL/SHA-256
 in ignored `tools/data/kanjivg/selected.json`. Ordinary builds reuse verified cache
@@ -133,7 +224,8 @@ fully hidden and ordinary glyph shown. With data, sequential start-to-end animat
 retains finished strokes, accents the current one and shows progress. It repeats
 after a two-second completed-frame pause; tap canvas to restart immediately. Glyph/Strokes mode remains saveable; re-entering/restoring the view
 restarts animation. Geometry is parsed once using AndroidX PathParser and drawn
-with PathMeasure segments. Training's independent hidden placeholder is unchanged.
+with PathMeasure segments. Kanji Training now reuses this renderer after Reveal
+with a separately persisted preferred answer view (v0.10.3).
 
 About adds KanjiVG / Ulrich Apel / CC BY-SA 3.0. Upstream COPYING plus notice of
 extraction/animation is packaged in assets/licenses/kanjivg.txt; extracted geometry
@@ -157,11 +249,11 @@ Single `:app` module: Kotlin, Jetpack Compose/Material 3, Navigation Compose, co
 - [KanjiSearch](../app/src/main/java/com/example/kanjidb/data/dictionary/KanjiSearch.kt) and [WordSearch](../app/src/main/java/com/example/kanjidb/data/dictionary/WordSearch.kt) contain search/explore SQL; reading normalization is shared.
 - Screens under `ui/` call the dictionary directly using Compose effects; database work runs on Dispatchers.IO. Search has one small navigation-entry-scoped SearchState ViewModel for query/results/pagination/scroll retention; no generic repository/DI layer is introduced. Other screens retain their existing state approach.
 
-User-owned kanji state is stored in a separate Room `user.db` (schema version 3), independent of the read-only dictionary. `UserKanjiStateEntity` stores the Unicode character primary key, LEARNING/KNOWN and a Long `manualPosition`; an absent row means NONE. The registered non-destructive 1->2 migration retains existing records and assigns consecutive positions in character order separately per state, matching the previous default My Kanji display. The column has SQL default 0, and equal positions use character as a deterministic tie-breaker. Dictionary IDs and content are never copied into user storage. The database starts empty, has no demo seeding or destructive migration fallback, and exports its schema to `app/schemas`. `UserKanjiStateDao` exposes Flow observations and transactional toggle/bulk assignment/removal/reorder. Newly added or moved kanji append to the destination state in request order; assignment to the same state keeps the existing position. Manual order has exactly two spaces, Learning and Known, with no grouping/filter-specific indices. A drop validates the full original order and membership against the current transaction snapshot, rejecting stale/cross-state/incomplete orders. Only changed positions in that state are upserted once on drop; pointer movement never writes Room. Screens collect with lifecycle awareness; suspend DAO calls run asynchronously. There is no repository or DI layer.
+User-owned kanji state is stored in a separate Room `user.db` (schema version 4), independent of the read-only dictionary. `UserKanjiStateEntity` stores the Unicode character primary key, LEARNING/KNOWN and a Long `manualPosition`; an absent row means NONE. The registered non-destructive 1->2 migration retains existing records and assigns consecutive positions in character order separately per state, matching the previous default My Kanji display. The column has SQL default 0, and equal positions use character as a deterministic tie-breaker. Dictionary IDs and content are never copied into user storage. The database starts empty, has no demo seeding or destructive migration fallback, and exports its schema to `app/schemas`. `UserKanjiStateDao` exposes Flow observations and transactional toggle/bulk assignment/removal/reorder. Newly added or moved kanji append to the destination state in request order; assignment to the same state keeps the existing position. Manual order has exactly two spaces, Learning and Known, with no grouping/filter-specific indices. A drop validates the full original order and membership against the current transaction snapshot, rejecting stale/cross-state/incomplete orders. Only changed positions in that state are upserted once on drop; pointer movement never writes Room. Screens collect with lifecycle awareness; suspend DAO calls run asynchronously. There is no repository or DI layer.
 
 ## Dictionary and import pipeline
 
-Sources configured in [download_dictionary_sources.py](../tools/download_dictionary_sources.py): EDRDG KANJIDIC2 and **JMdict_e** (English edition). KANJIDIC2 supplies characters, meanings, Japanese on/kun readings, stroke count, grade and frequency. Jōyō is derived from grades 1–6 or 8. KanjiVG main release supplies optional stroke geometry to existing KANJIDIC entities.
+Sources configured in [download_dictionary_sources.py](../tools/download_dictionary_sources.py): EDRDG KANJIDIC2 and **JMdict_e** (English edition). KANJIDIC2 supplies characters, meanings, Japanese on/kun readings, stroke count, grade and frequency. JЕЌyЕЌ is derived from grades 1вЂ“6 or 8. KanjiVG main release supplies optional stroke geometry to existing KANJIDIC entities.
 
 The Python/SQLite pipeline is run explicitly, separately from Gradle, using `python tools/build_dictionary.py`: validate version -> download (reuse existing sources) -> KANJIDIC2 -> JMdict -> JLPT with existing overrides -> KanjiVG enrichment -> stamp version and generate sidecar -> verify. Source inputs under `tools/data/` and both generated assets (`dictionary.db`, `dictionary_version.txt`) are Git-ignored; a fresh checkout needs a full build. Individual scripts remain available for development. See [tools/README.md](../tools/README.md).
 
@@ -197,8 +289,8 @@ SQL avoids window functions for SDK 26 compatibility. Internal SQLite IDs can ch
 - **Search Kanji:** exact character, kana/romaji readings and English meaning substrings. Exact character ranks first, then exact reading/meaning, then partial matches; frequency breaks ties. Reading normalization handles kana variants, common romaji and dictionary reading punctuation.
 - **Search Words:** valid written/reading/sense matches retain source context. Preserve existing English exact/whole-word/parenthetical/substring relevance and primary-before-secondary tie-breaks. Exact written selects that spelling; other queries choose the best applicable realization by match quality, common, reading priority, original writing/reading order, text and entry ID. A reading hit displays its matched reading; other hits display earliest applicable reading. One representative per source entry is followed by exact displayed-written collapse, keeping the best matched entry. Both happen before 10/+10 card pagination; no similarity merge.
 - **Search card identity:** exact displayed writing after source-entry representative selection. The card retains winning entry, writing, match kind, matched reading/sense/gloss and ranking metadata. Only English-meaning winners pass highlighting context to Details. Search presentation groups final cards with identical trim/case-normalized primary glosses and pairwise ordered-subsequence spellings. Every member retains its own source-entry/writing identity and matched-gloss navigation context; grouping changes only the visual container, never removes cards, and never computes transitive closure. Members are shown longest-first in individually clickable blobs with one shared meaning. This is separate from removed overlap-based lexical deduplication. Other same-writing entries are available through Details, including those not matching the query.
-- **Search help:** a non-focusable popup anchored below the search-bar row shows example romaji, English, hiragana, katakana and written input for the current mode (Words: nitiyoubi/sunday/日曜日; Kanji: niti/day/日). The field's help icon also opens it manually. Automatic display occurs on focus with an empty field; typing, focus loss or outside dismissal hides it. There is no Close action. The field has exactly one trailing action: the supplied Tabler TextQuestion vector for empty input (Search input help), or Backspace for nonempty input (Clear search). Don't show again disables only automatic display in local `search` SharedPreferences (`helpAutoShowDisabled`); manual access remains available through TextQuestion, and the opt-out action itself is hidden once disabled. Reading normalization is unchanged.
-- **Explore Kanji:** five random characters with an English meaning and on/kun reading, plus at least one of Jōyō status, frequency or a JMdict word link. This is the current evidence-based eligibility heuristic.
+- **Search help:** a non-focusable popup anchored below the search-bar row shows example romaji, English, hiragana, katakana and written input for the current mode (Words: nitiyoubi/sunday/ж—Ґж›њж—Ґ; Kanji: niti/day/ж—Ґ). The field's help icon also opens it manually. Automatic display occurs on focus with an empty field; typing, focus loss or outside dismissal hides it. There is no Close action. The field has exactly one trailing action: the supplied Tabler TextQuestion vector for empty input (Search input help), or Backspace for nonempty input (Clear search). Don't show again disables only automatic display in local `search` SharedPreferences (`helpAutoShowDisabled`); manual access remains available through TextQuestion, and the opt-out action itself is hidden once disabled. Reading normalization is unchanged.
+- **Explore Kanji:** five random characters with an English meaning and on/kun reading, plus at least one of JЕЌyЕЌ status, frequency or a JMdict word link. This is the current evidence-based eligibility heuristic.
 - **Explore Words:** five random distinct entries having common=1; one common written form represents each entry, with its earliest valid reading by reading_order (even when that reading itself is non-common).
 - Blank search shows Explore Kanji / Recommended Kanji / Explore Words pages. Recommended Kanji is implemented; all three tabs support tap and swipe.
 - [ExploreState](../app/src/main/java/com/example/kanjidb/ui/search/ExploreState.kt) retains both selections for the process lifetime, including navigation and Activity recreation. Refresh is explicit; process restart resets selections. This is not a daily or personalized recommendation system.
@@ -232,9 +324,9 @@ Score coefficients are named in RelatedWordsRanker.kt:
 
 After scoring with the existing coefficients, select one best source-entry representative among writings containing the current kanji. Distinct source entries remain distinct. Counter-family suppression then keeps its existing best representative. The 75% gloss-overlap/same-reading equivalence pass is removed; Details gets direct alternatives independently of ranking and family suppression.
 
-The local v1 counter whitelist is 本, 人, 個, 枚, 匹, 台, 冊, 回, 階. Only a complete canonical kanji numeral 1..99 or a nonempty ASCII/full-width decimal numeral followed by exactly one whitelisted counter is recognized. The family key depends on the suffix (#本, #人, etc.), not the number or digit script. Calendar/time/age/currency counters and ambiguous large-kanji numeral prefixes are deliberately excluded: current data includes lexicalized 万人, 千六本, 一時, 一分 and 万歳. 一番, 一部 and longer expressions are unaffected. Even recognized counters can have lexical secondary senses; review such examples before expanding this heuristic.
+The local v1 counter whitelist is жњ¬, дєє, еЂ‹, жћљ, еЊ№, еЏ°, е†Љ, е›ћ, йљЋ. Only a complete canonical kanji numeral 1..99 or a nonempty ASCII/full-width decimal numeral followed by exactly one whitelisted counter is recognized. The family key depends on the suffix (#жњ¬, #дєє, etc.), not the number or digit script. Calendar/time/age/currency counters and ambiguous large-kanji numeral prefixes are deliberately excluded: current data includes lexicalized дё‡дєє, еЌѓе…­жњ¬, дёЂж™‚, дёЂе€† and дё‡ж­і. дёЂз•Є, дёЂйѓЁ and longer expressions are unaffected. Even recognized counters can have lexical secondary senses; review such examples before expanding this heuristic.
 
-Focused JVM tests cover conservative family detection, the best family representative, existing equivalence semantics, unchanged primary reading/restrictions, optional JLPT metadata, score features/current-kanji exclusion, supplementary Unicode, stable ties and ranking before the six-item display limit. Read-only diagnostics on the current asset retained exactly one #本 and #人 representative, preserved 一番/一部, and kept long terms with low scores. Desktop diagnostic timing is not an Android performance guarantee.
+Focused JVM tests cover conservative family detection, the best family representative, existing equivalence semantics, unchanged primary reading/restrictions, optional JLPT metadata, score features/current-kanji exclusion, supplementary Unicode, stable ties and ranking before the six-item display limit. Read-only diagnostics on the current asset retained exactly one #жњ¬ and #дєє representative, preserved дёЂз•Є/дёЂйѓЁ, and kept long terms with low scores. Desktop diagnostic timing is not an Android performance guarantee.
 
 ## Recommended Kanji (0.4.0-alpha)
 
@@ -298,9 +390,9 @@ DictionaryDatabase loads applicable written/reading realizations containing a po
 
 For Shorter than 4 (1..3) and Any (priority range 1..4), selection exhausts useful tier-1 words (all kanji in pool), tier-2 words (at least two distinct pool kanji, remaining kanji Known), then tier-3 words (at least two pool kanji with unknown context), before the remaining candidates. Longer than 2 / Longer than 3 skip these tiers entirely. Within each tier the dynamic order first favors the lowest current coverage, then how many kanji at that level the word covers, total under-target kanji, fewer unknown non-pool kanji, static usefulness and the shared deterministic tie-break. Once introduced, a pool kanji loses its initial priority to still-unintroduced targets. Every unique target is counted once per selected word. Selection stops when coverage is met or no useful unused candidates remain. Missing dictionary candidates are shown as Not tested rather than automatically successful. Known and settings are frozen at Start. Pool selection and question shuffling retain Kanji Training randomization; selection for an identical chosen pool/state is deterministic.
 
-CounterConstructions is the shared conservative classifier: exact numeral + one of 本 / 人 / 個 / 枚 / 匹 / 台 / 冊 / 回 / 階. It recognizes canonical kanji numerals 1..99 and decimal ASCII/fullwidth digits. Recognized numeral kanji must themselves be in the pool, even when Known; counter-family dedup follows this eligibility check. Ordinary numeral-leading vocabulary is unaffected. This first version deliberately does not recognize every numeral/counter phrase; decimal digits are visible non-kanji context and are not pool targets.
+CounterConstructions is the shared conservative classifier: exact numeral + one of жњ¬ / дєє / еЂ‹ / жћљ / еЊ№ / еЏ° / е†Љ / е›ћ / йљЋ. It recognizes canonical kanji numerals 1..99 and decimal ASCII/fullwidth digits. Recognized numeral kanji must themselves be in the pool, even when Known; counter-family dedup follows this eligibility check. Ordinary numeral-leading vocabulary is unaffected. This first version deliberately does not recognize every numeral/counter phrase; decimal digits are visible non-kanji context and are not pool targets.
 
-WordTrainingSession is an immutable process-memory session snapshot. Pool and Known kanji are masked with ＊; unknown outside the pool, kana and other symbols remain visible. Each whole-word Correct/Incorrect answer replaces the last result keyed by the existing entryId source identity. Kanji tallies are derived from those unique evaluated words: shownCount counts each word once per distinct hidden kanji (including Known context), and score sums +1 for Correct or -1 for Incorrect. Results use SUCCESS (score == shownCount, shownCount > 0), PARTIAL (0 <= score < shownCount) and FAILURE (score < 0). Partial is a yellow circular indicator with manual actions only. Every Word Results row, including Failure and Not tested, offers both Learning and Known; statuses are advisory. UI shows Shown count without score. Bulk Learning includes only Failure; bulk Known includes only Success. No states change automatically. The shared Repeat dialog offers Current iteration, Entire session and Mistakes only. Word repeats preserve prompts/mask snapshots and replace only participating words' last results; Mistakes only uses explicitly Incorrect words, never derived kanji statuses. Empty mistake subsets are omitted. Word repeat options display Entire session, Current iteration, Mistakes only; membership-set dedup keeps Entire session first, then Mistakes only over an equivalent Current iteration. The set-comparison helper is shared with Kanji Training, which retains its existing priority. It never reconstructs mistakes from kanji statuses. Results, repeat/practice sets and list keys use entry-level identity; selected writing/reading remains frozen presentation data.
+WordTrainingSession is an immutable process-memory session snapshot. Pool and Known kanji are masked with пјЉ; unknown outside the pool, kana and other symbols remain visible. Each whole-word Correct/Incorrect answer replaces the last result keyed by the existing entryId source identity. Kanji tallies are derived from those unique evaluated words: shownCount counts each word once per distinct hidden kanji (including Known context), and score sums +1 for Correct or -1 for Incorrect. Results use SUCCESS (score == shownCount, shownCount > 0), PARTIAL (0 <= score < shownCount) and FAILURE (score < 0). Partial is a yellow circular indicator with manual actions only. Every Word Results row, including Failure and Not tested, offers both Learning and Known; statuses are advisory. UI shows Shown count without score. Bulk Learning includes only Failure; bulk Known includes only Success. No states change automatically. The shared Repeat dialog offers Current iteration, Entire session and Mistakes only. Word repeats preserve prompts/mask snapshots and replace only participating words' last results; Mistakes only uses explicitly Incorrect words, never derived kanji statuses. Empty mistake subsets are omitted. Word repeat options display Entire session, Current iteration, Mistakes only; membership-set dedup keeps Entire session first, then Mistakes only over an equivalent Current iteration. The set-comparison helper is shared with Kanji Training, which retains its existing priority. It never reconstructs mistakes from kanji statuses. Results, repeat/practice sets and list keys use entry-level identity; selected writing/reading remains frozen presentation data.
 
 Both modes use small shared question controls, answer surface, result cards and footer. TrainingState stores either session and shares the existing transactional Finish write path; individual actions and Word bulk actions are staged, cancellation discards the whole session and saving failures retain choices for retry. Word bulk actions never save or close Results; only Finish commits them. Kanji/New likewise stages correct-to-Known and incorrect-to-Learning bulk actions; other Kanji source bulk-and-finish behavior stays unchanged. Activity recreation retains active session memory; process death does not. No user.db schema, dictionary asset/schema/import pipeline or navigation framework changes are needed. JVM tests cover candidate SQL/restrictions, primary reading/meaning, tiers/coverage, numeral and 75% dedup, supplementary characters, masks, replacement repeat scoring, partial/bulk action boundaries, early end and real Room commit failure/retry. Device layout, source transitions, >30 confirmation and responsiveness on large pools remain manual checks.
 
@@ -308,7 +400,7 @@ Both modes use small shared question controls, answer surface, result cards and 
 
 Standalone English kanji meanings in Details and Search/Explore capitalize only the first letter, preserving the rest of the source text. Dictionary text in both detail screens and Search/Explore/related-word rows supports standard selection and copying in individual text blocks; interface controls remain outside selection.
 
-**Kanji Details** shows English meanings, on/kun readings, glyph, stroke count, grade, frequency and independent conditional Jōyō and JLPT (N5-N1) badges. JLPT is read from jlpt_kanji and omitted when no mapping exists; it is not repeated as a metadata row. Related words open Word Details. The stroke view is a placeholder; Custom Lists opens the staged membership dialog, independently of existing Learning/Known toggles. All three floating actions share the same pill-style outlined-button shape; selected Learning/Known retain their highlight and toggle behavior.
+**Kanji Details** shows English meanings, on/kun readings, glyph, stroke count, grade, frequency and independent conditional JЕЌyЕЌ and JLPT (N5-N1) badges. JLPT is read from jlpt_kanji and omitted when no mapping exists; it is not repeated as a metadata row. Related words open Word Details. The stroke view is a placeholder; Custom Lists opens the staged membership dialog, independently of existing Learning/Known toggles. All three floating actions share the same pill-style outlined-button shape; selected Learning/Known retain their highlight and toggle behavior.
 
 **Common/non-common:** import marks a form common=1 if either its writing or reading has any JMdict priority tag. This is a broad heuristic, not a complete frequency ranking. reading_priority is a separate local usefulness heuristic from reading priority tags; primary readings use reading_order then ID instead.
 
@@ -400,7 +492,7 @@ GlyphStrokesSelector replaces the standard Switch UI with a 104x40 dp theme-colo
 
 ## Search mode control (v0.8.5-alpha)
 
-Search uses one 64.4 dp icon-only Button without a touch indication, reusing AppIcons.RefreshMain (refresh-main) with a 62.1 dp arrow image and an upright central 字 (25.875 sp) / 語 (24.15 sp). Both central symbols have a -1 dp vertical offset. Arrows use the same OutlinedTextFieldDefaults colors as the Search bar border (unfocused/focused indicator color according to its shared focus interaction source); symbols retain onSurface. One next-mode accessibility action applies to the whole control. The existing saveable wordMode remains the search state; Search bar, queries and discovery pager behavior are unchanged. Results Entire session retains its original Refresh rendering.
+Search uses one 64.4 dp icon-only Button without a touch indication, reusing AppIcons.RefreshMain (refresh-main) with a 62.1 dp arrow image and an upright central е­— (25.875 sp) / иЄћ (24.15 sp). Both central symbols have a -1 dp vertical offset. Arrows use the same OutlinedTextFieldDefaults colors as the Search bar border (unfocused/focused indicator color according to its shared focus interaction source); symbols retain onSurface. One next-mode accessibility action applies to the whole control. The existing saveable wordMode remains the search state; Search bar, queries and discovery pager behavior are unchanged. Results Entire session retains its original Refresh rendering.
 
 Every tap immediately toggles the existing wordMode; the central symbol reads that state directly and retains its 260 ms fade/scale feedback. Arrow rotation uses logical targets 45 + N * 180, displayed counterclockwise via 90 - logicalAngle. Each half-turn takes 260 ms. A tap during motion can queue at most the segment following the segment containing the actual animated angle; entering each new 180-degree segment renews that allowance. Search mode taps remain unrestricted regardless of the rotation queue. Both logical angles normalize together on the discrete grid only when motion stops.
 

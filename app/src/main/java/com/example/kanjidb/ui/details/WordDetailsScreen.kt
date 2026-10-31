@@ -190,7 +190,7 @@ fun WordDetailsScreen(entryId: Long, written: String, sourceKanji: String,
                         Row(Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                             row.forEach { kanji ->
-                                KanjiCard(character = kanji.character, reading = kanji.primaryMeaning.standaloneKanjiMeaning(),
+                                KanjiCard(character = kanji.character, reading = com.example.kanjidb.ui.kanjiMeaning(kanji.character, kanji.primaryMeaning).orEmpty(),
                                     selected = false, selecting = false, onClick = { onOpenKanji(kanji.character) },
                                     onLongClick = {}, allowLongClick = false, modifier = Modifier.width(cardWidth))
                             }

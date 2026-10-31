@@ -28,7 +28,7 @@ internal const val WORD_MEANINGS_SQL = """
 """
 
 internal const val WORD_KANJI_SQL = """
-    SELECT k.character, (SELECT meaning FROM kanji_meaning WHERE kanji_id=k.id AND language='en' ORDER BY id LIMIT 1)
+    SELECT k.character, (SELECT meaning FROM kanji_meaning WHERE kanji_id=k.id AND language='en' ORDER BY $KANJI_PRIMARY_MEANING_ORDER LIMIT 1)
     FROM word_written w JOIN word_written_kanji wk ON wk.written_id=w.id JOIN kanji k ON k.id=wk.kanji_id
     WHERE w.text=? AND EXISTS (SELECT 1 FROM word_entry_written ew WHERE ew.entry_id=? AND ew.written_id=w.id)
     GROUP BY k.id ORDER BY MIN(wk.position)

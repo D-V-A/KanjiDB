@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.kanjidb"
         minSdk = 29
         targetSdk = 37
-        versionCode = 64
-        versionName = "v0.10.2"
+        versionCode = 67
+        versionName = "v0.10.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

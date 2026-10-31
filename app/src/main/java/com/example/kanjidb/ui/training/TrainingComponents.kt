@@ -53,10 +53,10 @@ internal fun TrainingResultCard(
 ) {
     val actionAreaHeight = with(LocalDensity.current) { 52.sp.toDp().coerceAtLeast(56.dp) }
     val singleActionMaxHeight = with(LocalDensity.current) { 32.sp.toDp().coerceAtLeast(32.dp) }
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth().then(if (onOpenEntity != null) Modifier.clickable(enabled = !saving, onClick = onOpenEntity) else Modifier)) {
         Row(Modifier.padding(8.dp).heightIn(min = actionAreaHeight), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.weight(1f).then(if (onOpenEntity != null) Modifier.clickable(enabled = !saving, onClick = onOpenEntity) else Modifier).alpha(if (participated) 1f else 0.45f),
+            Row(Modifier.weight(1f).alpha(if (participated) 1f else 0.45f),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 val label = when (status) {
                     TrainingResultStatus.SUCCESS -> "Correct"

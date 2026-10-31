@@ -4,9 +4,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppIconsTest {
+    @Test fun selectedHeartHasFillWhileOtherMeaningControlsStayOutlined() {
+        val selected = AppIcons.Heart.root[0] as androidx.compose.ui.graphics.vector.VectorPath
+        org.junit.Assert.assertNotNull(selected.fill)
+        org.junit.Assert.assertNotNull(selected.stroke)
+        for (icon in listOf(AppIcons.HeartPlus, AppIcons.HeartCog)) {
+            val path = icon.root[0] as androidx.compose.ui.graphics.vector.VectorPath
+            org.junit.Assert.assertNull(path.fill)
+            org.junit.Assert.assertNotNull(path.stroke)
+        }
+    }
+
     @Test fun everyLazySvgDefinitionParsesWithoutRuntimeErrors() {
         // The build does not instantiate lazy vectors; parse every approved SVG here.
         val icons = listOf(
+            AppIcons.Heart, AppIcons.HeartPlus, AppIcons.HeartCog, AppIcons.BellRinging2, AppIcons.Clock,
             AppIcons.Settings2, AppIcons.Paint, AppIcons.BrightnessAuto, AppIcons.Brightness2,
             AppIcons.Moon2, AppIcons.DeviceTabletCog, AppIcons.ZeroConfig,
             AppIcons.FileDatabase, AppIcons.DatabaseShare, AppIcons.DatabasePlus,

@@ -2,7 +2,8 @@ package com.example.kanjidb.ui.training
 
 import com.example.kanjidb.data.dictionary.DictionaryKanji
 import com.example.kanjidb.ui.LearningState
-import com.example.kanjidb.ui.primaryMeaning
+import com.example.kanjidb.data.user.automaticMeaning
+import com.example.kanjidb.ui.standaloneKanjiMeaning
 import org.junit.Assert.*
 import org.junit.Test
 import kotlin.random.Random
@@ -230,8 +231,8 @@ class TrainingSessionTest {
     }
     @Test fun primaryMeaningMatchesDetailsWithoutChangingSourceOrder() {
         val kanji = card("a").copy(meanings = listOf("water", "liquid"))
-        assertEquals("Water", kanji.primaryMeaning)
-        assertNull(card("b").primaryMeaning)
+        assertEquals("Water", automaticMeaning(kanji.meanings)?.standaloneKanjiMeaning())
+        assertNull(automaticMeaning(card("b").meanings))
     }
     @Test fun sourceSwitchPreservesAllowedSize() {
         assertEquals(25, sessionSizeForSource(25, 40))
